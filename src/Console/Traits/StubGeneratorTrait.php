@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Brain\Console\Traits;
+namespace BrainCLI\Console\Traits;
 
-use Brain\Support\Brain;
+use BrainCLI\Support\Brain;
 use ReflectionClass;
 
 trait StubGeneratorTrait

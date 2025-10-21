@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Config;
+namespace BrainCLI\Config;
 
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Container\Container;

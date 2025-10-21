@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Brain\Console\Commands;
+namespace BrainCLI\Console\Commands;
 
 use Illuminate\Console\Command;
-use Brain\Library;
-use Brain\McpFileDetector;
-use Brain\Models\Credential;
+use BrainCLI\Library;
+use BrainCLI\McpFileDetector;
+use BrainCLI\Models\Credential;
 
 class AddCommand extends Command
 {

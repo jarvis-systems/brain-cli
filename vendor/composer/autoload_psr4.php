@@ -65,6 +65,6 @@ return array(
     'Carbon\\Doctrine\\' => array($vendorDir . '/carbonphp/carbon-doctrine-types/src/Carbon/Doctrine'),
     'Carbon\\' => array($vendorDir . '/nesbot/carbon/src/Carbon'),
     'Brick\\Math\\' => array($vendorDir . '/brick/math/src'),
-    'Brain\\' => array($baseDir . '/src'),
+    'BrainCLI\\' => array($baseDir . '/src'),
     'Bfg\\Dto\\' => array($vendorDir . '/bfg/dto/src'),
 );

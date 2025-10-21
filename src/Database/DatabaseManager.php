@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Database;
+namespace BrainCLI\Database;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Events\Dispatcher;

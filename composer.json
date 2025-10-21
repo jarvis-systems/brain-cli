@@ -1,7 +1,7 @@
 {
-  "name": "bfg/jarvis-brain",
+  "name": "jarvis/brain-cli",
   "description": "The Brain CLI Tool for Agent Management",
-  "keywords": ["mcp", "tool", "cli"],
+  "keywords": ["jarvis", "brain", "cli"],
   "type": "library",
   "version": "v0.0.1",
   "license": "MIT",
@@ -14,7 +14,7 @@
   ],
   "autoload": {
     "psr-4": {
-      "Brain\\": "src/"
+      "BrainCLI\\": "src/"
     },
     "files": [
       "helpers.php"
@@ -35,10 +35,10 @@
   },
   "scripts": {
     "post-install-cmd": [
-      "Brain\\Composer\\Hooks::postInstall"
+      "BrainCLI\\Composer\\Hooks::postInstall"
     ],
     "post-update-cmd": [
-      "Brain\\Composer\\Hooks::postUpdate"
+      "BrainCLI\\Composer\\Hooks::postUpdate"
     ]
   }
 }

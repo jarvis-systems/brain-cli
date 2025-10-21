@@ -1,8 +1,8 @@
 <?php
 
-namespace Brain\Support;
+namespace BrainCLI\Support;
 
-use Brain\Core;
+use BrainCLI\Core;
 use Illuminate\Support\Facades\Facade;
 
 /**

@@ -6,9 +6,9 @@ require __DIR__ . '/../vendor/autoload.php';
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Console\Application;
-use Brain\Foundation\Application as BrainApplication;
-use Brain\Database\DatabaseManager;
-use Brain\Config\ConfigManager;
+use BrainCLI\Foundation\Application as BrainApplication;
+use BrainCLI\Database\DatabaseManager;
+use BrainCLI\Config\ConfigManager;
 use Illuminate\Support\Facades\Facade;
 
 defined("DS") || define("DS", DIRECTORY_SEPARATOR);
@@ -27,9 +27,10 @@ $events = new Dispatcher($container);
 
 DatabaseManager::boot($container, $events);
 
-$app = new Application($container, $events, '1.0.0');
+$app = new Application($container, $events, \BrainCLI\Support\Brain::version());
 
-$app->add(new \Brain\Console\Commands\InitCommand());
+$app->add(new \BrainCLI\Console\Commands\InitCommand());
+$app->add(new \BrainCLI\Console\Commands\CheckCommand());
 
 $status = $app->run();
 

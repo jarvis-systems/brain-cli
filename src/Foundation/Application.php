@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Foundation;
+namespace BrainCLI\Foundation;
 
 use Illuminate\Container\Container;
 

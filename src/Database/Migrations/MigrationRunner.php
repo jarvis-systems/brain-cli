@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Database\Migrations;
+namespace BrainCLI\Database\Migrations;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;

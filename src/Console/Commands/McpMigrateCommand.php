@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Brain\Console\Commands;
+namespace BrainCLI\Console\Commands;
 
 use Illuminate\Console\Command;
-use Brain\Database\Migrations\MigrationRunner;
+use BrainCLI\Database\Migrations\MigrationRunner;
 
 class McpMigrateCommand extends Command
 {

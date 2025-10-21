@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Models;
+namespace BrainCLI\Models;
 
 use Illuminate\Database\Eloquent\Model;
 

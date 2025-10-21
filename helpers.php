@@ -29,6 +29,26 @@ if (!function_exists("config")) {
     }
 }
 
+if (!function_exists('app')) {
+    /**
+     * Get the available container instance.
+     *
+     * @template TAbstract as class-string
+     * @param  TAbstract|null  $abstract
+     * @param  array<int, mixed>  $parameters
+     * @return ($abstract is null ? \Illuminate\Contracts\Container\Container : TAbstract)
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
+     */
+    function app(string|null $abstract = null, array $parameters = []): mixed
+    {
+        $container = Illuminate\Container\Container::getInstance();
+        if ($abstract) {
+            return $container->make($abstract, $parameters);
+        }
+        return $container;
+    }
+}
+
 if (!function_exists('tag_replace')) {
     /**
      * Invested tag replacement on the object values or array.

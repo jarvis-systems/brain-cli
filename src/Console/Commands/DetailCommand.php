@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Brain\Console\Commands;
+namespace BrainCLI\Console\Commands;
 
 use Illuminate\Console\Command;
-use Brain\Library;
-use Brain\Models\Credential;
+use BrainCLI\Library;
+use BrainCLI\Models\Credential;
 
 class DetailCommand extends Command
 {

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Brain\Console\Commands;
+namespace BrainCLI\Console\Commands;
 
-use Brain\Console\Traits\StubGeneratorTrait;
-use Brain\Support\Brain;
+use BrainCLI\Console\Traits\StubGeneratorTrait;
+use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
 class InitCommand extends Command

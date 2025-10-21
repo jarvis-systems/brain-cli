@@ -1,12 +1,12 @@
 <?php
 
-namespace Brain\Composer;
+namespace BrainCLI\Composer;
 
 use Composer\Script\Event;
 use Illuminate\Events\Dispatcher;
-use Brain\Foundation\Application as McpApplication;
-use Brain\Database\DatabaseManager;
-use Brain\Database\Migrations\MigrationRunner;
+use BrainCLI\Foundation\Application as McpApplication;
+use BrainCLI\Database\DatabaseManager;
+use BrainCLI\Database\Migrations\MigrationRunner;
 
 class Hooks
 {

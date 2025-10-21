@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain\Enums;
+namespace BrainCLI\Enums;
 
 enum Agent: string
 {

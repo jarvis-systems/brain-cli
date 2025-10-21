@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Brain;
+namespace BrainCLI;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
-use Brain\Models\Credential;
+use BrainCLI\Models\Credential;
 
 class Library
 {

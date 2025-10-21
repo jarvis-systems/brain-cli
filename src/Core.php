@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Brain;
+namespace BrainCLI;
 
 class Core
 {
