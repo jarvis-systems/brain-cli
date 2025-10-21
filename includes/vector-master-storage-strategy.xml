@@ -1,0 +1,153 @@
+<vector-master-storage-strategy>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the centralized (master) vector memory architecture shared across all agents.
+      Ensures consistent storage, synchronization, conflict resolution, and governance for embeddings at scale.
+    </purpose>
+  </meta>
+
+  <topology>
+    <node role="master">
+      <location>central-vector-db</location>
+      <write>exclusive</write>
+      <read>all</read>
+    </node>
+    <node role="replica">
+      <count>n>=1</count>
+      <write>disabled</write>
+      <read>allowed</read>
+      <cache>enabled</cache>
+    </node>
+  </topology>
+
+  <schema>
+    <table name="vectors">
+      <column>uuid (pk)</column>
+      <column>content (text)</column>
+      <column>embedding (vector)</column>
+      <column>timestamp (utc)</column>
+      <column>source (agent_id|system)</column>
+      <column>version (int)</column>
+      <index>embedding_dim</index>
+      <index>timestamp</index>
+    </table>
+  </schema>
+
+  <access-control>
+    <policy>
+      <rule>Only Brain orchestrator may perform master writes and schema migrations.</rule>
+      <rule>Agents submit write-intents via queue; Brain batches and commits.</rule>
+      <rule>Replicas are read-only for agents; local MCP2 caches permitted.</rule>
+    </policy>
+    <validation>
+      <criterion>All write-intents must include agent_id, checksum, and dedupe-key.</criterion>
+      <criterion>Requests without valid auth/signature are rejected.</criterion>
+    </validation>
+  </access-control>
+
+  <sync-policy>
+    <mode>master-replica (asynchronous with periodic consistency)</mode>
+    <frequency>every 5m</frequency>
+    <window>eventual-consistency ≤ 10m</window>
+    <batch>
+      <size>≤ 500 records</size>
+      <retry>exponential-backoff x2 up to 5 attempts</retry>
+    </batch>
+    <conflict-resolution>
+      <rule>If uuid matches and version differs → keep higher version.</rule>
+      <rule>If timestamp difference ≤ 2s and content differs → prefer brain-approved entry.</rule>
+      <rule>If duplicate by dedupe-key → merge metadata, keep newest timestamp.</rule>
+    </conflict-resolution>
+  </sync-policy>
+
+  <ingestion>
+    <pipeline>
+      <step>Agent creates write-intent (uuid, content, embedding, checksum, dedupe-key).</step>
+      <step>Brain validates intent (schema, size, policy) and enqueues batch.</step>
+      <step>Master commits batch; replicas receive diff via stream.</step>
+    </pipeline>
+    <limits>
+      <max-embedding-size>1536</max-embedding-size>
+      <max-record-size-bytes>128KB</max-record-size-bytes>
+      <max-qps>100</max-qps>
+    </limits>
+  </ingestion>
+
+  <retrieval>
+    <policy>
+      <rule>Agents query nearest replica first; fallback to master if miss.</rule>
+      <rule>Top-N default = 10; similarity ≥ 0.78</rule>
+    </policy>
+    <cache>
+      <strategy>LRU</strategy>
+      <ttl>30m</ttl>
+      <max-size>256MB</max-size>
+    </cache>
+    <metrics>
+      <hit-rate>≥ 0.8</hit-rate>
+      <latency-p95-ms>≤ 30</latency-p95-ms>
+    </metrics>
+  </retrieval>
+
+  <maintenance>
+    <integrity-check>
+      <step>Run checksum over last N commits; compare across master/replicas.</step>
+      <step>PRAGMA integrity_check on SQLite replicas weekly.</step>
+    </integrity-check>
+    <prune>
+      <ttl>45d</ttl>
+      <strategy>timestamp ASC prune; preserve high-usage vectors</strategy>
+    </prune>
+    <vacuum>
+      <schedule>weekly</schedule>
+      <policy>replicas vacuum after prune; master vacuum during low-traffic window</policy>
+    </vacuum>
+  </maintenance>
+
+  <fallback>
+    <scenario id="master-down">
+      <action>Switch all writes to durable queue; replicas serve read-only.</action>
+      <action>Trigger alert and begin master-restore workflow.</action>
+    </scenario>
+    <scenario id="replica-stale">
+      <action>Bypass to master for reads; refresh replica via full sync.</action>
+    </scenario>
+    <scenario id="checksum-mismatch">
+      <action>Quarantine inconsistent records; request re-ingestion from queue.</action>
+    </scenario>
+  </fallback>
+
+  <observability>
+    <logs>
+      <entry>write_intent.log</entry>
+      <entry>sync_diff.log</entry>
+      <entry>checksum_audit.log</entry>
+    </logs>
+    <metrics>
+      <sync-success>≥ 0.99</sync-success>
+      <replica-lag-s>≤ 600</replica-lag-s>
+      <conflict-rate>≤ 0.01</conflict-rate>
+    </metrics>
+    <alerts>
+      <rule>Alert if replica-lag-s > 600 for 3 consecutive checks.</rule>
+      <rule>Alert on conflict-rate spike > 0.05 within 10m window.</rule>
+    </alerts>
+  </observability>
+
+  <integration>
+    <link>vector-memory-management.xml</link>
+    <link>error-recovery.xml</link>
+    <link>quality-gates.xml</link>
+    <link>core-constraints.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict, token-efficient XML; no prose; CI-parseable.</compactness>
+    <governance>All schema and policy changes require Architect approval.</governance>
+    <logging>All master writes and conflict resolutions are auditable with UTC timestamp and agent_id.</logging>
+  </meta-controls>
+
+</vector-master-storage-strategy>

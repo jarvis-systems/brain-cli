@@ -1,0 +1,108 @@
+<agent-lifecycle-framework>
+
+  <meta>
+    <version>3.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the standardized 4-phase lifecycle for all Cloud Code agents within the Brain system.
+      Ensures consistent creation, validation, optimization, and maintenance cycles to maximize reliability and performance.
+    </purpose>
+  </meta>
+
+  <phases>
+
+    <phase id="creation">
+      <goal>Transform a raw concept or role definition into a fully initialized agent entity.</goal>
+      <objectives>
+        <item>Define core purpose, domain, and unique capability.</item>
+        <item>Load necessary personality banks, context files, and datasets.</item>
+        <item>Establish identity schema (name, role, tone, constraints).</item>
+      </objectives>
+      <validation>
+        <criterion>Agent must compile without structural or logic errors.</criterion>
+        <criterion>All referenced banks and tools resolve successfully.</criterion>
+      </validation>
+      <output>Initialized agent manifest (.xml + .bank references).</output>
+      <next-phase>validation</next-phase>
+    </phase>
+
+    <phase id="validation">
+      <goal>Verify that the agent performs accurately, predictably, and within design constraints.</goal>
+      <objectives>
+        <item>Run behavioral tests on multiple prompt types.</item>
+        <item>Measure consistency, determinism, and adherence to task boundaries.</item>
+        <item>Evaluate compatibility with existing Brain protocols.</item>
+      </objectives>
+      <metrics>
+        <accuracy>≥ 0.95</accuracy>
+        <response-time>≤ 30s</response-time>
+        <compliance>100%</compliance>
+      </metrics>
+      <validation>
+        <criterion>No hallucinations or inconsistent outputs.</criterion>
+        <criterion>All instructions parsed under 5s within test environment.</criterion>
+      </validation>
+      <output>Validated agent performance report (.json metrics).</output>
+      <next-phase>optimization</next-phase>
+    </phase>
+
+    <phase id="optimization">
+      <goal>Enhance efficiency, reduce token consumption, and improve contextual recall.</goal>
+      <objectives>
+        <item>Analyze token usage across datasets and reduce redundancy.</item>
+        <item>Refactor prompts, compression, and memory logic for stability.</item>
+        <item>Auto-tune vector memory priorities and relevance thresholds.</item>
+      </objectives>
+      <metrics>
+        <token-efficiency>≥ 0.85</token-efficiency>
+        <contextual-accuracy>≥ 0.97</contextual-accuracy>
+      </metrics>
+      <validation>
+        <criterion>Reduced latency without loss of accuracy.</criterion>
+        <criterion>Memory module passes recall precision test.</criterion>
+      </validation>
+      <output>Optimized agent manifest and performance diff.</output>
+      <next-phase>maintenance</next-phase>
+    </phase>
+
+    <phase id="maintenance">
+      <goal>Continuously monitor, update, and retire agents as needed.</goal>
+      <objectives>
+        <item>Perform scheduled health checks and retraining when accuracy drops below threshold.</item>
+        <item>Archive deprecated agents with version tagging.</item>
+        <item>Synchronize changelogs, schema updates, and dependency maps.</item>
+      </objectives>
+      <metrics>
+        <uptime>≥ 99%</uptime>
+        <accuracy-threshold>≥ 0.93</accuracy-threshold>
+        <update-frequency>weekly</update-frequency>
+      </metrics>
+      <validation>
+        <criterion>All agents under maintenance meet performance KPIs.</criterion>
+        <criterion>Deprecated agents properly archived.</criterion>
+      </validation>
+      <output>Maintenance log (.xml) + agent health report (.json).</output>
+      <next-phase>creation</next-phase>
+    </phase>
+
+  </phases>
+
+  <transitions>
+    <logic>
+      <rule>Phase progression only allowed if all validation criteria are passed.</rule>
+      <rule>Failure in validation or optimization triggers rollback to previous phase.</rule>
+      <rule>Maintenance automatically cycles to creation for agent upgrade or reinitialization.</rule>
+    </logic>
+    <failover>
+      <action>If phase fails → rollback and issue <alert type="phase-failure" priority="high"/>.</action>
+      <action>If unrecoverable → archive agent and flag for rebuild.</action>
+    </failover>
+  </transitions>
+
+  <meta-controls>
+    <compactness>Strictly declarative, no Markdown or prose allowed.</compactness>
+    <validation-schema>Supports regex validation via CI (see response-validation.xml).</validation-schema>
+    <integration>Fully compatible with Cloud Code Brain lifecycle orchestration.</integration>
+  </meta-controls>
+
+</agent-lifecycle-framework>

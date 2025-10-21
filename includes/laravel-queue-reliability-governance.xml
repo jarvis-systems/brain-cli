@@ -1,0 +1,316 @@
+<laravel-queue-reliability-governance>
+
+  <meta>
+    <version>1.0</version>
+    <last-updated>2025-10-19</last-updated>
+    <purpose>
+      Defines mandatory queue reliability and governance policies for Laravel Horizon 5.36.0 + RabbitMQ architecture.
+      Ensures fault tolerance, transaction safety, retry strategies, and monitoring compliance across all queued operations.
+    </purpose>
+  </meta>
+
+  <architecture>
+    <broker>RabbitMQ (gate_rabbit connection)</broker>
+    <manager>Laravel Horizon 5.36.0</manager>
+    <queues>
+      <queue name="critical" priority="10" purpose="Payment processing, security alerts, time-sensitive operations" />
+      <queue name="high" priority="7" purpose="User-facing notifications, real-time updates" />
+      <queue name="default" priority="5" purpose="Analytics, statistics updates, external system sync" />
+      <queue name="low" priority="2" purpose="Audit logging, batch cleanup, scheduled maintenance" />
+      <queue name="virus-scan" priority="5" purpose="File virus scanning (isolated to prevent blocking)" />
+    </queues>
+    <dlx>
+      <exchange>getorder.dlx</exchange>
+      <queue>failed</queue>
+      <routing-key>failed</routing-key>
+    </dlx>
+  </architecture>
+
+  <iron-rules>
+    <rule id="shouldqueue-mandatory">
+      <requirement>ALL queued jobs MUST implement ShouldQueue interface</requirement>
+      <validation>CI scan for job classes missing ShouldQueue implementation</validation>
+      <why>Contract enforcement ensures jobs are correctly recognized and processed by Laravel queue system</why>
+      <violation>Job will execute synchronously, blocking request lifecycle and degrading performance</violation>
+    </rule>
+
+    <rule id="tries-minimum">
+      <requirement>ALL jobs MUST define public int $tries >= 3</requirement>
+      <validation>PHPStan rule: Job classes must have $tries property >= 3</validation>
+      <why>RabbitMQ DLX routing, middleware lock retries, and transient failures require minimum 3 attempts for reliability</why>
+      <exception>Read-only operations with idempotent failure handling may use $tries = 1 with explicit approval</exception>
+    </rule>
+
+    <rule id="failed-method-required">
+      <requirement>ALL jobs MUST implement failed(?Throwable $exception): void method</requirement>
+      <validation>PHPStan rule: Job classes must declare failed() method</validation>
+      <why>Graceful failure handling, user notifications, rollback logic, and audit logging depend on failed() implementation</why>
+      <implementation>
+        <step>Log failure with context (job payload, exception stack, retry count)</step>
+        <step>Send admin/user notifications if applicable</step>
+        <step>Execute rollback or cleanup logic</step>
+        <step>Store failure metadata for analytics</step>
+      </implementation>
+    </rule>
+
+    <rule id="shouldqueue-after-commit">
+      <requirement>Jobs modifying database state MUST implement ShouldQueueAfterCommit interface</requirement>
+      <validation>Code review checkpoint: Jobs dispatched within DB transactions must implement ShouldQueueAfterCommit</validation>
+      <why>Prevents job processing before parent transaction commits, avoiding race conditions and data inconsistencies</why>
+      <example-pass>
+        <![CDATA[
+class SyncReviewToExternalSystemJob implements ShouldQueue, ShouldQueueAfterCommit
+{
+    use Queueable;
+
+    public int $tries = 3;
+    public string $queue = 'default';
+
+    public function handle(): void
+    {
+        // Safe: parent DB transaction guaranteed committed
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('Review sync failed', ['exception' => $exception]);
+    }
+}
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="delete-when-missing-models">
+      <requirement>Jobs accepting Eloquent models MUST define public bool $deleteWhenMissingModels = true</requirement>
+      <validation>PHPStan rule: Jobs with Eloquent constructor parameters must set $deleteWhenMissingModels = true</validation>
+      <why>Prevents infinite retry loops when models deleted between dispatch and execution</why>
+      <example-pass>
+        <![CDATA[
+class SendReviewNotificationJob implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+    public bool $deleteWhenMissingModels = true;
+
+    public function __construct(
+        public ReviewExtension $reviewExtension
+    ) {}
+
+    public function handle(): void
+    {
+        // If reviewExtension deleted, job auto-deleted (not retried)
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        // Handle failure
+    }
+}
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="constructor-primitives-only">
+      <requirement>Job constructors MUST accept ONLY primitives, arrays, or DTOs (NO service injection)</requirement>
+      <validation>Code review: Jobs must serialize safely via constructor parameters only</validation>
+      <why>Service instances, Closures, and resources cannot serialize for queue storage; causes job dispatch failures</why>
+      <allowed>int, string, bool, float, array, Carbon, Eloquent models, DTOs (Data Transfer Objects)</allowed>
+      <forbidden>Service instances, Closures, Resources, PDO connections, File handles</forbidden>
+      <example-pass>
+        <![CDATA[
+// ✅ CORRECT
+public function __construct(
+    public int $attachmentId,
+    public ScanResultDto $scanConfig
+) {}
+
+// ❌ INCORRECT
+public function __construct(
+    public VirusScannerServiceInterface $scanner, // Service injection NOT allowed
+    public Closure $callback // Closure NOT serializable
+) {}
+        ]]>
+      </example-pass>
+    </rule>
+  </iron-rules>
+
+  <retry-strategy>
+    <policy>
+      <requirement>ALL jobs MUST define exponential backoff via public array $backoff</requirement>
+      <validation>Code review checkpoint: Jobs should declare $backoff array with increasing intervals</validation>
+      <formula>Exponential backoff prevents queue flooding during service outages</formula>
+    </policy>
+    <examples>
+      <fast-retry queue="high">
+        <![CDATA[
+public array $backoff = [10, 30, 60]; // 10s, 30s, 1m (user-facing notifications)
+        ]]>
+      </fast-retry>
+      <moderate-retry queue="default">
+        <![CDATA[
+public array $backoff = [60, 180, 300]; // 1m, 3m, 5m (analytics, sync operations)
+        ]]>
+      </moderate-retry>
+      <slow-retry queue="virus-scan">
+        <![CDATA[
+public array $backoff = [60, 300, 900]; // 1m, 5m, 15m (CPU/IO intensive scans)
+        ]]>
+      </slow-retry>
+    </examples>
+  </retry-strategy>
+
+  <timeout-policy>
+    <requirement>Jobs with execution time > 60s MUST define public int $timeout</requirement>
+    <validation>Monitor Horizon metrics: flag jobs exceeding supervisor timeout (300s default)</validation>
+    <rules>
+      <rule>Fast operations (API calls, notifications): $timeout = 60</rule>
+      <rule>Moderate operations (DB aggregations, external sync): $timeout = 300</rule>
+      <rule>Slow operations (file scanning, batch processing): $timeout = 600</rule>
+      <rule>Timeout MUST be less than Horizon supervisor timeout to prevent force-kill</rule>
+    </rules>
+    <example>
+      <![CDATA[
+class ScanReviewAttachmentJob implements ShouldQueue
+{
+    public int $timeout = 600; // 10 minutes for large file scans
+    public int $tries = 3;
+    public array $backoff = [60, 300, 900];
+}
+      ]]>
+    </example>
+  </timeout-policy>
+
+  <queue-assignment>
+    <requirement>ALL jobs MUST explicitly define public string $queue property</requirement>
+    <validation>PHPStan rule: Job classes must declare $queue property</validation>
+    <why>Explicit queue assignment prevents jobs defaulting to 'default' queue, ensures priority-based routing</why>
+    <mapping>
+      <critical>Payment processing, security alerts, malware notifications → public string $queue = 'critical';</critical>
+      <high>User-facing notifications, real-time updates → public string $queue = 'high';</high>
+      <default>Analytics, statistics, external system sync → public string $queue = 'default';</default>
+      <low>Audit logging, batch cleanup, scheduled maintenance → public string $queue = 'low';</low>
+      <virus-scan>File scanning operations → public string $queue = 'virus-scan';</virus-scan>
+    </mapping>
+  </queue-assignment>
+
+  <horizon-monitoring>
+    <dashboard>https://getorder-customers.dev/horizon</dashboard>
+    <metrics>
+      <requirement>Monitor queue depth, failed job rate, worker health daily</requirement>
+      <alert>Queue depth > 1000 pending jobs → investigate bottleneck</alert>
+      <alert>Failed job rate > 5% → check error logs, DLX queue</alert>
+      <alert>Worker processes idle > 10 minutes → verify supervisor status</alert>
+    </metrics>
+    <trimming>
+      <recent>60 minutes</recent>
+      <completed>60 minutes</completed>
+      <failed>7 days (10080 minutes)</failed>
+    </trimming>
+    <snapshot>
+      <requirement>Schedule::command('horizon:snapshot')->everyFiveMinutes() MUST be configured</requirement>
+      <validation>Check routes/console.php for snapshot scheduler</validation>
+      <why>Metrics dashboard requires periodic snapshots for job throughput and wait time analytics</why>
+    </snapshot>
+  </horizon-monitoring>
+
+  <supervisor-configuration>
+    <supervisor id="supervisor-1" purpose="Multi-queue auto-scaling (general workload)">
+      <queues>critical, high, default, low</queues>
+      <minProcesses>2</minProcesses>
+      <maxProcesses>10</maxProcesses>
+      <balance>auto</balance>
+      <autoScalingStrategy>time</autoScalingStrategy>
+      <memory>128 MB</memory>
+      <timeout>300s</timeout>
+    </supervisor>
+    <supervisor id="supervisor-2" purpose="Dedicated virus scan (isolated workload)">
+      <queues>virus-scan</queues>
+      <processes>2 (fixed)</processes>
+      <balance>simple</balance>
+      <memory>256 MB</memory>
+      <timeout>600s</timeout>
+      <why>CPU/IO intensive scanning isolated to prevent blocking critical operations</why>
+    </supervisor>
+  </supervisor-configuration>
+
+  <dlx-handling>
+    <policy>
+      <requirement>Jobs exceeding max tries automatically route to Dead Letter Exchange (getorder.dlx)</requirement>
+      <workflow>
+        <step>Job fails after $tries attempts exhausted</step>
+        <step>Message routed to DLX exchange with routing key 'failed'</step>
+        <step>Message stored in 'failed' queue for manual inspection</step>
+        <step>Administrators review via Horizon dashboard → Failed Jobs section</step>
+        <step>Decision: Retry (php artisan queue:retry {id}) or Flush (php artisan queue:flush)</step>
+      </workflow>
+    </policy>
+    <message-ttl>24 hours (86400000 ms) before auto-deletion from queue</message-ttl>
+    <retention>Failed jobs retained 7 days in Horizon before purge</retention>
+  </dlx-handling>
+
+  <transaction-safety>
+    <requirement>Jobs dispatched within DB::transaction() MUST implement ShouldQueueAfterCommit</requirement>
+    <global-config>
+      <![CDATA[
+// config/queue.php
+'connections' => [
+    'gate_rabbit' => [
+        'after_commit' => true, // Global transaction safety enabled
+    ],
+],
+      ]]>
+    </global-config>
+    <override>Jobs can override via $afterCommit property if needed</override>
+  </transaction-safety>
+
+  <testing-requirements>
+    <unit-tests>
+      <requirement>ALL jobs MUST have unit tests covering handle(), failed(), and constructor serialization</requirement>
+      <coverage>Minimum 95% code coverage for job classes</coverage>
+    </unit-tests>
+    <feature-tests>
+      <requirement>Queue integration tests MUST verify job dispatch, retry behavior, and DLX routing</requirement>
+      <example>
+        <![CDATA[
+test('job retries with exponential backoff after failure', function () {
+    Queue::fake();
+
+    $job = new ScanReviewAttachmentJob($attachmentId = 1);
+
+    expect($job->tries)->toBe(3)
+        ->and($job->backoff)->toBe([60, 300, 900])
+        ->and($job->queue)->toBe('virus-scan')
+        ->and($job->deleteWhenMissingModels)->toBeTrue();
+});
+        ]]>
+      </example>
+    </feature-tests>
+  </testing-requirements>
+
+  <production-deployment>
+    <systemd>
+      <requirement>Horizon MUST run as systemd service with auto-restart on failure</requirement>
+      <service-file>/etc/systemd/system/horizon-customers.service</service-file>
+      <restart-policy>Restart=always, RestartSec=5</restart-policy>
+    </systemd>
+    <graceful-termination>
+      <requirement>Deploy script MUST call php artisan horizon:terminate before code deploy</requirement>
+      <why>Allows workers to finish current jobs before reload, prevents job corruption</why>
+    </graceful-termination>
+  </production-deployment>
+
+  <integration>
+    <link>core-constraints.xml</link>
+    <link>error-recovery.xml</link>
+    <link>laravel-boost-guidelines.xml</link>
+    <link>quality-gates.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict declarative XML optimized for CI validation and runtime enforcement</compactness>
+    <governance>All queue policy changes require Architect Agent approval and code review</governance>
+    <logging>All queue policy violations logged to queue_governance.log with timestamp and job class</logging>
+  </meta-controls>
+
+</laravel-queue-reliability-governance>

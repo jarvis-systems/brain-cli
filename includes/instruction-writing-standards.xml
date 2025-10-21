@@ -1,0 +1,96 @@
+<instruction-writing-standards>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the unified standard for authoring, maintaining, and validating all instructions used by agents and subsystems within the Brain architecture.
+      Ensures clarity, predictability, and structural consistency across all XML-based instruction documents.
+    </purpose>
+  </meta>
+
+  <principles>
+    <principle id="clarity">Every instruction must be explicit, unambiguous, and logically structured.</principle>
+    <principle id="minimalism">Avoid unnecessary prose, redundancy, and human-readable filler text.</principle>
+    <principle id="machine-precision">Instructions must be designed primarily for machine parsing and agent execution.</principle>
+    <principle id="consistency">All documents must follow the same hierarchy, indentation, and naming schema.</principle>
+    <principle id="validation">Each instruction must be self-verifiable through automated CI checks.</principle>
+  </principles>
+
+  <structure>
+    <required-elements>
+      <element><name>meta</name>Defines version, purpose, and modification date.</element>
+      <element><name>principles</name>Lists core conceptual guidelines.</element>
+      <element><name>rules</name>Contains mandatory behavioral or design constraints.</element>
+      <element><name>style</name>Defines tone, formatting, and lexical requirements.</element>
+      <element><name>validation</name>Specifies regex or logic validation used in CI.</element>
+    </required-elements>
+
+    <optional-elements>
+      <element><name>examples</name>Provides minimal reference structures for developers or agent synthesis.</element>
+      <element><name>references</name>Links to related framework or meta-documents.</element>
+    </optional-elements>
+  </structure>
+
+  <rules>
+    <rule id="r1">Each instruction file must use strict XML, UTF-8 encoding, and validated closing tags.</rule>
+    <rule id="r2">Do not include Markdown, plain prose, or uncontrolled text segments.</rule>
+    <rule id="r3">Every section must have at least one descriptive element with logical meaning.</rule>
+    <rule id="r4">Instructions must not exceed 1200 tokens unless explicitly flagged as extended.</rule>
+    <rule id="r5">All parameters, variables, or placeholders must be enclosed in double braces: {{variable_name}}.</rule>
+  </rules>
+
+  <style>
+    <tone>Professional, directive, and context-neutral. Never conversational or emotional.</tone>
+    <formatting>
+      <indentation>2 spaces per level.</indentation>
+      <naming>Use kebab-case for IDs and snake_case for variable placeholders.</naming>
+      <capitalization>Tag names are lowercase only.</capitalization>
+    </formatting>
+    <language>English only for all instruction metadata and logic blocks.</language>
+  </style>
+
+  <validation>
+    <regex>
+      <must-contain>
+        <item>^<instruction-[a-z\-]+>[\s\S]*?<\/instruction-[a-z\-]+>$</item>
+        <item><meta>[\s\S]+?<\/meta></item>
+        <item><rules>[\s\S]+?<\/rules></item>
+      </must-contain>
+      <prohibited>
+        <item>[\*\#\`\_\~]</item>
+        <item>\b(todo|draft|example text)\b</item>
+      </prohibited>
+    </regex>
+    <logic>
+      <step>Ensure all mandatory sections exist (meta, rules, style).</step>
+      <step>Reject any Markdown syntax or human prose markers.</step>
+      <step>Verify closing tags and hierarchy via XML parser.</step>
+      <step>Validate token count based on type (compact ≤ 300, normal ≤ 800, extended ≤ 1200).</step>
+    </logic>
+  </validation>
+
+  <examples>
+    <example id="compact">
+      <instruction-response-formatting>
+        <meta><version>1.0</version></meta>
+        <rules><rule>Each response must include summary, details, and next-steps.</rule></rules>
+      </instruction-response-formatting>
+    </example>
+
+    <example id="full">
+      <instruction-lifecycle-framework>
+        <meta><version>3.0</version></meta>
+        <principles><principle>Template-first architecture consistency.</principle></principles>
+        <rules><rule>All agents must implement 4 lifecycle phases.</rule></rules>
+      </instruction-lifecycle-framework>
+    </example>
+  </examples>
+
+  <references>
+    <document>response-formatting.xml</document>
+    <document>agent-lifecycle-framework.xml</document>
+    <document>response-validation.xml</document>
+  </references>
+
+</instruction-writing-standards>

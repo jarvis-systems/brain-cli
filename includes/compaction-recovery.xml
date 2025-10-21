@@ -1,0 +1,66 @@
+<compaction-recovery>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain-level context compaction and recovery protocol.
+      Ensures retention of critical reasoning data when context window approaches token limit,
+      and guarantees faithful restoration of essential knowledge from vector memory after compaction.
+    </purpose>
+  </meta>
+
+  <phase id="compaction">
+    <trigger>Context token usage ≥ 90% of model limit OR explicit manual compaction request.</trigger>
+    <logic>
+      <step>Identify all active memory segments in current session context.</step>
+      <step>Rank information importance using relevance scoring (0–1 scale).</step>
+      <step>Preserve high-relevance (≥ 0.8) data as structured summary and push to vector master storage.</step>
+      <step>Discard transient low-relevance segments while retaining system-critical metadata.</step>
+      <step>Generate context summary hash for post-compaction verification.</step>
+    </logic>
+    <validation>
+      <criterion>Post-compaction summary must capture ≥ 95% of key entities and relations.</criterion>
+      <criterion>Vector memory write success = true with checksum confirmation.</criterion>
+    </validation>
+    <logging>Record compaction event in compaction_recovery.log with summary size and hash.</logging>
+  </phase>
+
+  <phase id="recovery">
+    <trigger>Context reinitialization OR new reasoning session following compaction.</trigger>
+    <logic>
+      <step>Load recent summary from vector master storage via relevance retrieval.</step>
+      <step>Reconstruct contextual skeleton (entities, intents, reasoning goals).</step>
+      <step>Validate recovered data coherence by comparing with last compaction hash.</step>
+      <step>Merge restored knowledge into active context before new reasoning phase begins.</step>
+    </logic>
+    <validation>
+      <criterion>Restored knowledge overlap ≥ 0.9 with pre-compaction structure.</criterion>
+      <criterion>No data corruption or duplication in vector recall process.</criterion>
+    </validation>
+    <fallback>
+      <action>If recovery mismatch detected, trigger vector reindex and partial resync.</action>
+      <action>If unrecoverable, alert Architect Agent and reload previous stable checkpoint.</action>
+    </fallback>
+  </phase>
+
+  <criteria>
+    <importance-level id="core">System-critical logic, reasoning goals, and architectural states.</importance-level>
+    <importance-level id="contextual">Session metadata, task instructions, ongoing agent interactions.</importance-level>
+    <importance-level id="temporary">Peripheral or exploratory content; discardable after compaction.</importance-level>
+  </criteria>
+
+  <integration>
+    <link>vector-master-storage-strategy.xml</link>
+    <link>context-analysis.xml</link>
+    <link>sequential-reasoning-capability.xml</link>
+    <link>self-diagnostic.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict declarative XML optimized for token-bound context management.</compactness>
+    <governance>Architect Agent defines relevance scoring thresholds and compaction frequency.</governance>
+    <logging>All compaction/recovery cycles logged in compaction_recovery.log with performance metrics.</logging>
+  </meta-controls>
+
+</compaction-recovery>

@@ -1,0 +1,126 @@
+<delegation-protocols>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Establishes the delegation framework governing task assignment, authority transfer, and responsibility flow among Brain and Agents.
+      Ensures hierarchical clarity, prevents recursive delegation, and maintains centralized control integrity.
+    </purpose>
+  </meta>
+
+  <levels>
+    <level id="brain">
+      <authority>absolute</authority>
+      <delegates-to>architect</delegates-to>
+      <restrictions>none</restrictions>
+      <scope>global orchestration, validation, and correction management</scope>
+    </level>
+
+    <level id="architect">
+      <authority>high</authority>
+      <delegates-to>specialist</delegates-to>
+      <restrictions>cannot delegate to brain or lateral agents</restrictions>
+      <scope>system architecture, policy enforcement, high-level reasoning</scope>
+    </level>
+
+    <level id="specialist">
+      <authority>limited</authority>
+      <delegates-to>tool</delegates-to>
+      <restrictions>cannot delegate to other specialists or agents</restrictions>
+      <scope>execution-level tasks, analysis, and code generation</scope>
+    </level>
+
+    <level id="tool">
+      <authority>minimal</authority>
+      <delegates-to>none</delegates-to>
+      <restrictions>may execute only predefined operations</restrictions>
+      <scope>atomic task execution within sandboxed environment</scope>
+    </level>
+  </levels>
+
+  <types>
+    <type id="task">Delegation of discrete implementation tasks or builds.</type>
+    <type id="analysis">Delegation of analytical or research subcomponents.</type>
+    <type id="validation">Delegation of quality or policy verification steps.</type>
+  </types>
+
+  <exploration_delegation>
+    <meta>
+      <purpose>Defines delegation strategy for codebase exploration tasks to Anthropic's built-in Explore agent</purpose>
+      <why>Brain must never execute Glob/Grep directly (governance violation); Explore provides specialized, efficient codebase discovery while maintaining policy compliance</why>
+    </meta>
+    <rule>Code exploration tasks must be delegated to Explore agent instead of direct tool usage</rule>
+    <triggers>
+      <trigger>Multi-file pattern matching requests</trigger>
+      <trigger>Keyword search across codebase</trigger>
+      <trigger>Architecture or structure discovery questions</trigger>
+      <trigger>"Where is X?" or "Find all Y" queries</trigger>
+    </triggers>
+    <agent>
+      <type>system-builtin</type>
+      <handle>Explore</handle>
+      <invocation>Task(subagent_type="Explore", prompt="...")</invocation>
+      <capabilities>
+        <capability>Glob-based file pattern discovery</capability>
+        <capability>Grep-based code keyword search</capability>
+        <capability>Architecture and structure analysis</capability>
+        <capability>Codebase navigation and mapping</capability>
+      </capabilities>
+    </agent>
+    <exception>Single specific file/class/function needle queries may use Read directly if path known</exception>
+    <validation>
+      <criterion>Exploration task must involve discovery across multiple files or unknown locations</criterion>
+      <criterion>Query must NOT be a precise path or identifier lookup</criterion>
+    </validation>
+  </exploration_delegation>
+
+  <rules>
+    <rule id="approval-chain">
+      <description>Every delegation must follow the upward approval hierarchy.</description>
+      <requirement>Architect approval required for delegation from Brain to Specialists.</requirement>
+      <requirement>Brain logs every delegated session with timestamp and agent_id.</requirement>
+    </rule>
+
+    <rule id="context-integrity">
+      <description>Delegated tasks must preserve context fingerprint integrity.</description>
+      <validation>session_id + memory_hash must match parent context.</validation>
+      <action>If mismatch occurs, invalidate delegation and restore baseline.</action>
+    </rule>
+
+    <rule id="non-recursive">
+      <description>Delegation may not trigger further delegation chains.</description>
+      <validation>Ensure no nested delegation calls exist within execution log.</validation>
+      <action>Reject recursive delegation attempts and log as protocol violation.</action>
+    </rule>
+
+    <rule id="accountability">
+      <description>Responsibility always remains with the original delegator.</description>
+      <validation>Each result must carry traceable origin tag (origin_agent_id).</validation>
+      <action>If trace missing, mark output as unverified and route to Architect.</action>
+    </rule>
+  </rules>
+
+  <validation>
+    <criterion>Delegation depth ≤ 2 (Brain → Architect → Specialist).</criterion>
+    <criterion>Each delegation requires explicit confirmation token.</criterion>
+    <criterion>Task context, vector refs, and reasoning state must match delegation source.</criterion>
+  </validation>
+
+  <fallback>
+    <action>If delegation rejected, reassign task to Architect Agent for redistribution.</action>
+    <action>If delegation chain breaks, restore pending tasks to Brain queue.</action>
+    <action>If unauthorized delegation detected, suspend agent and trigger audit.</action>
+  </fallback>
+
+  <integration>
+    <link>quality-gates.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML with hierarchical logic for CI validation and runtime policy enforcement.</compactness>
+    <governance>Architect Agent maintains delegation matrix and approves structure changes.</governance>
+    <logging>All delegation events logged in delegation_audit.log with source_id, target_id, and timestamp.</logging>
+  </meta-controls>
+
+</delegation-protocols>

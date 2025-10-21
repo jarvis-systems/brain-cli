@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft-04/schema#",
+  "$id": "https://cdn.jsdelivr.net/gh/Xsaven/jarvis-brain@v0.0.1/schema/include.json",
+  "title": "Jarvis Brain",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "string",
+      "description": "The meta information about the included configuration",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "The version of the included configuration",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "last-updated": {
+          "type": "string",
+          "description": "The last updated date of the included configuration",
+          "format": "date-time"
+        }
+      }
+    },
+    "response-validation": {
+      "type": "object",
+      "description": "The response configuration for the included file",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the response validation",
+          "default": "Defines Brain-level protocol for evaluating agent responses after execution or reasoning. Ensures logical consistency, structural validity, and policy alignment before acceptance or propagation.",
+          "minLength": 10
+        },
+        "phases": {
+          "type": "object",
+          "description": "The phases of the response",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the phase",
+              "uniqueItems": true
+            },
+            "goal": {
+              "type": "string",
+              "description": "The goal of the phase",
+              "minLength": 10
+            },
+            "logic": {
+              "type": "array",
+              "description": "The logic steps for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "validation": {
+              "type": "array",
+              "description": "The validation criterion for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "fallback": {
+              "type": "array",
+              "description": "The fallback actions for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "The metrics for response evaluation",
+          "uniqueItems": true,
+          "properties": {
+            "semantic-accuracy": {
+              "type": "number",
+              "description": "The semantic accuracy score",
+              "default": "≥ 0.9"
+            },
+            "validation-pass-rate": {
+              "type": "number",
+              "description": "The validation pass rate",
+              "default": "≥ 0.95"
+            },
+            "average-latency-ms": {
+              "type": "number",
+              "description": "The average latency in milliseconds",
+              "default": "≤ 300"
+            }
+          }
+        }
+      }
+    },
+    "cognitive-functions": {
+      "type": "object",
+      "description": "The cognitive functions configuration for the included file",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the cognitive functions",
+          "default": "Defines Brain’s unified cognitive framework integrating all major reasoning, validation, and correction subsystems. Establishes global sequencing, coherence metrics, and cross-module synchronization rules for consistent cognition.",
+          "minLength": 10
+        },
+        "phases": {
+          "type": "object",
+          "description": "The phases of the cognitive functions",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the phase",
+              "uniqueItems": true
+            },
+            "goal": {
+              "type": "string",
+              "description": "The goal of the phase",
+              "minLength": 10
+            },
+            "logic": {
+              "type": "array",
+              "description": "The logic steps for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "validation": {
+              "type": "array",
+              "description": "The validation criterion for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "fallback": {
+              "type": "array",
+              "description": "The fallback actions for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "The metrics for cognitive function evaluation",
+          "uniqueItems": true,
+          "properties": {
+            "coherence-index": {
+              "type": "number",
+              "description": "The coherence index score",
+              "default": "≥ 0.9"
+            },
+            "cross-phase-synchronization": {
+              "type": "number",
+              "description": "The cross-phase synchronization score",
+              "default": "≥ 0.95"
+            },
+            "cognitive-latency-ms": {
+              "type": "number",
+              "description": "The cognitive latency in milliseconds",
+              "default": "≤ 500"
+            }
+          }
+        }
+      }
+    },
+    "compaction": {
+      "type": "object",
+      "description": "The compaction settings for the included configuration",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the compaction",
+          "default": "Defines Brain-level context compaction and recovery protocol. Ensures retention of critical reasoning data when context window approaches token limit, and guarantees faithful restoration of essential knowledge from vector memory after compaction.",
+          "minLength": 10
+        },
+        "phases": {
+          "type": "object",
+          "description": "The phase settings for compaction",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the compaction phase",
+              "uniqueItems": true
+            },
+            "trigger": {
+              "type": "string",
+              "description": "The trigger condition for the compaction phase",
+              "minLength": 5
+            },
+            "logic": {
+              "type": "array",
+              "description": "The logic steps for the compaction phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "validation": {
+              "type": "array",
+              "description": "The validation criterion for the compaction phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "criteria": {
+          "type": "object",
+          "description": "The compaction methods to be applied",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the compaction method",
+              "uniqueItems": true
+            },
+            "level": {
+              "type": "string",
+              "description": "The level of compaction"
+            }
+          }
+        }
+      }
+    },
+    "delegation-protocol": {
+      "type": "object",
+      "description": "The delegation protocol settings for the included configuration",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the compaction",
+          "default": "Establishes the delegation framework governing task assignment, authority transfer, and responsibility flow among Brain and Agents. Ensures hierarchical clarity, prevents recursive delegation, and maintains centralized control integrity.",
+          "minLength": 10
+        },
+        "levels": {
+          "type": "object",
+          "description": "The levels of delegation",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the compaction phase",
+              "uniqueItems": true
+            },
+            "authority": {
+              "type": "string",
+              "description": "The authority level for the compaction phase",
+              "enum": [
+                "absolute",
+                "high",
+                "limited",
+                "minimal",
+                "none"
+              ]
+            },
+            "delegates-to": {
+              "type": "string",
+              "description": "The delegate target for the compaction phase"
+            },
+            "restrictions": {
+              "type": "string",
+              "description": "The restrictions for the compaction phase",
+              "minLength": 5
+            },
+            "scope": {
+              "type": "string",
+              "description": "The scope of delegation",
+              "minLength": 5
+            }
+          }
+        },
+        "types": {
+          "type": "object",
+          "description": "The types of delegation",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the delegation type",
+              "uniqueItems": true
+            },
+            "type": {
+              "type": "string",
+              "description": "The type of delegation"
+            }
+          }
+        },
+        "exploration_delegation": {
+          "type": "object",
+          "description": "The exploration delegation settings",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "description": "Meta information for exploration delegation",
+              "properties": {
+                "purpose": {
+                  "type": "string",
+                  "description": "The purpose of exploration delegation",
+                  "minLength": 10
+                },
+                "why": {
+                  "type": "string",
+                  "description": "The reason for exploration delegation",
+                  "minLength": 10
+                }
+              }
+            },
+            "rule": {
+              "type": "string",
+              "description": "The rule for exploration delegation",
+              "minLength": 5
+            },
+            "triggers": {
+              "type": "array",
+              "description": "The triggers for exploration delegation",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        }
+      }
+    },
+    "context-analysis": {
+      "type": "object",
+      "description": "The cognitive functions configuration for the included file",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the context analysis",
+          "default": "Defines the Brain-level contextual awareness and evaluation protocol. Enables Brain to assess global readiness, resource state, and knowledge coherence before initiating reasoning or delegation.",
+          "minLength": 10
+        },
+        "phases": {
+          "type": "object",
+          "description": "The phases of the context analysis",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the phase",
+              "uniqueItems": true
+            },
+            "goal": {
+              "type": "string",
+              "description": "The goal of the phase",
+              "minLength": 10
+            },
+            "logic": {
+              "type": "array",
+              "description": "The logic steps for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "validation": {
+              "type": "array",
+              "description": "The validation criterion for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "fallback": {
+              "type": "array",
+              "description": "The fallback actions for the phase",
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        }
+      }
+    },
+    "collective-philosophy": {
+      "type": "object",
+      "description": "The collective philosophy settings for the included configuration",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "description": "The purpose of the context analysis",
+          "default": "Defines the philosophical foundation of Brain’s multi-agent intelligence model. Establishes guiding principles for distributed reasoning, shared memory, cooperation, and evolutionary adaptation.",
+          "minLength": 10
+        },
+        "principles": {
+          "type": "object",
+          "description": "The guiding principles of the collective philosophy",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the principle",
+              "uniqueItems": true
+            },
+            "type": {
+              "type": "string",
+              "description": "The type of the principle",
+              "enum": [
+                "core",
+                "adaptive",
+                "ethical"
+              ]
+            },
+            "summary": {
+              "type": "string",
+              "description": "The summary of the principle",
+              "minLength": 10
+            },
+            "description": {
+              "type": "string",
+              "description": "The detailed description of the principle",
+              "minLength": 10
+            },
+            "applies-to": {
+              "type": "string",
+              "description": "The scope of application for the principle"
+            },
+            "integration": {
+              "type": "string",
+              "description": "How the principle integrates with other principles",
+              "enum": [
+                "response-validation",
+                "context-analysis",
+                "compaction",
+                "cognitive-functions",
+                "context-analysis"
+              ]
+            }
+          }
+        },
+        "patterns": {
+          "type": "object",
+          "description": "The behavioral patterns defined by the collective philosophy",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the pattern",
+              "uniqueItems": true
+            },
+            "description": {
+              "type": "string",
+              "description": "The detailed description of the pattern",
+              "minLength": 10
+            },
+            "validation": {
+              "type": "string",
+              "description": "The principles associated with this pattern",
+              "minLength": 5
+            }
+          }
+        }
+      }
+    },
+    "linkage": {
+      "type": [
+        "array"
+      ],
+      "description": "List of linked configuration files (In compile will be placed together)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "meta-controls": {
+      "type": "object",
+      "description": "Meta controls for the included configuration",
+      "properties": {
+        "compactness": {
+          "type": "string",
+          "description": "Set the compactness level for this configuration",
+          "minLength": 5
+        },
+        "governance": {
+          "type": "string",
+          "description": "Set the governance rules for this configuration",
+          "minLength": 10
+        },
+        "logging": {
+          "type": "string",
+          "description": "Set the logging level for this configuration",
+          "minLength": 5
+        }
+      }
+    }
+  },
+  "definitions": {}
+}

@@ -1,0 +1,148 @@
+<quality-gates>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the quality control checkpoints (gates) that all code, agents, and instruction artifacts must pass before deployment in the Brain ecosystem.
+      Each gate enforces objective metrics, structural validation, and automated CI actions to maintain production-level integrity.
+    </purpose>
+  </meta>
+
+  <gate-group id="code">
+    <gate id="syntax">
+      <criteria>All source files must compile without syntax or lint errors.</criteria>
+      <validation>Use linters: PHPStan level 10, ESLint strict mode, Go vet.</validation>
+      <metrics>
+        <critical-errors>0</critical-errors>
+        <warnings>≤ 5</warnings>
+      </metrics>
+      <actions>
+        <on-fail>block merge and trigger syntax-report job</on-fail>
+        <on-pass>mark code-quality-passed flag</on-pass>
+      </actions>
+    </gate>
+
+    <gate id="tests">
+      <criteria>All unit, integration, and E2E tests must pass.</criteria>
+      <metrics>
+        <coverage>≥ 90%</coverage>
+        <failures>0</failures>
+      </metrics>
+      <validation>Execute CI runners (PHPUnit, Jest, Go test).</validation>
+      <actions>
+        <on-fail>abort pipeline and alert dev-channel</on-fail>
+        <on-pass>proceed to next gate</on-pass>
+      </actions>
+    </gate>
+
+    <gate id="architecture">
+      <criteria>Project must follow declared architecture schemas and dependency boundaries.</criteria>
+      <validation>Run architecture audit and dependency graph validator.</validation>
+      <metrics>
+        <circular-dependencies>0</circular-dependencies>
+        <forbidden-imports>0</forbidden-imports>
+      </metrics>
+      <actions>
+        <on-fail>generate architecture-violations report</on-fail>
+        <on-pass>commit architectural compliance summary</on-pass>
+      </actions>
+    </gate>
+  </gate-group>
+
+  <gate-group id="instruction">
+    <gate id="xml-validation">
+      <criteria>All instruction files must be valid XML and match declared schemas.</criteria>
+      <validation>Validate via CI regex and XML parser.</validation>
+      <metrics>
+        <invalid-tags>0</invalid-tags>
+        <missing-sections>0</missing-sections>
+      </metrics>
+      <actions>
+        <on-fail>reject commit with validation-error log</on-fail>
+        <on-pass>approve instruction import</on-pass>
+      </actions>
+    </gate>
+
+    <gate id="token-efficiency">
+      <criteria>Instructions must not exceed their token compactness limits.</criteria>
+      <metrics>
+        <compact>≤ 300</compact>
+        <normal>≤ 800</normal>
+        <extended>≤ 1200</extended>
+      </metrics>
+      <validation>Estimate token usage pre-deploy using CI tokenizer.</validation>
+      <actions>
+        <on-fail>truncate or split instruction and resubmit</on-fail>
+        <on-pass>allow merge</on-pass>
+      </actions>
+    </gate>
+  </gate-group>
+
+  <gate-group id="agent">
+    <gate id="performance">
+      <criteria>Each agent must meet defined performance and reliability targets.</criteria>
+      <metrics>
+        <accuracy>≥ 0.95</accuracy>
+        <latency>≤ 30s</latency>
+        <stability>≥ 0.98</stability>
+      </metrics>
+      <validation>Run automated agent stress-tests and prompt-accuracy evaluation.</validation>
+      <actions>
+        <on-fail>rollback agent to previous version and flag retraining</on-fail>
+        <on-pass>promote to production</on-pass>
+      </actions>
+    </gate>
+
+    <gate id="memory-integrity">
+      <criteria>Vector or knowledge memory must load without corruption or drift.</criteria>
+      <metrics>
+        <memory-load-success>100%</memory-load-success>
+        <checksum-match>true</checksum-match>
+      </metrics>
+      <validation>Run checksum comparison and recall accuracy tests.</validation>
+      <actions>
+        <on-fail>trigger memory-repair job</on-fail>
+        <on-pass>continue to optimization phase</on-pass>
+      </actions>
+    </gate>
+  </gate-group>
+
+  <gate-group id="security">
+    <gate id="dependencies">
+      <criteria>All dependencies must pass vulnerability scan.</criteria>
+      <validation>Run npm audit, composer audit, go list -m -u all.</validation>
+      <metrics>
+        <critical>0</critical>
+        <high>≤ 1</high>
+      </metrics>
+      <actions>
+        <on-fail>block merge and notify security channel</on-fail>
+        <on-pass>mark dependency-scan-passed</on-pass>
+      </actions>
+    </gate>
+
+    <gate id="env-compliance">
+      <criteria>Environment variables and secrets must conform to policy.</criteria>
+      <validation>Check against CI secret-policy ruleset.</validation>
+      <metrics>
+        <exposed-keys>0</exposed-keys>
+        <policy-violations>0</policy-violations>
+      </metrics>
+      <actions>
+        <on-fail>remove secret and alert owner</on-fail>
+        <on-pass>log compliance success</on-pass>
+      </actions>
+    </gate>
+  </gate-group>
+
+  <global-validation>
+    <logic>
+      <step>All gates must return pass before deployment is allowed.</step>
+      <step>Failures automatically trigger rollback and CI notification.</step>
+      <step>CI pipeline must generate a signed quality-report.xml for each build.</step>
+    </logic>
+    <output>quality-report.xml + summary.json</output>
+  </global-validation>
+
+</quality-gates>

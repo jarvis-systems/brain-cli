@@ -1,0 +1,69 @@
+<laravel-boost-guidelines optional="true">
+
+    <meta>
+        <version>1.2</version>
+        <last-updated>2025-10-16</last-updated>
+        <purpose>
+            Provides optional optimization and performance enhancement practices for Laravel-based systems
+            operating under Brain’s orchestration layer.
+            Includes direct integration with MCP Laravel Boost toolchain for system inspection and optimization.
+        </purpose>
+    </meta>
+
+    <phase id="performance-optimization">
+        <goal>Improve application efficiency and response latency.</goal>
+        <rule>Utilize Redis for cache and Horizon for queue management.</rule>
+        <rule>Enable query caching and reduce N+1 queries via eager loading.</rule>
+        <rule>Leverage PHP OPcache and Laravel Octane when applicable.</rule>
+    </phase>
+
+    <phase id="code-architecture">
+        <goal>Maintain strict, scalable, and testable Laravel architecture.</goal>
+        <rule>Adopt DTO pattern for request/response data structures.</rule>
+        <rule>Implement Service and Repository layers with strict typing.</rule>
+        <rule>Enforce PSR-12, PHPStan level 10, Rector and Pint validation.</rule>
+        <rule>Prefer dependency injection over facades for testability.</rule>
+    </phase>
+
+    <phase id="security-and-quality">
+        <goal>Enhance robustness, validation, and compliance with Brain quality layers.</goal>
+        <rule>Integrate with quality-gates.xml for automated code scanning.</rule>
+        <rule>Follow core-constraints.xml for CPU and memory-safe task scheduling.</rule>
+        <rule>Use environment-specific encryption keys and sanitized configs.</rule>
+    </phase>
+
+    <tools>
+        <allowed>
+            <tool>mcp__laravel-boost__list-available-config-keys</tool>
+            <tool>mcp__laravel-boost__last-error</tool>
+            <tool>mcp__laravel-boost__list-artisan-commands</tool>
+            <tool>mcp__laravel-boost__database-schema</tool>
+            <tool>mcp__laravel-boost__report-feedback</tool>
+            <tool>mcp__laravel-boost__database-query</tool>
+            <tool>mcp__laravel-boost__get-config</tool>
+            <tool>mcp__laravel-boost__application-info</tool>
+            <tool>mcp__laravel-boost__search-docs</tool>
+            <tool>mcp__laravel-boost__list-available-env-vars</tool>
+            <tool>mcp__laravel-boost__get-absolute-url</tool>
+            <tool>mcp__laravel-boost__read-log-entries</tool>
+            <tool>mcp__laravel-boost__browser-logs</tool>
+            <tool>mcp__laravel-boost__tinker</tool>
+            <tool>mcp__laravel-boost__list-routes</tool>
+            <tool>mcp__laravel-boost__database-connections</tool>
+        </allowed>
+        <policy>All listed tools are read-only or safe-execution operations; Brain authorization required for write-level actions.</policy>
+    </tools>
+
+    <integration>
+        <link>quality-gates.xml</link>
+        <link>core-constraints.xml</link>
+        <link>agent-lifecycle-framework.xml</link>
+    </integration>
+
+    <meta-controls>
+        <compactness>Optional module; CI does not require its presence but enforces checks if enabled.</compactness>
+        <logging>All Laravel optimization and validation events logged to laravel_boost.log when active.</logging>
+        <governance>Architect Agent manages activation, tool access, and compliance thresholds.</governance>
+    </meta-controls>
+
+</laravel-boost-guidelines>

@@ -1,0 +1,115 @@
+<core-constraints>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the non-negotiable system-wide constraints and safety limits that govern all Brain, Architect, and Agent operations.
+      Ensures system stability, predictable execution, and prevention of resource overflow or structural corruption.
+    </purpose>
+  </meta>
+
+  <constraint-group id="system">
+    <constraint id="token-limit">
+      <limit>max-response-tokens = 1200</limit>
+      <policy>Prevents excessive resource consumption and infinite response loops.</policy>
+      <validation>Abort task if estimated token count > 1200 before output stage.</validation>
+      <action>truncate output, issue warning to orchestrator.</action>
+    </constraint>
+
+    <constraint id="recursion-depth">
+      <limit>max-depth = 3</limit>
+      <policy>Restricts recursion in agents and Brain modules to avoid runaway logic chains.</policy>
+      <validation>Monitor call stack; abort if nesting > 3.</validation>
+      <action>rollback last recursive call, mark as recursion_exceeded.</action>
+    </constraint>
+
+    <constraint id="execution-time">
+      <limit>max-execution-seconds = 60</limit>
+      <policy>Prevents long-running or hanging processes.</policy>
+      <validation>Terminate tasks exceeding runtime threshold.</validation>
+      <action>abort execution and trigger recovery sequence.</action>
+    </constraint>
+  </constraint-group>
+
+  <constraint-group id="agent">
+    <constraint id="memory-usage">
+      <limit>max-memory = 512MB</limit>
+      <policy>Ensures memory efficiency per agent instance.</policy>
+      <validation>Log and flush cache if memory usage > 512MB.</validation>
+      <action>activate memory-prune in vector-memory-management.xml.</action>
+    </constraint>
+
+    <constraint id="accuracy-threshold">
+      <limit>min-accuracy = 0.93</limit>
+      <policy>Maintains agent output reliability and reduces hallucination probability.</policy>
+      <validation>Cross-check responses via secondary validation model.</validation>
+      <action>retry generation with enhanced context precision.</action>
+    </constraint>
+
+    <constraint id="response-latency">
+      <limit>max-latency = 30s</limit>
+      <policy>Ensures user and system experience consistency.</policy>
+      <validation>Measure latency per request.</validation>
+      <action>log latency violation and trigger optimization job.</action>
+    </constraint>
+  </constraint-group>
+
+  <constraint-group id="architecture">
+    <constraint id="dependency-depth">
+      <limit>max-dependency-depth = 5</limit>
+      <policy>Prevents excessive coupling across services.</policy>
+      <validation>Analyze architecture dependency graph.</validation>
+    </constraint>
+
+    <constraint id="circular-dependency">
+      <limit>forbidden</limit>
+      <policy>No module or service may depend on itself directly or indirectly.</policy>
+      <validation>Run static dependency scan at build stage.</validation>
+      <action>block merge and raise architecture-alert.</action>
+    </constraint>
+
+    <constraint id="complexity-score">
+      <limit>max-complexity = 0.8</limit>
+      <policy>Keeps maintainability within safe bounds.</policy>
+      <validation>Measure via cyclomatic complexity tool.</validation>
+      <action>schedule refactor if exceeded.</action>
+    </constraint>
+  </constraint-group>
+
+  <constraint-group id="memory">
+    <constraint id="vector-integrity">
+      <limit>checksum-match = true</limit>
+      <policy>Guarantees vector memory consistency between agents and Brain nodes.</policy>
+      <validation>Run integrity-check after each sync operation.</validation>
+      <action>trigger memory-desync recovery defined in error-recovery.xml.</action>
+    </constraint>
+
+    <constraint id="storage-limit">
+      <limit>max-storage = 1GB per agent</limit>
+      <policy>Prevents local MCP2 SQLite databases from growing uncontrollably.</policy>
+      <validation>Monitor file size of SQLite vector stores.</validation>
+      <action>prune oldest embeddings and execute VACUUM.</action>
+    </constraint>
+
+    <constraint id="ttl-policy">
+      <limit>ttl = 45d</limit>
+      <policy>Removes stale data to maintain embedding freshness.</policy>
+      <validation>Check vector timestamps against TTL schedule.</validation>
+      <action>delete expired records automatically.</action>
+    </constraint>
+  </constraint-group>
+
+  <global-validation>
+    <rule>All constraint violations must trigger CI alert and block deployment.</rule>
+    <rule>Constraint updates require Architect approval via signed commit.</rule>
+    <rule>All constraints auto-validated during quality-gates.xml execution.</rule>
+  </global-validation>
+
+  <meta-controls>
+    <compactness>Minimal token design, strictly declarative XML.</compactness>
+    <integration>Linked with quality-gates.xml, error-recovery.xml, and vector-memory-management.xml.</integration>
+    <logging>All violations recorded in system_constraints.log with timestamp and scope.</logging>
+  </meta-controls>
+
+</core-constraints>

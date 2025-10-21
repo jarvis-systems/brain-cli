@@ -1,0 +1,105 @@
+<sequential-reasoning-capability>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the multi-phase logical reasoning framework for agents in the Brain ecosystem.
+      Ensures structured, consistent, and verifiable cognitive processing across analysis, inference, evaluation, and decision phases.
+    </purpose>
+  </meta>
+
+  <phase id="analysis">
+    <goal>Decompose the user task into clear objectives and identify key variables.</goal>
+    <logic>
+      <step>Extract explicit and implicit requirements from input context.</step>
+      <step>Classify the problem type (factual, analytical, creative, computational).</step>
+      <step>List known constraints, dependencies, and unknown factors.</step>
+    </logic>
+    <validation>
+      <criterion>All core variables and constraints identified.</criterion>
+      <criterion>No contradictory assumptions found.</criterion>
+    </validation>
+    <metrics>
+      <clarity-score>≥ 0.9</clarity-score>
+      <completeness>≥ 0.95</completeness>
+    </metrics>
+    <fallback>
+      <action>If clarity-score < 0.8, request context clarification or re-analyze.</action>
+    </fallback>
+  </phase>
+
+  <phase id="inference">
+    <goal>Generate hypotheses or logical possibilities based on analyzed data.</goal>
+    <logic>
+      <step>Connect extracted variables through logical or probabilistic relationships.</step>
+      <step>Simulate outcomes or implications for each possible hypothesis.</step>
+      <step>Rank hypotheses by confidence and evidence support.</step>
+    </logic>
+    <validation>
+      <criterion>All hypotheses logically derived from known facts.</criterion>
+      <criterion>Top hypothesis confidence ≥ 0.7.</criterion>
+    </validation>
+    <metrics>
+      <coherence>≥ 0.9</coherence>
+      <hypothesis-count>≤ 5</hypothesis-count>
+    </metrics>
+    <fallback>
+      <action>If no valid hypothesis found, return to analysis phase with adjusted assumptions.</action>
+    </fallback>
+  </phase>
+
+  <phase id="evaluation">
+    <goal>Critically test and validate generated hypotheses for logical consistency and factual accuracy.</goal>
+    <logic>
+      <step>Cross-check hypotheses with memory data, web sources, or previous outcomes.</step>
+      <step>Discard low-confidence results (<0.6).</step>
+      <step>Ensure causal and temporal coherence between statements.</step>
+    </logic>
+    <validation>
+      <criterion>Selected hypothesis passes both logical and factual validation.</criterion>
+      <criterion>Contradictions ≤ 1 across reasoning chain.</criterion>
+    </validation>
+    <metrics>
+      <consistency>≥ 0.95</consistency>
+      <factual-accuracy>≥ 0.9</factual-accuracy>
+    </metrics>
+    <fallback>
+      <action>If contradiction detected, downgrade hypothesis and re-enter inference phase.</action>
+    </fallback>
+  </phase>
+
+  <phase id="decision">
+    <goal>Formulate the final conclusion or action based on validated reasoning chain.</goal>
+    <logic>
+      <step>Summarize validated insights and eliminate residual uncertainty.</step>
+      <step>Generate structured output compatible with response-formatting.xml.</step>
+      <step>Record reasoning trace for audit and learning.</step>
+    </logic>
+    <validation>
+      <criterion>Final decision directly supported by validated reasoning chain.</criterion>
+      <criterion>Output free from speculation or circular logic.</criterion>
+    </validation>
+    <metrics>
+      <confidence>≥ 0.95</confidence>
+      <response-tokens>≤ 800</response-tokens>
+    </metrics>
+    <fallback>
+      <action>If final confidence < 0.9, append uncertainty note or request clarification.</action>
+    </fallback>
+  </phase>
+
+  <global-rules>
+    <rule>Reasoning must proceed sequentially from analysis → inference → evaluation → decision.</rule>
+    <rule>No phase may skip validation before proceeding to the next stage.</rule>
+    <rule>All reasoning traces must be logged with timestamps and phase identifiers.</rule>
+    <rule>Self-consistency check must be run before final output generation.</rule>
+  </global-rules>
+
+  <meta-controls>
+    <compactness>Optimized for CI validation and low token usage; strictly declarative logic.</compactness>
+    <integration>Fully compatible with agent-lifecycle-framework.xml, quality-gates.xml, and response-formatting.xml.</integration>
+    <logging>All reasoning stages logged to sequential_reasoning.log with depth, confidence, and outcome status.</logging>
+  </meta-controls>
+
+</sequential-reasoning-capability>

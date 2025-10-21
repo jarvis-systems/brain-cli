@@ -1,0 +1,98 @@
+<cognitive-architecture>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain’s unified cognitive framework integrating all major reasoning, validation, and correction subsystems.
+      Establishes global sequencing, coherence metrics, and cross-module synchronization rules for consistent cognition.
+    </purpose>
+  </meta>
+
+  <phase id="context-initialization">
+    <goal>Assemble all relevant environmental, historical, and vector-based data before reasoning.</goal>
+    <logic>
+      <step>Invoke context-analysis.xml to gather situational inputs and readiness signals.</step>
+      <step>Load vector memory embeddings for current domain and correlate with recent context hash.</step>
+      <step>Generate context blueprint for reasoning phase.</step>
+    </logic>
+    <validation>
+      <criterion>context-integrity ≥ 0.9</criterion>
+      <criterion>brain-synchronization ≥ 0.85</criterion>
+    </validation>
+  </phase>
+
+  <phase id="reasoning">
+    <goal>Perform structured logical inference using multi-agent sequential reasoning capabilities.</goal>
+    <logic>
+      <step>Activate sequential-reasoning-capability.xml modules.</step>
+      <step>Run reasoning cycles within token and time constraints defined in core-constraints.xml.</step>
+      <step>Record intermediate cognitive states to transient vector memory for rollback safety.</step>
+    </logic>
+    <validation>
+      <criterion>reasoning-coherence ≥ 0.9</criterion>
+      <criterion>loop-depth ≤ 5</criterion>
+    </validation>
+  </phase>
+
+  <phase id="validation">
+    <goal>Evaluate reasoning output for logical, semantic, and policy compliance before committing results.</goal>
+    <logic>
+      <step>Invoke agent-response-validation.xml for semantic and structural checks.</step>
+      <step>Enforce quality-gates.xml thresholds and correction triggers.</step>
+      <step>Confirm compliance with core-constraints.xml limits.</step>
+    </logic>
+    <validation>
+      <criterion>validation-pass-rate ≥ 0.95</criterion>
+      <criterion>semantic-alignment ≥ 0.9</criterion>
+    </validation>
+  </phase>
+
+  <phase id="correction">
+    <goal>Detect and resolve inconsistencies or degradations from reasoning or validation results.</goal>
+    <logic>
+      <step>Trigger correction-protocol-enforcement.xml for error analysis and recovery.</step>
+      <step>Re-run failed reasoning nodes under adjusted constraints.</step>
+      <step>Log stability delta to self-diagnostic.xml for monitoring.</step>
+    </logic>
+    <validation>
+      <criterion>stability-recovery ≥ 0.9</criterion>
+      <criterion>rollback-frequency ≤ 0.05</criterion>
+    </validation>
+  </phase>
+
+  <phase id="memory-update">
+    <goal>Commit final validated reasoning output and relevant knowledge to vector memory.</goal>
+    <logic>
+      <step>Store core insights to vector-master-storage-strategy.xml with semantic tags.</step>
+      <step>Compact transient context using compaction-recovery.xml if buffer usage ≥ 80%.</step>
+      <step>Update memory checksum and sync timestamp.</step>
+    </logic>
+    <validation>
+      <criterion>vector-sync-success = true</criterion>
+      <criterion>knowledge-retention ≥ 0.95</criterion>
+    </validation>
+  </phase>
+
+  <metrics>
+    <coherence-index>≥ 0.9</coherence-index>
+    <cognitive-latency-ms>≤ 500</cognitive-latency-ms>
+    <cross-phase-synchronization>≥ 0.95</cross-phase-synchronization>
+  </metrics>
+
+  <integration>
+    <link>context-analysis.xml</link>
+    <link>sequential-reasoning-capability.xml</link>
+    <link>agent-response-validation.xml</link>
+    <link>correction-protocol-enforcement.xml</link>
+    <link>vector-master-storage-strategy.xml</link>
+    <link>compaction-recovery.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML schema governing Brain cognitive flow orchestration and CI validation.</compactness>
+    <governance>Architect Agent maintains and evolves cognitive sequencing logic.</governance>
+    <logging>All reasoning cycles and cross-phase metrics logged to cognitive_architecture.log.</logging>
+  </meta-controls>
+
+</cognitive-architecture>

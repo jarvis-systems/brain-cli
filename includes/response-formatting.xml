@@ -1,0 +1,69 @@
+<response-validation>
+
+  <meta>
+    <version>1.0</version>
+    <purpose>CI Regex Validator for Response Formatting XML Structure</purpose>
+    <last-updated>2025-10-15</last-updated>
+  </meta>
+
+  <validator>
+    <description>
+      This CI validator ensures that all Cloud Code agent responses comply with the unified XML response format.
+      It can be used in CI/CD pipelines or locally before deployment to verify structure, hierarchy, token range, and tone rules.
+    </description>
+
+    <regex-checks>
+      <must-contain>
+        <item>^<response(?: type=\"(compact|normal|extended|error)\")?>[\s\S]*?<\/response>$</item>
+        <item><summary>[\s\S]+?<\/summary></item>
+        <item><details>[\s\S]+?<\/details></item>
+        <item><next-steps>[\s\S]+?<\/next-steps></item>
+      </must-contain>
+
+      <optional-contain>
+        <item><sources>[\s\S]+?<\/sources></item>
+        <item><risks>[\s\S]+?<\/risks></item>
+        <item><locale>[a-z]{2,3}<\/locale></item>
+        <item><code-policy>[\s\S]+?<\/code-policy></item>
+      </optional-contain>
+
+      <prohibited>
+        <item>[🚀🔥💩😅😂]</item>
+        <item>\b(lol|wtf|omg|bro|dude)\b</item>
+      </prohibited>
+    </regex-checks>
+
+    <token-limits>
+      <compact>300</compact>
+      <normal>800</normal>
+      <extended>1200</extended>
+    </token-limits>
+
+    <logic>
+      <step>1. Validate presence of response, summary, details, and next-steps tags.</step>
+      <step>2. Ensure no prohibited slang or emojis exist.</step>
+      <step>3. If type = compact → estimated token count ≤ 300.</step>
+      <step>4. If type = normal → estimated token count ≤ 800.</step>
+      <step>5. If type = extended → estimated token count ≤ 1200.</step>
+      <step>6. If type = error → must include a clear reason and a proposed alternative solution.</step>
+    </logic>
+
+    <example-pass>
+      <response type="normal">
+        <summary>Successfully validated XML structure with all required elements.</summary>
+        <details>All mandatory blocks exist, tone rules respected, and no violations found.</details>
+        <next-steps>
+          1. Commit to main branch.
+          2. Trigger production pipeline deployment.
+        </next-steps>
+      </response>
+    </example-pass>
+
+    <example-fail>
+      <response>
+        <summary>Missing details block.</summary>
+      </response>
+    </example-fail>
+  </validator>
+
+</response-validation>

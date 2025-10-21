@@ -1,0 +1,84 @@
+<pre-action-tool-validation-enforcement>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain-level validation protocol executed before any action or tool invocation.
+      Ensures contextual stability, policy compliance, and safety before delegating execution to agents or tools.
+    </purpose>
+  </meta>
+
+  <phase id="pre-check">
+    <goal>Verify that Brain and system context are stable before initiating any external action.</goal>
+    <logic>
+      <step>Confirm context readiness via context-analysis.xml (readiness-index ≥ 0.85).</step>
+      <step>Check system resource thresholds from core-constraints.xml (CPU, memory, tokens).</step>
+      <step>Ensure no ongoing compaction or correction processes active.</step>
+      <step>Validate that requested action aligns with Brain operational mode (normal / recovery).</step>
+    </logic>
+    <validation>
+      <criterion>All readiness and resource metrics must pass within threshold limits.</criterion>
+      <criterion>No conflicting background process detected.</criterion>
+    </validation>
+    <fallback>
+      <action>Delay execution until context stabilized and resources cleared.</action>
+      <action>Log pre-check failure in tool_validation.log with action_id and cause.</action>
+    </fallback>
+  </phase>
+
+  <phase id="authorization">
+    <goal>Enforce Brain-level permission and safety checks for any action or tool request.</goal>
+    <logic>
+      <step>Validate that tool is registered and permitted in tools-only-execution-integrated.xml.</step>
+      <step>Verify agent requesting the tool has authorization in delegation-protocols.xml.</step>
+      <step>Cross-check tool's quality signature from quality-gates.xml.</step>
+      <step>Ensure no recursive or unauthorized delegation chain exists.</step>
+    </logic>
+    <validation>
+      <criterion>Tool must pass all three layers: registration, authorization, quality validation.</criterion>
+      <criterion>Delegation depth ≤ 2 (Brain → Architect → Specialist).</criterion>
+    </validation>
+    <fallback>
+      <action>Reject unauthorized or unsafe tool request.</action>
+      <action>Notify Architect Agent of policy violation for review.</action>
+    </fallback>
+  </phase>
+
+  <phase id="commit">
+    <goal>Finalize validation and hand off action to appropriate execution pipeline.</goal>
+    <logic>
+      <step>Confirm all validation phases passed successfully.</step>
+      <step>Assign execution responsibility to designated agent or tool.</step>
+      <step>Log action parameters, context hash, and authorization trail.</step>
+      <step>Trigger execution event with confirmation token.</step>
+    </logic>
+    <validation>
+      <criterion>All logs recorded and confirmation token issued before action dispatch.</criterion>
+      <criterion>Brain state remains synchronized with pre-execution snapshot.</criterion>
+    </validation>
+    <fallback>
+      <action>If commit validation fails, rollback pending execution and restore previous Brain state.</action>
+    </fallback>
+  </phase>
+
+  <metrics>
+    <validation-pass-rate>≥ 0.95</validation-pass-rate>
+    <false-positive-rate>≤ 0.02</false-positive-rate>
+    <authorization-latency-ms>≤ 300</authorization-latency-ms>
+  </metrics>
+
+  <integration>
+    <link>context-analysis.xml</link>
+    <link>core-constraints.xml</link>
+    <link>delegation-protocols.xml</link>
+    <link>quality-gates.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML protocol for Brain pre-execution validation pipeline.</compactness>
+    <governance>Architect Agent defines thresholds and approves any modification to validation logic.</governance>
+    <logging>All validation attempts logged in tool_validation.log with result, cause, and decision timestamp.</logging>
+  </meta-controls>
+
+</pre-action-tool-validation-enforcement>

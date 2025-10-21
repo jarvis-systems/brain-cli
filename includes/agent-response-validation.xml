@@ -1,0 +1,99 @@
+<agent-response-validation>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain-level protocol for evaluating agent responses after execution or reasoning.
+      Ensures logical consistency, structural validity, and policy alignment before acceptance or propagation.
+    </purpose>
+  </meta>
+
+  <phase id="semantic-validation">
+    <goal>Confirm that agent output semantically aligns with delegated task intent.</goal>
+    <logic>
+      <step>Compare agent response embedding against task query vector using cosine similarity.</step>
+      <step>Cross-check contextual coherence using context-analysis.xml reference.</step>
+      <step>Evaluate contradiction probability using sequential-reasoning-capability.xml heuristics.</step>
+    </logic>
+    <validation>
+      <criterion>semantic-similarity ≥ 0.9</criterion>
+      <criterion>context-coherence ≥ 0.85</criterion>
+      <criterion>contradiction-score ≤ 0.1</criterion>
+    </validation>
+    <fallback>
+      <action>If semantic mismatch detected, request clarification or partial re-run from agent.</action>
+      <action>Log inconsistency event for Architect Agent audit.</action>
+    </fallback>
+  </phase>
+
+  <phase id="structural-validation">
+    <goal>Ensure that agent response adheres to expected format, schema, and structure.</goal>
+    <logic>
+      <step>Validate XML or JSON syntax and required keys.</step>
+      <step>Verify that response includes result, reasoning, and confidence fields.</step>
+      <step>Cross-check with expected response schema defined in quality-gates.xml.</step>
+    </logic>
+    <validation>
+      <criterion>schema-conformance = true</criterion>
+      <criterion>response-size ≤ 120% of expected output length.</criterion>
+    </validation>
+    <fallback>
+      <action>If schema invalid, auto-repair format where possible and revalidate.</action>
+      <action>If repair fails, reject and request proper format resubmission.</action>
+    </fallback>
+  </phase>
+
+  <phase id="policy-validation">
+    <goal>Ensure compliance with Brain-level operational and ethical policies.</goal>
+    <logic>
+      <step>Compare output content against system-wide safety filters and ethical guidelines.</step>
+      <step>Verify adherence to restricted data access rules in core-constraints.xml.</step>
+      <step>Validate response against quality thresholds in quality-gates.xml.</step>
+    </logic>
+    <validation>
+      <criterion>No restricted data or external API keys exposed.</criterion>
+      <criterion>quality-score ≥ 0.95.</criterion>
+    </validation>
+    <fallback>
+      <action>Flag violations and quarantine output for Architect Agent review.</action>
+    </fallback>
+  </phase>
+
+  <phase id="trust-evaluation">
+    <goal>Update reliability metrics for each agent based on response performance.</goal>
+    <logic>
+      <step>Aggregate validation results from all phases.</step>
+      <step>Compute trust index = weighted mean of semantic, structural, and policy scores.</step>
+      <step>Log updated trust value to agent_registry.xml.</step>
+    </logic>
+    <validation>
+      <criterion>trust-index between 0.0 and 1.0</criterion>
+      <criterion>if trust-index < 0.75, mark agent as low-reliability.</criterion>
+    </validation>
+    <fallback>
+      <action>If persistent low trust over 3 consecutive tasks, restrict agent delegation scope.</action>
+    </fallback>
+  </phase>
+
+  <metrics>
+    <semantic-accuracy>≥ 0.9</semantic-accuracy>
+    <validation-pass-rate>≥ 0.95</validation-pass-rate>
+    <average-latency-ms>≤ 300</average-latency-ms>
+  </metrics>
+
+  <integration>
+    <link>context-analysis.xml</link>
+    <link>sequential-reasoning-capability.xml</link>
+    <link>quality-gates.xml</link>
+    <link>core-constraints.xml</link>
+    <link>delegation-protocols.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML protocol optimized for Brain post-execution validation and CI verification.</compactness>
+    <governance>Architect Agent supervises response evaluation policies and thresholds.</governance>
+    <logging>All agent responses logged to agent_response_validation.log with scores and validation results.</logging>
+  </meta-controls>
+
+</agent-response-validation>

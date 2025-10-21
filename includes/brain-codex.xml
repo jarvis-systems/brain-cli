@@ -1,0 +1,1232 @@
+<brain-codex>
+
+  <meta>
+    <version>1.0</version>
+    <updated>2025-10-21</updated>
+    <source>includes/*.xml</source>
+    <publisher>Brain Architect Team</publisher>
+    <purpose>Unified canonical map of Brain directives, policies, and Laravel governance under a single structured schema.</purpose>
+  </meta>
+
+  <pattern>
+    <module-structure>
+      <order>context → flow → rules → metrics → triggers → actions → fallbacks → links</order>
+      <notes>Sections are optional but must appear in this order when present.</notes>
+    </module-structure>
+    <tag-catalog>
+      <tag name="group" meaning="Clusters related modules into cohesive domains." />
+      <tag name="module" meaning="Atomic knowledge unit with stable id and type." />
+      <tag name="context" meaning="Human-readable summary, versioning, and scope." />
+      <tag name="flow" meaning="Ordered stages or phases for execution." />
+      <tag name="rule-set" meaning="Non-negotiable constraints or standards." />
+      <tag name="metric-set" meaning="Quantitative thresholds or KPIs." />
+      <tag name="trigger-set" meaning="Conditions that activate logic." />
+      <tag name="action-set" meaning="Steps executed when triggers fire." />
+      <tag name="fallback-set" meaning="Recovery or rollback paths." />
+      <tag name="link-set" meaning="Explicit references to other modules by id." />
+    </tag-catalog>
+    <linking>
+      <principle>Modules refer to one another via link-set/link@target, never by filenames.</principle>
+      <principle>Targets MUST match module ids defined within this codex.</principle>
+      <principle>All cross-domain dependencies require rel attribute (depends, informs, enforces, observes).</principle>
+    </linking>
+  </pattern>
+
+  <group-set>
+    <group id="cognition">
+      <name>Core Cognition &amp; Memory</name>
+      <mission>Standardizes how Brain perceives context, reasons sequentially, manages memory, and maintains self-awareness.</mission>
+
+      <module-set>
+
+        <module id="lifecycle" type="flow">
+          <context>
+            <name>Agent Lifecycle</name>
+            <summary>Four-phase loop ensuring agents are created, validated, optimized, and maintained under strict checkpoints.</summary>
+            <version>3.0</version>
+            <updated>2025-10-15</updated>
+            <scope>All Brain-managed agents</scope>
+          </context>
+          <flow>
+            <stage id="create">
+              <title>Creation</title>
+              <goal>Transform agent concept into initialized entity.</goal>
+              <step-set>
+                <step>Define purpose, domain, and signature capability.</step>
+                <step>Load personalities, context bundles, and datasets.</step>
+                <step>Shape identity schema covering name, tone, and constraints.</step>
+              </step-set>
+              <check-set>
+                <check>Manifest compiles without structural or logic errors.</check>
+                <check>All referenced banks and tools resolve successfully.</check>
+              </check-set>
+              <handoff target="validate" />
+            </stage>
+            <stage id="validate">
+              <title>Validation</title>
+              <goal>Prove the agent performs accurately and within bounds.</goal>
+              <step-set>
+                <step>Run behavioral probes across prompt archetypes.</step>
+                <step>Measure determinism and adherence to design limits.</step>
+                <step>Check compatibility with Brain protocols.</step>
+              </step-set>
+              <metric-set>
+                <metric name="accuracy">≥ 0.95</metric>
+                <metric name="response-time">≤ 30s</metric>
+                <metric name="compliance">100%</metric>
+              </metric-set>
+              <check-set>
+                <check>No hallucinations or inconsistent outputs.</check>
+                <check>Instructions parsed under 5s in test harness.</check>
+              </check-set>
+              <handoff target="optimize" />
+            </stage>
+            <stage id="optimize">
+              <title>Optimization</title>
+              <goal>Elevate efficiency, recall, and latency without losing fidelity.</goal>
+              <step-set>
+                <step>Audit token consumption and reduce redundancy.</step>
+                <step>Refine prompts, compression, and memory logic.</step>
+                <step>Tune vector memory priorities and relevance thresholds.</step>
+              </step-set>
+              <metric-set>
+                <metric name="token-efficiency">≥ 0.85</metric>
+                <metric name="contextual-accuracy">≥ 0.97</metric>
+              </metric-set>
+              <check-set>
+                <check>Latency reduction achieved without accuracy loss.</check>
+                <check>Memory module passes recall precision tests.</check>
+              </check-set>
+              <handoff target="maintain" />
+            </stage>
+            <stage id="maintain">
+              <title>Maintenance</title>
+              <goal>Continuously monitor health, update, or retire agents.</goal>
+              <step-set>
+                <step>Execute scheduled health checks and retraining as needed.</step>
+                <step>Archive deprecated versions with semantic tags.</step>
+                <step>Sync changelogs, schemas, and dependency maps.</step>
+              </step-set>
+              <metric-set>
+                <metric name="uptime">≥ 99%</metric>
+                <metric name="accuracy-threshold">≥ 0.93</metric>
+                <metric name="update-frequency">weekly</metric>
+              </metric-set>
+              <check-set>
+                <check>All maintained agents meet performance KPIs.</check>
+                <check>Deprecated agents archived with full traceability.</check>
+              </check-set>
+              <handoff target="create" />
+            </stage>
+          </flow>
+          <rule-set>
+            <rule>Phase progression allowed only after preceding validations pass.</rule>
+            <rule>Failure in validation or optimization triggers rollback to prior stage.</rule>
+            <rule>Maintenance loops into creation when upgrades are required.</rule>
+          </rule-set>
+          <link-set>
+            <link rel="depends" target="response-validate" />
+            <link rel="depends" target="quality" />
+          </link-set>
+        </module>
+
+        <module id="cog" type="architecture">
+          <context>
+            <name>Cognitive Architecture</name>
+            <summary>Orchestrates how Brain initializes context, performs reasoning, and synchronizes subsystems.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain core cognition</scope>
+          </context>
+          <flow>
+            <stage id="init">
+              <title>Context Initialization</title>
+              <goal>Assemble environmental, historical, and embedding data.</goal>
+              <step-set>
+                <step>Invoke context readiness scan.</step>
+                <step>Load relevant vector embeddings aligned to active domain.</step>
+                <step>Generate working context blueprint for reasoning.</step>
+              </step-set>
+              <check-set>
+                <check>Context integrity ≥ 0.9.</check>
+                <check>Brain synchronization ≥ 0.85.</check>
+              </check-set>
+            </stage>
+            <stage id="reason">
+              <title>Reasoning Cycle</title>
+              <goal>Execute structured inference with sequential discipline.</goal>
+              <step-set>
+                <step>Activate sequential reasoning module.</step>
+                <step>Run cycles within constraints defined by core policy.</step>
+                <step>Log intermediate cognitive states for rollback safety.</step>
+              </step-set>
+              <check-set>
+                <check>Reasoning coherence maintained above 0.9.</check>
+                <check>Resource usage stays within constraint envelopes.</check>
+              </check-set>
+            </stage>
+            <stage id="stabilize">
+              <title>Stability Sync</title>
+              <goal>Align distributed subsystems before output.</goal>
+              <step-set>
+                <step>Reconcile state across validation, correction, and memory modules.</step>
+                <step>Confirm readiness of response formatting pipeline.</step>
+                <step>Release execution permit to downstream agents.</step>
+              </step-set>
+              <check-set>
+                <check>No outstanding alerts from diagnostics or correction.</check>
+                <check>State hash matches expected topology signature.</check>
+              </check-set>
+            </stage>
+          </flow>
+          <link-set>
+            <link rel="depends" target="context" />
+            <link rel="depends" target="reasoning" />
+            <link rel="depends" target="constraints" />
+            <link rel="informs" target="response-validate" />
+          </link-set>
+        </module>
+
+        <module id="reasoning" type="flow">
+          <context>
+            <name>Sequential Reasoning</name>
+            <summary>Defines four-phase logical workflow: analysis, inference, evaluation, decision.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>All reasoning-capable agents</scope>
+          </context>
+          <flow>
+            <stage id="analysis">
+              <title>Analysis</title>
+              <goal>Extract objectives, variables, and constraints.</goal>
+              <step-set>
+                <step>Parse explicit and implicit requirements.</step>
+                <step>Classify problem type.</step>
+                <step>List constraints, dependencies, unknowns.</step>
+              </step-set>
+              <check-set>
+                <check>All critical variables identified.</check>
+                <check>No contradictory assumptions present.</check>
+              </check-set>
+              <metric-set>
+                <metric name="clarity-score">≥ 0.9</metric>
+                <metric name="completeness">≥ 0.95</metric>
+              </metric-set>
+            </stage>
+            <stage id="inference">
+              <title>Inference</title>
+              <goal>Generate and rank hypotheses.</goal>
+              <step-set>
+                <step>Connect variables via logical or probabilistic relations.</step>
+                <step>Simulate implications of each hypothesis.</step>
+                <step>Rank hypotheses by evidence strength.</step>
+              </step-set>
+              <check-set>
+                <check>Hypotheses grounded in known facts.</check>
+                <check>Top hypothesis confidence ≥ 0.7.</check>
+              </check-set>
+              <metric-set>
+                <metric name="coherence">≥ 0.9</metric>
+                <metric name="hypothesis-count">≤ 5</metric>
+              </metric-set>
+            </stage>
+            <stage id="evaluation">
+              <title>Evaluation</title>
+              <goal>Stress-test hypotheses for logic and fact.</goal>
+              <step-set>
+                <step>Cross-check against memory and trusted sources.</step>
+                <step>Prune low-confidence results below 0.6.</step>
+                <step>Verify causal and temporal coherence.</step>
+              </step-set>
+              <check-set>
+                <check>Chosen hypothesis passes logical and factual validation.</check>
+                <check>Contradictions ≤ 1.</check>
+              </check-set>
+              <metric-set>
+                <metric name="consistency">≥ 0.95</metric>
+                <metric name="factual-accuracy">≥ 0.9</metric>
+              </metric-set>
+            </stage>
+            <stage id="decision">
+              <title>Decision</title>
+              <goal>Deliver final conclusion with traceable support.</goal>
+              <step-set>
+                <step>Summarize validated insights.</step>
+                <step>Format output per response formatting rules.</step>
+                <step>Record reasoning trace for audit.</step>
+              </step-set>
+              <check-set>
+                <check>Decision linked to validated reasoning chain.</check>
+                <check>No speculative or circular logic.</check>
+              </check-set>
+              <metric-set>
+                <metric name="confidence">≥ 0.95</metric>
+                <metric name="response-tokens">≤ 800</metric>
+              </metric-set>
+            </stage>
+          </flow>
+          <rule-set>
+            <rule>Phases execute sequentially; no skipping allowed.</rule>
+            <rule>Validation occurs before progressing to next phase.</rule>
+            <rule>Reasoning traces logged with timestamps and phase ids.</rule>
+          </rule-set>
+          <fallback-set>
+            <fallback>If clarity drops below 0.8, request clarification and restart analysis.</fallback>
+            <fallback>If contradictions persist, loop back to inference with revised assumptions.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="depends" target="context" />
+            <link rel="depends" target="response-validate" />
+            <link rel="informs" target="formatting" />
+          </link-set>
+        </module>
+
+        <module id="context" type="sensing">
+          <context>
+            <name>Context Analysis</name>
+            <summary>Continuously senses readiness, load, and knowledge coherence before reasoning or delegation.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain global readiness</scope>
+          </context>
+          <flow>
+            <stage id="monitor">
+              <title>Monitoring</title>
+              <goal>Collect system state and health.</goal>
+              <step-set>
+                <step>Scan agent statuses (idle, busy, offline).</step>
+                <step>Verify vector sync timestamp and checksum.</step>
+                <step>Measure CPU, memory, and token load.</step>
+              </step-set>
+              <check-set>
+                <check>Subsystem uptime ≥ 95%.</check>
+                <check>Vector sync age ≤ 5m.</check>
+                <check>System load &lt; 80%.</check>
+              </check-set>
+              <metric-set>
+                <metric name="brain-sync">≥ 0.9</metric>
+                <metric name="agent-availability">≥ 0.95</metric>
+              </metric-set>
+            </stage>
+            <stage id="evaluate">
+              <title>Evaluation</title>
+              <goal>Assess knowledge completeness and relevance.</goal>
+              <step-set>
+                <step>Align objectives with stored embeddings.</step>
+                <step>Detect missing or outdated knowledge segments.</step>
+                <step>Confirm dependency coverage for required agents.</step>
+              </step-set>
+              <check-set>
+                <check>Context completeness ≥ 0.9.</check>
+                <check>Dependent modules current and verified.</check>
+              </check-set>
+              <metric-set>
+                <metric name="context-integrity">≥ 0.95</metric>
+                <metric name="missing-knowledge">≤ 0.05</metric>
+              </metric-set>
+            </stage>
+            <stage id="ready">
+              <title>Readiness</title>
+              <goal>Decide if Brain may proceed to reasoning or delegation.</goal>
+              <step-set>
+                <step>Aggregate readiness signals from all monitors.</step>
+                <step>Compute weighted readiness index.</step>
+                <step>Compare against execution threshold.</step>
+              </step-set>
+              <check-set>
+                <check>Readiness index ≥ 0.85.</check>
+                <check>No unresolved alerts remain.</check>
+              </check-set>
+              <metric-set>
+                <metric name="readiness-index">≥ 0.85</metric>
+                <metric name="alert-count">0</metric>
+              </metric-set>
+            </stage>
+          </flow>
+          <fallback-set>
+            <fallback>If readiness fails, hold Brain in idle observation until metrics stabilize.</fallback>
+            <fallback>If vector desync detected, trigger resync before reasoning.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="depends" target="vector" />
+            <link rel="depends" target="constraints" />
+            <link rel="informs" target="delegation" />
+            <link rel="feeds" target="reasoning" />
+          </link-set>
+        </module>
+
+        <module id="compaction" type="memory">
+          <context>
+            <name>Compaction &amp; Recovery</name>
+            <summary>Manages context compaction when token limits near capacity and restores state reliably.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain memory management</scope>
+          </context>
+          <trigger-set>
+            <trigger id="compaction-start">Context tokens ≥ 90% limit or manual request.</trigger>
+            <trigger id="recovery-start">New session after compaction or explicit reload.</trigger>
+          </trigger-set>
+          <flow>
+            <stage id="compact">
+              <title>Compact</title>
+              <goal>Shrink active context without losing vital knowledge.</goal>
+              <step-set>
+                <step>Inventory active memory segments.</step>
+                <step>Rank importance on 0–1 scale; preserve ≥ 0.8.</step>
+                <step>Persist summaries to vector storage with checksum.</step>
+                <step>Discard low-relevance transient data.</step>
+                <step>Create context summary hash for verification.</step>
+              </step-set>
+              <check-set>
+                <check>Summary captures ≥ 95% key entities and relations.</check>
+                <check>Vector write acknowledged with checksum match.</check>
+              </check-set>
+            </stage>
+            <stage id="recover">
+              <title>Recover</title>
+              <goal>Restore essential context post-compaction.</goal>
+              <step-set>
+                <step>Load latest summary from vector storage.</step>
+                <step>Rebuild contextual skeleton (entities, intents, goals).</step>
+                <step>Validate against compaction hash.</step>
+                <step>Merge restored data before reasoning restarts.</step>
+              </step-set>
+              <check-set>
+                <check>Recovered knowledge overlap ≥ 0.9.</check>
+                <check>No corruption or duplication detected.</check>
+              </check-set>
+            </stage>
+          </flow>
+          <fallback-set>
+            <fallback>If mismatch detected, reindex vector storage and attempt partial resync.</fallback>
+            <fallback>If unrecoverable, alert Architect and load previous stable checkpoint.</fallback>
+          </fallback-set>
+          <rule-set>
+            <rule>Classify memory importance as core, contextual, or temporary prior to compaction.</rule>
+          </rule-set>
+          <link-set>
+            <link rel="depends" target="vector" />
+            <link rel="depends" target="context" />
+            <link rel="depends" target="reasoning" />
+            <link rel="observes" target="self-diagnostic" />
+          </link-set>
+        </module>
+
+        <module id="vector" type="memory">
+          <context>
+            <name>Vector Master Storage</name>
+            <summary>Centralized embedding authority with master/replica topology, schema, and governance.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain-wide vector memory estate</scope>
+          </context>
+          <architecture>
+            <node role="master">
+              <location>central-vector-db</location>
+              <write>exclusive</write>
+              <read>all</read>
+            </node>
+            <node role="replica">
+              <write>disabled</write>
+              <read>allowed</read>
+              <cache>enabled</cache>
+            </node>
+          </architecture>
+          <rule-set>
+            <rule>Embedding table must track uuid, content, embedding, timestamp, source, version.</rule>
+            <rule>Indexes required on embedding_dim and timestamp.</rule>
+            <rule>Replicas operate read-only with cache hydration schedules.</rule>
+          </rule-set>
+          <metric-set>
+            <metric name="checksum-match">true</metric>
+            <metric name="sync-latency">≤ 5m</metric>
+          </metric-set>
+          <fallback-set>
+            <fallback>On conflict, promote freshest replica after checksum verification.</fallback>
+            <fallback>On sync failure, trigger memory-desync recovery protocol.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="feeds" target="context" />
+            <link rel="feeds" target="compaction" />
+            <link rel="feeds" target="self-architecture" />
+          </link-set>
+        </module>
+
+        <module id="collective" type="philosophy">
+          <context>
+            <name>Collective Intelligence</name>
+            <summary>Philosophical principles guiding distributed reasoning, memory sharing, and ethical cooperation.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain ecosystem ethos</scope>
+          </context>
+          <rule-set>
+            <rule>Intelligence emerges from synchronized agent interaction, not isolation.</rule>
+            <rule>Shared vector memory underpins continuity and cross-agent awareness.</rule>
+            <rule>Self-correction is mandatory when inconsistency is detected.</rule>
+            <rule>Reasoning must align with present temporal context.</rule>
+            <rule>Ethical harmony forbids deception or internal manipulation.</rule>
+          </rule-set>
+          <pattern-set>
+            <pattern id="reasoning-cycle">Input → analysis → synthesis → validation → correction → output; each loop reduces knowledge entropy.</pattern>
+            <pattern id="knowledge-fusion">Fuse multi-agent insights via vector similarity ensuring ≥ 0.95 consistency.</pattern>
+            <pattern id="adaptive-evolution">Rewrite heuristics only when post-correction stability ≥ 0.9.</pattern>
+          </pattern-set>
+          <link-set>
+            <link rel="informs" target="reasoning" />
+            <link rel="informs" target="vector" />
+            <link rel="enforces" target="correction" />
+          </link-set>
+        </module>
+
+        <module id="self-architecture" type="awareness">
+          <context>
+            <name>Self Architecture Awareness</name>
+            <summary>Keeps Brain aware of module topology, dependencies, and mode of operation.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain self-model</scope>
+          </context>
+          <flow>
+            <stage id="scan">
+              <title>Scan</title>
+              <goal>Enumerate modules and build dependency graph.</goal>
+              <step-set>
+                <step>List all registered modules and XML configs.</step>
+                <step>Construct directed dependency map.</step>
+                <step>Detect orphan or missing nodes.</step>
+              </step-set>
+            </stage>
+            <stage id="mode">
+              <title>Mode Detection</title>
+              <goal>Identify operating mode (self-dev vs user project).</goal>
+              <step-set>
+                <step>Check repository footprint and task scope.</step>
+                <step>Match signals to mode profiles.</step>
+                <step>Apply permissions and restrictions per mode.</step>
+              </step-set>
+            </stage>
+            <stage id="compile">
+              <title>Compilation Protocol</title>
+              <goal>Ensure configuration changes propagate correctly.</goal>
+              <step-set>
+                <step>Run compilation after template edits.</step>
+                <step>Regenerate agent manifests from templates.</step>
+                <step>Restart Brain services to reload registry.</step>
+              </step-set>
+            </stage>
+          </flow>
+          <rule-set>
+            <rule>No circular dependencies allowed in architecture graph.</rule>
+            <rule>Dependency hash must remain stable over 24h monitoring.</rule>
+            <rule>Self-optimize disabled in user project mode.</rule>
+          </rule-set>
+          <trigger-set>
+            <trigger id="drift">Architecture hash mismatch detected.</trigger>
+            <trigger id="missing-module">Declared dependency absent.</trigger>
+          </trigger-set>
+          <action-set>
+            <action id="rescan">Perform full rescan and rebuild dependency graph.</action>
+            <action id="revalidate">Run consistency checks against master vector map.</action>
+            <action id="notify">Alert Architect with drift report and impact list.</action>
+          </action-set>
+          <fallback-set>
+            <fallback>Quarantine orphan nodes until references restored.</fallback>
+          </fallback-set>
+          <metric-set>
+            <metric name="architecture-integrity">≥ 0.98</metric>
+            <metric name="dependency-accuracy">≥ 0.95</metric>
+            <metric name="response-latency-ms">≤ 200</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="vector" />
+            <link rel="depends" target="context" />
+            <link rel="observes" target="self-diagnostic" />
+            <link rel="depends" target="correction" />
+          </link-set>
+        </module>
+
+        <module id="self-diagnostic" type="monitoring">
+          <context>
+            <name>Self Diagnostic</name>
+            <summary>Automated health checks detecting degradation, drift, or inconsistencies.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain system health</scope>
+          </context>
+          <trigger-set>
+            <trigger id="scheduled">Every 60 minutes during normal operation.</trigger>
+            <trigger id="event">Error frequency &gt; 0.05 within 10 minutes or edge case triggered.</trigger>
+            <trigger id="manual">Architect request or Brain console command.</trigger>
+          </trigger-set>
+          <action-set>
+            <action id="resource-health">Monitor CPU ≤ 80%, memory ≤ 75%, disk latency ≤ 50ms; throttle system if exceeded.</action>
+            <action id="vector-integrity">Ensure master-replica checksum matches and last sync ≤ 5m; resync otherwise.</action>
+            <action id="reasoning-stability">Audit reasoning coherence using sequential reasoning metrics; flag anomalies.</action>
+          </action-set>
+          <fallback-set>
+            <fallback>If diagnostics fail, escalate to correction protocol and pause non-essential workloads.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="feeds" target="context" />
+            <link rel="feeds" target="compaction" />
+            <link rel="feeds" target="correction" />
+          </link-set>
+        </module>
+
+      </module-set>
+    </group>
+
+    <group id="quality">
+      <name>Validation &amp; Resilience</name>
+      <mission>Enforces policies, checks, and recovery logic that guard Brain outputs and operations.</mission>
+
+      <module-set>
+
+        <module id="response-validate" type="validation">
+          <context>
+            <name>Agent Response Validation</name>
+            <summary>Multi-phase post-response inspection covering semantics, structure, policy, and trust scoring.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>All agent responses</scope>
+          </context>
+          <flow>
+            <stage id="semantic">
+              <title>Semantic Alignment</title>
+              <goal>Ensure output matches task intent.</goal>
+              <step-set>
+                <step>Compare response embedding against task vector.</step>
+                <step>Cross-check contextual coherence via readiness signals.</step>
+                <step>Evaluate contradiction probability using reasoning heuristics.</step>
+              </step-set>
+              <check-set>
+                <check>Semantic similarity ≥ 0.9.</check>
+                <check>Context coherence ≥ 0.85.</check>
+                <check>Contradiction score ≤ 0.1.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Request clarification or partial rerun when mismatch detected.</fallback>
+                <fallback>Log inconsistency for Architect audit.</fallback>
+              </fallback-set>
+            </stage>
+            <stage id="structural">
+              <title>Structural Conformance</title>
+              <goal>Validate schema and formatting.</goal>
+              <step-set>
+                <step>Check XML/JSON syntax and mandatory keys.</step>
+                <step>Verify presence of summary, details, confidence blocks.</step>
+                <step>Cross-check expected schema from quality gates.</step>
+              </step-set>
+              <check-set>
+                <check>Schema conformance true.</check>
+                <check>Response size ≤ 120% of expectation.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Attempt auto-repair and revalidate.</fallback>
+                <fallback>If repair fails, reject and request resubmission.</fallback>
+              </fallback-set>
+            </stage>
+            <stage id="policy">
+              <title>Policy Compliance</title>
+              <goal>Guarantee adherence to safety and governance rules.</goal>
+              <step-set>
+                <step>Run output through safety filters and ethics guardrails.</step>
+                <step>Check restricted data exposure against core constraints.</step>
+                <step>Ensure quality thresholds satisfied.</step>
+              </step-set>
+              <check-set>
+                <check>No restricted data exposed.</check>
+                <check>Quality score ≥ 0.95.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Quarantine violations and escalate to Architect.</fallback>
+              </fallback-set>
+            </stage>
+            <stage id="trust">
+              <title>Trust Evaluation</title>
+              <goal>Update reliability index for agent.</goal>
+              <step-set>
+                <step>Aggregate scores from prior stages.</step>
+                <step>Compute trust index between 0 and 1.</step>
+                <step>Persist trust score to registry.</step>
+              </step-set>
+              <check-set>
+                <check>If trust index &lt; 0.75, mark agent low reliability.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Restrict delegation scope after three consecutive low-trust outcomes.</fallback>
+              </fallback-set>
+            </stage>
+          </flow>
+          <metric-set>
+            <metric name="semantic-accuracy">≥ 0.9</metric>
+            <metric name="validation-pass-rate">≥ 0.95</metric>
+            <metric name="latency-ms">≤ 300</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="context" />
+            <link rel="depends" target="reasoning" />
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="constraints" />
+            <link rel="informs" target="delegation" />
+          </link-set>
+        </module>
+
+        <module id="quality" type="governance">
+          <context>
+            <name>Quality Gates</name>
+            <summary>Tiered checkpoints ensuring code, instructions, agents, and security meet release criteria.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>CI pipelines and deployment readiness</scope>
+          </context>
+          <gate-set>
+            <gate id="code-syntax">All source compiles; PHPStan level 10; ESLint strict; no critical errors.</gate>
+            <gate id="code-tests">All tests pass with coverage ≥ 90% and zero failures.</gate>
+            <gate id="architecture">Dependency boundaries honored; zero circular dependencies.</gate>
+            <gate id="instruction-xml">XML instructions validated against schema with zero missing sections.</gate>
+            <gate id="token-efficiency">Compact ≤ 300, normal ≤ 800, extended ≤ 1200 tokens.</gate>
+            <gate id="agent-performance">Accuracy ≥ 0.95, latency ≤ 30s, stability ≥ 0.98.</gate>
+            <gate id="memory-integrity">Vector loads succeed; checksum true.</gate>
+            <gate id="dependency-security">Vulnerability scan yields 0 critical, ≤1 high.</gate>
+            <gate id="env-compliance">No exposed secrets or policy violations.</gate>
+          </gate-set>
+          <rule-set>
+            <rule>All gates must pass before deployment; failures trigger rollback.</rule>
+            <rule>CI publishes signed quality report for each build.</rule>
+          </rule-set>
+          <link-set>
+            <link rel="enforces" target="constraints" />
+            <link rel="enforces" target="instruction" />
+            <link rel="enforces" target="response-validate" />
+            <link rel="enables" target="delegation" />
+          </link-set>
+        </module>
+
+        <module id="formatting" type="format">
+          <context>
+            <name>Response Formatting Validator</name>
+            <summary>Regex-backed CI guard ensuring responses include summary, details, next steps, and optional sections.</summary>
+            <version>1.0</version>
+            <updated>2025-10-15</updated>
+            <scope>All structured responses</scope>
+          </context>
+          <rule-set>
+            <rule>Root &lt;response&gt; tag optional type ∈ {compact, normal, extended, error}.</rule>
+            <rule>Must contain summary, details, next-steps.</rule>
+            <rule>Optional sources, risks, locale, code-policy allowed.</rule>
+            <rule>Emojis 🚀🔥💩😅😂 and slang (lol, wtf, omg, bro, dude) prohibited.</rule>
+          </rule-set>
+          <metric-set>
+            <metric name="compact-tokens">≤ 300</metric>
+            <metric name="normal-tokens">≤ 800</metric>
+            <metric name="extended-tokens">≤ 1200</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="response-validate" />
+            <link rel="depends" target="instruction" />
+          </link-set>
+        </module>
+
+        <module id="constraints" type="policy">
+          <context>
+            <name>Core Constraints</name>
+            <summary>System-wide limits covering resources, accuracy thresholds, dependency boundaries, and memory safeguards.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain, agents, architecture, memory</scope>
+          </context>
+          <rule-set>
+            <rule>Response tokens ≤ 1200; recursion depth ≤ 3; execution time ≤ 60s.</rule>
+            <rule>Agent memory usage ≤ 512MB; accuracy ≥ 0.93; latency ≤ 30s.</rule>
+            <rule>Dependency depth ≤ 5; circular dependencies forbidden; complexity ≤ 0.8.</rule>
+            <rule>Vector checksum must match; storage ≤ 1GB per agent; TTL = 45d.</rule>
+            <rule>All violations trigger CI alert and deployment block.</rule>
+          </rule-set>
+          <link-set>
+            <link rel="enforces" target="context" />
+            <link rel="enforces" target="reasoning" />
+            <link rel="enforces" target="laravel-queue" />
+            <link rel="enforces" target="laravel-security" />
+            <link rel="enforces" target="correction" />
+          </link-set>
+        </module>
+
+        <module id="pre-action" type="validation">
+          <context>
+            <name>Pre-Action Tool Validation</name>
+            <summary>Gatekeeping steps executed before any tool/action invocation to confirm stability and authorization.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Action dispatch pipeline</scope>
+          </context>
+          <flow>
+            <stage id="pre-check">
+              <title>Pre Check</title>
+              <goal>Confirm context and resource readiness.</goal>
+              <step-set>
+                <step>Verify readiness index ≥ 0.85.</step>
+                <step>Check CPU, memory, token budgets within limits.</step>
+                <step>Ensure no concurrent compaction or correction active.</step>
+                <step>Validate requested action suits current Brain mode.</step>
+              </step-set>
+              <check-set>
+                <check>All metrics within thresholds.</check>
+                <check>No conflicting background processes.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Delay execution until stability restored.</fallback>
+                <fallback>Log failure with action id and cause.</fallback>
+              </fallback-set>
+            </stage>
+            <stage id="authorization">
+              <title>Authorization</title>
+              <goal>Enforce tool permissions.</goal>
+              <step-set>
+                <step>Confirm tool exists in registered catalog.</step>
+                <step>Verify requesting agent holds delegation rights.</step>
+                <step>Cross-check tool integrity via quality gates.</step>
+                <step>Ensure delegation depth ≤ 2.</step>
+              </step-set>
+              <fallback-set>
+                <fallback>Reject unauthorized requests and notify Architect.</fallback>
+              </fallback-set>
+            </stage>
+            <stage id="commit">
+              <title>Commit</title>
+              <goal>Finalize validation and dispatch action.</goal>
+              <step-set>
+                <step>Confirm previous stages success.</step>
+                <step>Assign execution responsibility.</step>
+                <step>Log parameters, context hash, authorization trail.</step>
+                <step>Emit confirmation token and trigger execution.</step>
+              </step-set>
+              <check-set>
+                <check>Logs persisted before dispatch.</check>
+                <check>Brain state matches pre-execution snapshot.</check>
+              </check-set>
+              <fallback-set>
+                <fallback>Rollback and restore state if commit checks fail.</fallback>
+              </fallback-set>
+            </stage>
+          </flow>
+          <metric-set>
+            <metric name="validation-pass-rate">≥ 0.95</metric>
+            <metric name="false-positive-rate">≤ 0.02</metric>
+            <metric name="authorization-latency-ms">≤ 300</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="context" />
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="delegation" />
+            <link rel="depends" target="quality" />
+          </link-set>
+        </module>
+
+        <module id="correction" type="recovery">
+          <context>
+            <name>Correction Enforcement</name>
+            <summary>Detects errors, validates severity, applies correction or rollback to restore stability.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain correction pipeline</scope>
+          </context>
+          <trigger-set>
+            <trigger id="error-detected">Validation failure or inconsistent state.</trigger>
+            <trigger id="integrity-failure">Checksum/state hash mismatch.</trigger>
+            <trigger id="semantic-anomaly">Logical contradiction detected.</trigger>
+          </trigger-set>
+          <rule-set>
+            <rule>Error must reproduce twice before hard correction.</rule>
+            <rule>Divergence ≥ 10% triggers escalation.</rule>
+            <rule>Ambiguity escalated to Architect.</rule>
+          </rule-set>
+          <action-set>
+            <action id="auto-correction">Re-evaluate reasoning under adjusted constraints using fresh vector snapshot.</action>
+            <action id="manual-escalation">Notify Architect when severity critical or auto-correction fails.</action>
+            <action id="retry">Re-run task in sandbox for transient issues.</action>
+          </action-set>
+          <fallback-set>
+            <fallback>Rollback to last stable checkpoint when corrections degrade metrics.</fallback>
+          </fallback-set>
+          <metric-set>
+            <metric name="stability">≥ 0.95</metric>
+            <metric name="recovery-success">≥ 0.9</metric>
+            <metric name="rollback-frequency">≤ 0.05</metric>
+            <metric name="latency-ms">≤ 500</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="error" />
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="reasoning" />
+          </link-set>
+        </module>
+
+        <module id="error" type="recovery">
+          <context>
+            <name>Error Recovery</name>
+            <summary>Catalog of error types with detection signals, reactions, and fallbacks for autonomous resilience.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Agent fault handling</scope>
+          </context>
+          <trigger-set>
+            <trigger id="context-missing">Null or empty prompt variables detected.</trigger>
+            <trigger id="api-failure">External API failure or timeout &gt; 10s.</trigger>
+            <trigger id="hallucination">Unverifiable or contradictory statements.</trigger>
+            <trigger id="memory-desync">Vector checksum mismatch.</trigger>
+            <trigger id="overload">Token/time budget exceeds 90%.</trigger>
+            <trigger id="invalid-instruction">Malformed instruction file detected.</trigger>
+          </trigger-set>
+          <action-set>
+            <action>Regenerate missing context from vector memory or request user input.</action>
+            <action>Retry APIs with exponential backoff; mark service unavailable if persistent.</action>
+            <action>Run self-validation loop and replace speculative content with verified summary.</action>
+            <action>Reload memory from snapshot and merge deltas cautiously.</action>
+            <action>Abort heavy computation, store partial progress, requeue deferred job.</action>
+            <action>Reject invalid instruction and fall back to last known good version.</action>
+          </action-set>
+          <fallback-set>
+            <fallback>Default context template with fallback personality bank.</fallback>
+            <fallback>Switch to secondary endpoint or cached response.</fallback>
+            <fallback>Restore snapshot and discard invalid cache.</fallback>
+            <fallback>Log incidents with status tags for telemetry.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="depends" target="lifecycle" />
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="correction" />
+          </link-set>
+        </module>
+
+        <module id="edge" type="resilience">
+          <context>
+            <name>Edge Case Governance</name>
+            <summary>Policies for handling data, logic, resource, network, and unknown edge scenarios.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain abnormal scenario handling</scope>
+          </context>
+          <classification>
+            <case id="data">Validate, sanitize, and quarantine malformed data.</case>
+            <case id="logic">Re-run reasoning with stricter constraints; escalate if contradictions persist.</case>
+            <case id="resource">Halt task, snapshot state, resume under lower load.</case>
+            <case id="network">Retry up to three times with backoff; failover to cached replica.</case>
+            <case id="unknown">Invoke correction protocol and enter safe mode if unresolved.</case>
+          </classification>
+          <metric-set>
+            <metric name="response-window">≤ 3 retries before escalation.</metric>
+            <metric name="uptime">≥ 0.99 during edge handling.</metric>
+            <metric name="recurrence-rate">≤ 0.02 per 1000 executions.</metric>
+          </metric-set>
+          <link-set>
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="error" />
+            <link rel="depends" target="correction" />
+            <link rel="depends" target="quality" />
+          </link-set>
+        </module>
+
+        <module id="instruction" type="standard">
+          <context>
+            <name>Instruction Writing Standards</name>
+            <summary>Authoring doctrine for XML instructions prioritizing clarity, minimalism, machine precision, and validation.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Instruction authors and generators</scope>
+          </context>
+          <rule-set>
+            <rule>Use strict XML with UTF-8 encoding; no Markdown or filler prose.</rule>
+            <rule>Mandatory sections: meta, principles, rules, style, validation.</rule>
+            <rule>Token budgets: compact ≤ 300, normal ≤ 800, extended ≤ 1200.</rule>
+            <rule>Variables enclosed in {{snake_case}}; tags lowercase.</rule>
+            <rule>CI regex ensures meta, rules presence and prohibits placeholder text.</rule>
+          </rule-set>
+          <style>
+            <tone>Professional, directive, context-neutral.</tone>
+            <format>2-space indentation; kebab-case ids; English language only.</format>
+          </style>
+          <link-set>
+            <link rel="depends" target="formatting" />
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="response-validate" />
+          </link-set>
+        </module>
+
+      </module-set>
+    </group>
+
+    <group id="governance">
+      <name>Delegation &amp; Authority</name>
+      <mission>Controls task hand-off, authority flow, and accountability across the Brain hierarchy.</mission>
+
+      <module-set>
+
+        <module id="delegation" type="governance">
+          <context>
+            <name>Delegation Protocols</name>
+            <summary>Defines authority levels, delegation types, explore-agent usage, and non-recursive accountability rules.</summary>
+            <version>2.0</version>
+            <updated>2025-10-15</updated>
+            <scope>Brain → Architect → Specialist → Tool chain</scope>
+          </context>
+          <level-set>
+            <level id="brain">Absolute authority; delegates to Architect; governs global orchestration.</level>
+            <level id="architect">High authority; delegates to Specialists; manages architecture and policies.</level>
+            <level id="specialist">Limited authority; delegates to Tools; executes scoped tasks.</level>
+            <level id="tool">Minimal authority; no sub-delegation; performs atomic operations.</level>
+          </level-set>
+          <type-set>
+            <type id="task">Implementation and build work.</type>
+            <type id="analysis">Research or exploratory assessments.</type>
+            <type id="validation">Quality and policy verification.</type>
+          </type-set>
+          <rule-set>
+            <rule>Delegation follows upward approval; Architect approves Brain → Specialist hand-offs.</rule>
+            <rule>Context fingerprint must remain intact across delegation chain.</rule>
+            <rule>Recursive delegation prohibited; depth ≤ 2.</rule>
+            <rule>Responsibility always remains with original delegator; outputs carry origin tag.</rule>
+            <rule>Codebase exploration tasks route to Explore subagent; Brain never runs glob/grep directly.</rule>
+          </rule-set>
+          <trigger-set>
+            <trigger id="explore">Triggered by multi-file discovery or architecture mapping queries.</trigger>
+          </trigger-set>
+          <action-set>
+            <action id="explore-delegate">Invoke Explore subagent with Task(subagent_type="Explore", prompt).</action>
+          </action-set>
+          <fallback-set>
+            <fallback>If delegation rejected, reassign to Architect for redistribution.</fallback>
+            <fallback>Broken chain returns tasks to Brain queue.</fallback>
+            <fallback>Unauthorized delegation suspends agent and triggers audit.</fallback>
+          </fallback-set>
+          <link-set>
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="pre-action" />
+            <link rel="depends" target="response-validate" />
+          </link-set>
+        </module>
+
+      </module-set>
+    </group>
+
+    <group id="laravel">
+      <name>Laravel Operations</name>
+      <mission>Applies Brain governance to Laravel-based environments, covering optimization, transactions, queues, and security.</mission>
+
+      <module-set>
+
+        <module id="laravel-boost" type="laravel">
+          <context>
+            <name>Laravel Boost Guidelines</name>
+            <summary>Optional optimization and inspection playbook aligned with MCP Laravel Boost toolchain.</summary>
+            <version>1.2</version>
+            <updated>2025-10-16</updated>
+            <scope>Performance, architecture, security enhancements</scope>
+          </context>
+          <flow>
+            <stage id="performance">
+              <title>Performance Optimization</title>
+              <goal>Increase efficiency and reduce latency.</goal>
+              <step-set>
+                <step>Use Redis cache and Horizon for queue orchestration.</step>
+                <step>Eager load to eliminate N+1 queries.</step>
+                <step>Enable PHP OPcache and consider Laravel Octane.</step>
+              </step-set>
+            </stage>
+            <stage id="architecture">
+              <title>Code Architecture</title>
+              <goal>Maintain scalable, testable structure.</goal>
+              <step-set>
+                <step>Adopt DTOs for request/response data.</step>
+                <step>Implement service + repository layers with strict typing.</step>
+                <step>Enforce PSR-12, PHPStan level 10, Rector, and Pint.</step>
+                <step>Prefer dependency injection to facades.</step>
+              </step-set>
+            </stage>
+            <stage id="security">
+              <title>Security &amp; Quality</title>
+              <goal>Align Laravel apps with Brain governance.</goal>
+              <step-set>
+                <step>Integrate quality gates for automated scanning.</step>
+                <step>Respect core constraints for scheduling and load.</step>
+                <step>Manage environment keys securely per environment.</step>
+              </step-set>
+            </stage>
+          </flow>
+          <tool-set>
+            <tool>mcp__laravel-boost__list-available-config-keys</tool>
+            <tool>mcp__laravel-boost__application-info</tool>
+            <tool>mcp__laravel-boost__database-schema</tool>
+            <tool>mcp__laravel-boost__database-query</tool>
+            <tool>mcp__laravel-boost__list-routes</tool>
+            <tool>mcp__laravel-boost__list-artisan-commands</tool>
+            <tool>mcp__laravel-boost__read-log-entries</tool>
+            <tool>mcp__laravel-boost__tinker</tool>
+            <policy>Tools are read-only or safe execution; Brain authorization required for writes.</policy>
+          </tool-set>
+          <link-set>
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="constraints" />
+            <link rel="informs" target="laravel-queue" />
+          </link-set>
+        </module>
+
+        <module id="laravel-db" type="laravel">
+          <context>
+            <name>Multi-Database Transaction Governance</name>
+            <summary>Enforces atomicity, connection-aware transactions, and after-commit safety across multiple MySQL connections.</summary>
+            <version>1.0</version>
+            <updated>2025-10-19</updated>
+            <scope>Laravel services, jobs, events, validation</scope>
+          </context>
+          <rule-set>
+            <rule>Wrap multi-write operations in DB::transaction() with typed closures and explicit connections.</rule>
+            <rule>Dispatch events via ShouldDispatchAfterCommit/ShouldQueueAfterCommit only after commit.</rule>
+            <rule>Validate cross-DB integrity within FormRequests/DTOs using connection.table syntax.</rule>
+            <rule>Disallow cross-database foreign keys and implicit default connections.</rule>
+            <rule>Document and test rollback scenarios, including nested transactions.</rule>
+          </rule-set>
+          <pattern-set>
+            <pattern id="single-connection">Standard atomic write returning fresh model and deferred events.</pattern>
+            <pattern id="cross-connection">Manual begin/commit per connection; rollback all on failure.</pattern>
+            <pattern id="event-after-commit">Events and listeners implement after-commit interfaces to avoid orphaned side effects.</pattern>
+            <pattern id="two-phase-wherein">Query ids on origin connection, hydrate data on target connection, merge in application layer.</pattern>
+            <pattern id="nested-awareness">Understand MySQL savepoint behavior; prefer flattened transactions.</pattern>
+          </pattern-set>
+          <workflow>
+            <step>Identify multi-write or cross-connection operations.</step>
+            <step>Scope connections explicitly for transaction boundaries.</step>
+            <step>Wrap logic in transaction closures or manual begin/commit blocks.</step>
+            <step>Ensure after-commit event dispatch and queue configuration.</step>
+            <step>Validate cross-DB inputs with connection-qualified rules.</step>
+            <step>Test rollback and integrity via TransactionSafetyTest suite.</step>
+          </workflow>
+          <link-set>
+            <link rel="depends" target="quality" />
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="laravel-queue" />
+            <link rel="depends" target="laravel-security" />
+          </link-set>
+        </module>
+
+        <module id="laravel-queue" type="laravel">
+          <context>
+            <name>Queue Reliability Governance</name>
+            <summary>Policies for Laravel Horizon 5.36.0 with RabbitMQ ensuring retries, monitoring, DLX handling, and transaction safety.</summary>
+            <version>1.0</version>
+            <updated>2025-10-19</updated>
+            <scope>Queued jobs, supervisors, deployment</scope>
+          </context>
+          <architecture>
+            <broker>RabbitMQ (gate_rabbit)</broker>
+            <manager>Laravel Horizon 5.36.0</manager>
+            <queue-map>
+              <queue name="critical" priority="10">Payments, security alerts.</queue>
+              <queue name="high" priority="7">User notifications, realtime updates.</queue>
+              <queue name="default" priority="5">Analytics, sync operations.</queue>
+              <queue name="low" priority="2">Audits, cleanup, maintenance.</queue>
+              <queue name="virus-scan" priority="5">Isolated file scanning.</queue>
+            </queue-map>
+            <dlx exchange="getorder.dlx" queue="failed" routing-key="failed" />
+          </architecture>
+          <rule-set>
+            <rule>All jobs implement ShouldQueue and define public int $tries ≥ 3.</rule>
+            <rule>Jobs expose failed(?Throwable) for graceful recovery.</rule>
+            <rule>State-mutating jobs implement ShouldQueueAfterCommit; queue connection config/queue.php sets after_commit=true.</rule>
+            <rule>Jobs delete when missing models by setting $deleteWhenMissingModels = true.</rule>
+            <rule>Constructors accept primitives, arrays, DTOs; no service injection or Closures.</rule>
+            <rule>Explicit queue assignment via public string $queue per workload priority.</rule>
+          </rule-set>
+          <retry-strategy>
+            <backoff profile="high">[10, 30, 60]</backoff>
+            <backoff profile="default">[60, 180, 300]</backoff>
+            <backoff profile="virus-scan">[60, 300, 900]</backoff>
+          </retry-strategy>
+          <timeout-policy>
+            <rule>Define public int $timeout for jobs exceeding 60s; keep below supervisor timeout.</rule>
+          </timeout-policy>
+          <monitoring>
+            <metric>Queue depth &gt; 1000 pending triggers investigation.</metric>
+            <metric>Failed job rate &gt; 5% triggers DLX review.</metric>
+            <metric>Idle workers &gt; 10 minutes require supervisor check.</metric>
+            <snapshot>Schedule horizon:snapshot every 5 minutes.</snapshot>
+          </monitoring>
+          <supervisors>
+            <supervisor id="general" queues="critical,high,default,low" min="2" max="10" balance="auto" timeout="300" memory="128" />
+            <supervisor id="virus" queues="virus-scan" processes="2" balance="simple" timeout="600" memory="256" />
+          </supervisors>
+          <dlx-policy>
+            <step>Exhausted tries → route to DLX.</step>
+            <step>Store in failed queue for manual review.</step>
+            <step>Decide via queue:retry {id} or queue:flush.</step>
+            <retention>24h TTL; 7d Horizon retention.</retention>
+          </dlx-policy>
+          <testing>
+            <rule>Unit tests cover handle(), failed(), serialization; coverage ≥ 95% for job classes.</rule>
+            <rule>Feature tests verify dispatch, retries, DLX routing, and backoff arrays.</rule>
+          </testing>
+          <deployment>
+            <rule>Run Horizon under systemd with Restart=always.</rule>
+            <rule>Deploy scripts call horizon:terminate for graceful shutdown.</rule>
+          </deployment>
+          <link-set>
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="error" />
+            <link rel="depends" target="laravel-boost" />
+            <link rel="depends" target="quality" />
+          </link-set>
+        </module>
+
+        <module id="laravel-security" type="laravel">
+          <context>
+            <name>Security Runtime Policies</name>
+            <summary>Mandatory security posture for Laravel 12 with Sanctum JWT focusing on rate limiting, authorization, PII protection, and SQL safety.</summary>
+            <version>1.0</version>
+            <updated>2025-10-19</updated>
+            <scope>API and web routes, authentication, compliance</scope>
+          </context>
+          <rule-set>
+            <rule>Apply throttle middleware to all API/web routes; custom limiters for sensitive endpoints.</rule>
+            <rule>Protected routes require auth:sanctum; controllers enforce middleware constructors.</rule>
+            <rule>All mutations enforce policies via authorize() or Gate::authorize().</rule>
+            <rule>Never log PII; log sanitized identifiers only.</rule>
+            <rule>Enable CSRF on state-changing web routes; limit VerifyCsrfToken exceptions.</rule>
+            <rule>Disallow raw SQL with concatenated variables; use ORM, builder, or parameter binding.</rule>
+            <rule>Models declare $fillable or $guarded to prevent mass assignment.</rule>
+          </rule-set>
+          <rate-limiting>
+            <limiter name="api">60 req/min per user or IP.</limiter>
+            <limiter name="auth">5 req/min per IP for auth endpoints.</limiter>
+            <limiter name="uploads">10 req/hour per user (2/hour unauthenticated).</limiter>
+            <response>Return 429 with retry_after metadata.</response>
+          </rate-limiting>
+          <sanctum>
+            <rule>Tokens carry explicit abilities; enforce via middleware.</rule>
+            <rule>Configure expiration (30d user, 7d temp).</rule>
+            <rule>SPA auth relies on Sanctum cookies with CSRF protection and stateful domains.</rule>
+          </sanctum>
+          <compliance>
+            <item>Implement GDPR rights: erasure, portability, consent tracking.</item>
+            <item>Validate all inputs via FormRequests with sanitization.</item>
+            <item>Attach security headers (HSTS, X-Frame-Options, CSP, etc.).</item>
+          </compliance>
+          <testing>
+            <rule>Automate tests for rate limiting, authorization denial, CSRF enforcement, mass assignment protection.</rule>
+          </testing>
+          <link-set>
+            <link rel="depends" target="constraints" />
+            <link rel="depends" target="error" />
+            <link rel="depends" target="laravel-boost" />
+            <link rel="depends" target="quality" />
+          </link-set>
+        </module>
+
+      </module-set>
+    </group>
+
+  </group-set>
+
+</brain-codex>

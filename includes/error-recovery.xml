@@ -1,0 +1,114 @@
+<error-recovery>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the standardized error detection, reaction, and fallback mechanisms for all Cloud Code agents.
+      Enables autonomous fault tolerance, graceful degradation, and continuous operational stability.
+    </purpose>
+  </meta>
+
+  <error-type id="context-missing">
+    <detection>
+      <signal>Missing context or prior message reference.</signal>
+      <condition>If agent detects null, undefined, or empty prompt variables.</condition>
+    </detection>
+    <reaction>
+      <action>Request minimal context regeneration from vector memory.</action>
+      <action>If unavailable, prompt user for key missing parameter.</action>
+    </reaction>
+    <fallback>
+      <action>Use default context template with fallback personality bank.</action>
+      <action>Log event as context-recovery in telemetry.</action>
+    </fallback>
+    <log>event=context_missing;status=recovered</log>
+  </error-type>
+
+  <error-type id="api-failure">
+    <detection>
+      <signal>External API returns 4xx/5xx or timeout > 10s.</signal>
+      <condition>If connection retries exceed threshold (3).</condition>
+    </detection>
+    <reaction>
+      <action>Retry API call with exponential backoff (2x).</action>
+      <action>If failure persists, mark service as temporarily unavailable.</action>
+    </reaction>
+    <fallback>
+      <action>Switch to secondary API endpoint or cached response.</action>
+      <action>Alert central monitor with error code and request ID.</action>
+    </fallback>
+    <log>event=api_failure;action=fallback_triggered</log>
+  </error-type>
+
+  <error-type id="hallucination">
+    <detection>
+      <signal>Agent produces unverifiable or self-contradictory statements.</signal>
+      <condition>If response confidence < 0.7 or contains logical inconsistency markers.</condition>
+    </detection>
+    <reaction>
+      <action>Initiate self-validation loop using prior truth context.</action>
+      <action>Cross-check against vector knowledge and task scope.</action>
+    </reaction>
+    <fallback>
+      <action>Replace speculative content with verified summary from last valid context.</action>
+      <action>Tag output as partially recovered to avoid recursion.</action>
+    </fallback>
+    <log>event=hallucination_detected;status=revalidated</log>
+  </error-type>
+
+  <error-type id="memory-desync">
+    <detection>
+      <signal>Vector or short-term memory mismatch detected.</signal>
+      <condition>If checksum or token reference mismatch occurs between local and external stores.</condition>
+    </detection>
+    <reaction>
+      <action>Pause current execution and reload memory from verified snapshot.</action>
+      <action>Compare hashes and merge deltas using priority rules.</action>
+    </reaction>
+    <fallback>
+      <action>Restore last stable memory checkpoint and discard invalid cache.</action>
+      <action>Log delta mismatch for future training analysis.</action>
+    </fallback>
+    <log>event=memory_desync;status=snapshot_restored</log>
+  </error-type>
+
+  <error-type id="computation-overload">
+    <detection>
+      <signal>Excessive token consumption or time limit exceeded.</signal>
+      <condition>If task execution surpasses 90% of allocated compute budget.</condition>
+    </detection>
+    <reaction>
+      <action>Abort current computation safely with partial results.</action>
+      <action>Summarize progress and estimated next-step plan.</action>
+    </reaction>
+    <fallback>
+      <action>Store partial output and requeue task as deferred.</action>
+      <action>Notify orchestrator of performance throttling.</action>
+    </fallback>
+    <log>event=overload_detected;status=deferred</log>
+  </error-type>
+
+  <error-type id="invalid-instruction">
+    <detection>
+      <signal>Malformed XML or missing tags in loaded instruction file.</signal>
+      <condition>If CI or runtime validator flags schema violation.</condition>
+    </detection>
+    <reaction>
+      <action>Reject instruction and load last valid version from cache.</action>
+      <action>Trigger instruction-validation job in CI.</action>
+    </reaction>
+    <fallback>
+      <action>Run minimal fallback instruction set (compact response format).</action>
+      <action>Log incident to Brain audit layer.</action>
+    </fallback>
+    <log>event=invalid_instruction;status=fallback_executed</log>
+  </error-type>
+
+  <meta-controls>
+    <compactness>Fully operational, optimized for agent-level usage only.</compactness>
+    <validation-schema>Compatible with agent-lifecycle-framework.xml and quality-gates.xml.</validation-schema>
+    <logging>All recovery events must append to agent_recovery.log with UTC timestamp.</logging>
+  </meta-controls>
+
+</error-recovery>

@@ -1,0 +1,74 @@
+<edge-cases>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain’s unified policy for handling abnormal or boundary scenarios (edge cases) across agents and systems.
+      Ensures graceful degradation, system stability, and predictable recovery under non-standard conditions.
+    </purpose>
+  </meta>
+
+  <classification>
+    <type id="data">
+      <trigger>Malformed, missing, or conflicting data input.</trigger>
+      <response>Validate structure, sanitize values, and request resubmission if unrecoverable.</response>
+      <validation>Ensure recovered dataset passes integrity checks before reuse.</validation>
+      <fallback>Quarantine corrupted data and notify Architect Agent for manual review.</fallback>
+    </type>
+
+    <type id="logic">
+      <trigger>Contradictory reasoning output or circular dependency detected.</trigger>
+      <response>Re-run reasoning cycle under stricter constraints with reduced inference depth.</response>
+      <validation>Verify logical consistency score ≥ 0.9 after correction.</validation>
+      <fallback>Escalate to Architect Agent and freeze offending reasoning thread.</fallback>
+    </type>
+
+    <type id="resource">
+      <trigger>Exceeded token, memory, or CPU threshold defined in core-constraints.xml.</trigger>
+      <response>Gracefully halt task and commit partial progress snapshot.</response>
+      <validation>Ensure task resumed under reduced load and identical input context.</validation>
+      <fallback>Defer to Brain scheduler for deferred execution in low-load window.</fallback>
+    </type>
+
+    <type id="network">
+      <trigger>Timeout, dropped connection, or inconsistent API response.</trigger>
+      <response>Retry request up to 3 times with exponential backoff.</response>
+      <validation>Confirm identical checksum between retried and initial request.</validation>
+      <fallback>Failover to cached replica or alternative endpoint.</fallback>
+    </type>
+
+    <type id="unknown">
+      <trigger>Unhandled behavior or undefined exception detected.</trigger>
+      <response>Invoke correction-protocol-enforcement.xml for diagnostic re-evaluation.</response>
+      <validation>Ensure system remains responsive and state integrity preserved.</validation>
+      <fallback>Enter safe-mode and isolate agent until root cause identified.</fallback>
+    </type>
+  </classification>
+
+  <validation>
+    <criterion>All edge-case responses must complete within 3 retries or escalate.</criterion>
+    <criterion>System uptime must remain ≥ 0.99 during recovery cycles.</criterion>
+    <criterion>Edge-case recurrence rate ≤ 0.02 per 1000 executions.</criterion>
+  </validation>
+
+  <escalation>
+    <path id="standard">Notify Architect Agent → Log to edge_case_audit.log → Resume operations.</path>
+    <path id="critical">Suspend affected agent → Trigger rollback → Alert Brain Core.</path>
+  </escalation>
+
+  <integration>
+    <link>core-constraints.xml</link>
+    <link>error-recovery.xml</link>
+    <link>correction-protocol-enforcement.xml</link>
+    <link>quality-gates.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Structured XML for automated CI testing and resilience simulation.</compactness>
+    <logging>All edge-case activations recorded in edge_case_audit.log with type, severity, and resolution time.</logging>
+    <governance>Architect Agent reviews recurring edge-case patterns and updates policies quarterly.</governance>
+  </meta-controls>
+
+</edge-cases>
+

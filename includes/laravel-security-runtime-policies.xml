@@ -1,0 +1,398 @@
+<laravel-security-runtime-policies>
+
+  <meta>
+    <version>1.0</version>
+    <last-updated>2025-10-19</last-updated>
+    <purpose>
+      Defines mandatory security and runtime policies for Laravel 12 with Sanctum 4.2.0 JWT authentication.
+      Enforces rate limiting, GDPR compliance, PII protection, CSRF safeguards, and policy authorization across all API and web routes.
+    </purpose>
+  </meta>
+
+  <stack>
+    <framework>Laravel 12.34.0</framework>
+    <authentication>Laravel Sanctum 4.2.0</authentication>
+    <auth-mechanism>JWT tokens + cookie-based sessions</auth-mechanism>
+    <compliance>GDPR, PII logging prohibition</compliance>
+  </stack>
+
+  <iron-rules>
+    <rule id="rate-limiting-mandatory">
+      <requirement>ALL API and web routes MUST have rate limiting middleware applied</requirement>
+      <validation>CI scan: Detect routes without throttle middleware in route definitions</validation>
+      <why>Prevents brute-force attacks, DDoS, credential stuffing, and API abuse</why>
+      <implementation>
+        <global>Apply throttle:api to all API routes via route group</global>
+        <granular>Override with custom rate limiters for sensitive endpoints (login, registration, password reset)</granular>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// routes/api.php
+Route::middleware(['throttle:api'])->group(function () {
+    Route::apiResource('reviews', ReviewsController::class);
+});
+
+// Custom rate limiter for auth endpoints
+Route::middleware(['throttle:auth'])->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+});
+
+// app/Providers/RateLimiterServiceProvider.php
+RateLimiter::for('auth', function (Request $request) {
+    return Limit::perMinute(5)->by($request->ip());
+});
+        ]]>
+      </example-pass>
+      <violation>Routes without throttle middleware allow unlimited requests, exposing application to abuse</violation>
+    </rule>
+
+    <rule id="auth-middleware-required">
+      <requirement>ALL protected routes MUST use auth:sanctum middleware</requirement>
+      <validation>Code review: Protected endpoints must verify Sanctum authentication guard</validation>
+      <why>Ensures only authenticated users access protected resources, preventing unauthorized data access</why>
+      <implementation>
+        <api-routes>Use auth:sanctum for API token or session-based authentication</api-routes>
+        <web-routes>Use auth middleware for traditional session authentication</web-routes>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// API routes requiring authentication
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/user', fn(Request $request) => $request->user());
+    Route::apiResource('reviews', ReviewsController::class);
+});
+
+// Controller-level authentication
+class ReviewsManagementController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+    }
+}
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="policy-authorization-mandatory">
+      <requirement>ALL resource operations (create, update, delete) MUST enforce policy authorization via Gate or authorize() method</requirement>
+      <validation>PHPStan rule: Controller methods must call $this->authorize() or Gate::authorize() before mutations</validation>
+      <why>Role-based access control (RBAC) prevents privilege escalation and unauthorized data modification</why>
+      <implementation>
+        <policies>Define policies for all Eloquent models with authorization logic</policies>
+        <gates>Use Gate facade for non-model authorization checks</gates>
+        <middleware>Apply can:ability middleware to routes requiring specific permissions</middleware>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// Policy definition
+class ReviewExtensionPolicy
+{
+    public function update(User $user, ReviewExtension $reviewExtension): bool
+    {
+        return $user->id === $reviewExtension->restaurant->responsible_user_id
+            || $user->hasRole('admin');
+    }
+}
+
+// Controller authorization
+public function update(Request $request, ReviewExtension $reviewExtension)
+{
+    $this->authorize('update', $reviewExtension); // REQUIRED before mutation
+
+    $reviewExtension->update($request->validated());
+}
+
+// Route-level authorization
+Route::middleware(['can:update,reviewExtension'])->group(function () {
+    Route::put('/reviews/{reviewExtension}', [ReviewsController::class, 'update']);
+});
+        ]]>
+      </example-pass>
+      <violation>Missing authorization checks allow users to modify resources they should not access</violation>
+    </rule>
+
+    <rule id="pii-logging-prohibited">
+      <requirement>PII (Personally Identifiable Information) MUST NEVER be logged to application logs, Horizon, or monitoring systems</requirement>
+      <validation>Code review + automated log scanning: Flag log statements containing PII patterns (email, phone, password, API keys)</validation>
+      <why>GDPR Article 5(1)(f) requires data minimization and confidentiality; PII exposure violates compliance and user privacy</why>
+      <pii-definition>
+        <prohibited>Email addresses, phone numbers, full names, IP addresses (when linked to users), passwords, API keys, tokens</prohibited>
+        <allowed>User IDs (numeric), hashed identifiers, anonymized metrics, aggregated statistics</allowed>
+      </pii-definition>
+      <implementation>
+        <sanitize>Use custom Log channel with PII redaction</sanitize>
+        <mask>Replace sensitive data with placeholders (e.g., email → e***@domain.com)</mask>
+        <exclude>Never log request payloads containing user inputs without filtering</exclude>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// ❌ INCORRECT - Logs PII
+Log::info('User login', ['email' => $request->email, 'ip' => $request->ip()]);
+
+// ✅ CORRECT - Logs safe identifiers only
+Log::info('User login', ['user_id' => $user->id, 'result' => 'success']);
+
+// ✅ CORRECT - Custom sanitization
+Log::info('Failed login attempt', [
+    'email_hash' => hash('sha256', $request->email),
+    'timestamp' => now(),
+]);
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="csrf-enabled-by-default">
+      <requirement>CSRF protection MUST be enabled for all non-API state-changing routes (POST, PUT, PATCH, DELETE)</requirement>
+      <validation>Verify VerifyCsrfToken middleware active in HTTP kernel for web routes</validation>
+      <why>Prevents Cross-Site Request Forgery attacks where malicious sites trick users into executing unwanted actions</why>
+      <implementation>
+        <web-routes>CSRF tokens required via @csrf Blade directive or meta tag</web-routes>
+        <api-routes>CSRF exempt for stateless API routes using Sanctum token authentication</api-routes>
+        <exceptions>Explicitly exclude routes in VerifyCsrfToken::$except array only when necessary (e.g., webhooks)</exceptions>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// Blade forms automatically include CSRF token
+<form method="POST" action="/reviews">
+    @csrf
+    <!-- form fields -->
+</form>
+
+// API routes exempt from CSRF (stateless)
+// app/Http/Middleware/VerifyCsrfToken.php
+protected $except = [
+    'api/*', // API routes exempt
+    'webhooks/*', // External webhooks exempt
+];
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="sql-injection-prevention">
+      <requirement>ALL database queries MUST use Eloquent ORM, Query Builder with parameter binding, or prepared statements (NO raw SQL with string concatenation)</requirement>
+      <validation>PHPStan rule: Detect DB::raw() with concatenated variables; flag for review</validation>
+      <why>Prevents SQL injection attacks that can compromise entire database through malicious user inputs</why>
+      <safe-methods>
+        <eloquent>Model::where('column', $value)->get()</eloquent>
+        <query-builder>DB::table('users')->where('email', $email)->first()</query-builder>
+        <parameter-binding>DB::select('SELECT * FROM users WHERE email = ?', [$email])</parameter-binding>
+      </safe-methods>
+      <unsafe-methods>
+        <forbidden>DB::raw("SELECT * FROM users WHERE email = '" . $email . "'")</forbidden>
+        <forbidden>DB::statement("DELETE FROM reviews WHERE id = " . $id)</forbidden>
+      </unsafe-methods>
+      <example-pass>
+        <![CDATA[
+// ✅ CORRECT - Eloquent ORM
+$reviews = ReviewExtension::where('restaurant_id', $restaurantId)
+    ->where('status', 'approved')
+    ->get();
+
+// ✅ CORRECT - Query Builder with bindings
+$count = DB::table('go_customer_review_extensions')
+    ->where('created_at', '>=', $startDate)
+    ->count();
+
+// ✅ CORRECT - Raw query with parameter binding
+$results = DB::select('SELECT * FROM reviews WHERE rating >= ? AND created_at > ?', [4, $date]);
+
+// ❌ INCORRECT - String concatenation (SQL injection risk)
+$results = DB::select("SELECT * FROM reviews WHERE user_input = '" . $input . "'");
+        ]]>
+      </example-pass>
+    </rule>
+
+    <rule id="mass-assignment-protection">
+      <requirement>ALL Eloquent models MUST define $fillable or $guarded properties to prevent mass assignment vulnerabilities</requirement>
+      <validation>PHPStan rule: Models must declare either $fillable or $guarded array</validation>
+      <why>Prevents attackers from modifying unintended model attributes (e.g., is_admin, user_id) through request manipulation</why>
+      <implementation>
+        <fillable>Whitelist approach: Define allowed attributes in $fillable array (RECOMMENDED)</fillable>
+        <guarded>Blacklist approach: Define protected attributes in $guarded array</guarded>
+        <avoid>NEVER use protected $guarded = [] (disables protection entirely)</avoid>
+      </implementation>
+      <example-pass>
+        <![CDATA[
+// ✅ CORRECT - Whitelist fillable attributes
+class ReviewExtension extends Model
+{
+    protected $fillable = [
+        'review_id',
+        'status',
+        'moderation_notes',
+        'is_published',
+    ];
+}
+
+// ✅ CORRECT - Blacklist guarded attributes
+class User extends Model
+{
+    protected $guarded = [
+        'id',
+        'is_admin',
+        'email_verified_at',
+    ];
+}
+
+// ❌ INCORRECT - No mass assignment protection
+class ReviewExtension extends Model
+{
+    protected $guarded = []; // Allows ALL attributes to be mass assigned
+}
+        ]]>
+      </example-pass>
+    </rule>
+  </iron-rules>
+
+  <rate-limiting>
+    <global-limiters>
+      <limiter name="api" scope="Global API rate limit">
+        <rate>60 requests per minute per IP or user_id</rate>
+        <implementation>
+          <![CDATA[
+RateLimiter::for('api', function (Request $request) {
+    return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+});
+          ]]>
+        </implementation>
+      </limiter>
+      <limiter name="auth" scope="Authentication endpoints (login, register)">
+        <rate>5 requests per minute per IP</rate>
+        <why>Prevents brute-force attacks, credential stuffing</why>
+        <implementation>
+          <![CDATA[
+RateLimiter::for('auth', function (Request $request) {
+    return Limit::perMinute(5)->by($request->ip());
+});
+          ]]>
+        </implementation>
+      </limiter>
+      <limiter name="uploads" scope="File upload endpoints">
+        <rate>10 requests per hour per user</rate>
+        <why>Prevents abuse, storage exhaustion, malware upload attempts</why>
+        <implementation>
+          <![CDATA[
+RateLimiter::for('uploads', function (Request $request) {
+    return $request->user()
+        ? Limit::perHour(10)->by($request->user()->id)
+        : Limit::perHour(2)->by($request->ip());
+});
+          ]]>
+        </implementation>
+      </limiter>
+    </global-limiters>
+    <response-handling>
+      <headers>X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After</headers>
+      <status-code>429 Too Many Requests</status-code>
+      <custom-response>
+        <![CDATA[
+RateLimiter::for('api', function (Request $request) {
+    return Limit::perMinute(60)
+        ->by($request->user()?->id ?: $request->ip())
+        ->response(function (Request $request, array $headers) {
+            return response()->json([
+                'message' => 'Too many requests. Please try again later.',
+                'retry_after' => $headers['Retry-After'] ?? 60,
+            ], 429, $headers);
+        });
+});
+        ]]>
+      </custom-response>
+    </response-handling>
+  </rate-limiting>
+
+  <sanctum-configuration>
+    <token-authentication>
+      <requirement>API tokens MUST have explicit abilities (scopes) for granular permission control</requirement>
+      <implementation>
+        <![CDATA[
+// Creating token with abilities
+$token = $user->createToken('api-token', ['review:read', 'review:write'])->plainTextToken;
+
+// Verifying abilities in controller
+if ($request->user()->tokenCan('review:write')) {
+    // Allow write operation
+}
+
+// Middleware ability check
+Route::middleware(['auth:sanctum', 'abilities:review:write'])->group(function () {
+    Route::post('/reviews', [ReviewsController::class, 'store']);
+});
+        ]]>
+      </implementation>
+    </token-authentication>
+    <token-expiration>
+      <requirement>API tokens MUST have expiration dates; avoid long-lived tokens</requirement>
+      <recommended>30 days for user tokens, 7 days for temporary access tokens</recommended>
+      <implementation>config/sanctum.php: 'expiration' => 30</implementation>
+    </token-expiration>
+    <spa-authentication>
+      <requirement>SPA routes MUST use cookie-based session authentication with CSRF protection</requirement>
+      <csrf>CSRF token required via Sanctum::routes() middleware</csrf>
+      <stateful-domains>Define stateful domains in config/sanctum.php for cookie sharing</stateful-domains>
+    </spa-authentication>
+  </sanctum-configuration>
+
+  <gdpr-compliance>
+    <data-minimization>Collect only necessary data; audit database for unnecessary PII</data-minimization>
+    <right-to-erasure>Implement deletion endpoints per GDPR Article 17; use cascade/soft deletes</right-to-erasure>
+    <data-portability>Provide user data export (JSON/CSV); include all user-generated content</data-portability>
+    <consent-management>Track user consent with timestamp, purpose, acknowledgment</consent-management>
+  </gdpr-compliance>
+
+  <input-validation>
+    <requirement>ALL inputs validated via Form Requests with strict rules</requirement>
+    <sanitization>
+      <html>htmlspecialchars() or Purifier for HTML</html>
+      <sql>Eloquent/Query Builder auto-escaping</sql>
+      <xss>Blade {{ }} escapes; {!! !!} for trusted only</xss>
+    </sanitization>
+  </input-validation>
+
+  <security-headers>
+    <requirement>ALL responses include security headers via middleware</requirement>
+    <headers>X-Content-Type-Options: nosniff, X-Frame-Options: DENY, X-XSS-Protection: 1; mode=block, Strict-Transport-Security: max-age=31536000; includeSubDomains, Content-Security-Policy: default-src 'self'</headers>
+  </security-headers>
+
+  <testing-requirements>
+    <security-tests>
+      <requirement>ALL security policies MUST have automated tests verifying enforcement</requirement>
+      <coverage>Rate limiting, authorization, CSRF protection, input validation, mass assignment protection</coverage>
+    </security-tests>
+    <example>
+      <![CDATA[
+test('rate limiting blocks excessive requests', function () {
+    for ($i = 0; $i < 6; $i++) {
+        $response = $this->post('/api/login', ['email' => 'test@example.com']);
+    }
+
+    expect($response->status())->toBe(429); // Too Many Requests
+});
+
+test('unauthorized users cannot update review extensions', function () {
+    $user = User::factory()->create();
+    $review = ReviewExtension::factory()->create();
+
+    $this->actingAs($user)
+        ->put("/api/reviews/{$review->id}", ['status' => 'approved'])
+        ->assertForbidden();
+});
+      ]]>
+    </example>
+  </testing-requirements>
+
+  <integration>
+    <link>core-constraints.xml</link>
+    <link>error-recovery.xml</link>
+    <link>laravel-boost-guidelines.xml</link>
+    <link>quality-gates.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict declarative XML optimized for CI validation and runtime enforcement</compactness>
+    <governance>All security policy changes require Architect Agent approval and security audit</governance>
+    <logging>All security violations logged to security_audit.log with timestamp, IP, and user_id</logging>
+  </meta-controls>
+
+</laravel-security-runtime-policies>

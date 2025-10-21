@@ -1,0 +1,87 @@
+<context-analysis>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines the Brain-level contextual awareness and evaluation protocol.
+      Enables Brain to assess global readiness, resource state, and knowledge coherence before initiating reasoning or delegation.
+    </purpose>
+  </meta>
+
+  <phase id="monitoring">
+    <goal>Collect and assess global system state.</goal>
+    <logic>
+      <step>Scan all active agents and record operational status (idle, busy, offline).</step>
+      <step>Check vector master storage sync timestamp and integrity checksum.</step>
+      <step>Measure current system load (CPU, memory, token usage) via core-constraints.xml.</step>
+    </logic>
+    <validation>
+      <criterion>All core subsystems responsive (≥ 95% uptime).</criterion>
+      <criterion>Vector master last sync ≤ 5m.</criterion>
+      <criterion>System load < 80% threshold.</criterion>
+    </validation>
+    <metrics>
+      <brain-synchronization>≥ 0.9</brain-synchronization>
+      <agent-availability>≥ 0.95</agent-availability>
+    </metrics>
+    <fallback>
+      <action>If vector master desynced, delay reasoning initiation and trigger resync.</action>
+    </fallback>
+  </phase>
+
+  <phase id="evaluation">
+    <goal>Analyze contextual completeness and relevance of knowledge.</goal>
+    <logic>
+      <step>Cross-reference current objective with stored embeddings in vector-master-storage-strategy.xml.</step>
+      <step>Detect missing or outdated knowledge segments via timestamp comparison.</step>
+      <step>Evaluate reasoning dependency coverage (required vs available agents).</step>
+    </logic>
+    <validation>
+      <criterion>Context completeness ≥ 0.9 before reasoning allowed.</criterion>
+      <criterion>All dependent knowledge modules validated and up-to-date.</criterion>
+    </validation>
+    <metrics>
+      <context-integrity>≥ 0.95</context-integrity>
+      <missing-knowledge-ratio>≤ 0.05</missing-knowledge-ratio>
+    </metrics>
+    <fallback>
+      <action>If context incomplete, request additional information or postpone task.</action>
+      <action>If outdated module detected, trigger vector update pipeline.</action>
+    </fallback>
+  </phase>
+
+  <phase id="readiness">
+    <goal>Determine Brain’s readiness to launch reasoning or task delegation.</goal>
+    <logic>
+      <step>Aggregate all readiness signals (context, load, vector sync, agent health).</step>
+      <step>Compute global readiness index = weighted mean of metrics across phases.</step>
+      <step>Compare readiness index to execution threshold.</step>
+    </logic>
+    <validation>
+      <criterion>Readiness index ≥ 0.85 required to initiate reasoning.</criterion>
+      <criterion>No unresolved system alerts pending.</criterion>
+    </validation>
+    <metrics>
+      <readiness-index>≥ 0.85</readiness-index>
+      <alert-count>≤ 0</alert-count>
+    </metrics>
+    <fallback>
+      <action>If readiness below threshold, hold Brain in idle observation until context stabilizes.</action>
+    </fallback>
+  </phase>
+
+  <integration>
+    <link>vector-master-storage-strategy.xml</link>
+    <link>core-constraints.xml</link>
+    <link>delegation-protocols.xml</link>
+    <link>sequential-reasoning-capability.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML optimized for Brain readiness evaluation and CI monitoring.</compactness>
+    <governance>Architect Agent oversees readiness thresholds and validation logic.</governance>
+    <logging>All context-analysis cycles logged in brain_context.log with timestamp and readiness-index.</logging>
+  </meta-controls>
+
+</context-analysis>

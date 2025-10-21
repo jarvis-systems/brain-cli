@@ -1,0 +1,116 @@
+<self-architecture-awareness>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Enables Brain to maintain dynamic awareness of its internal architecture.
+      Allows self-mapping of modules, dependencies, and integrity relationships across all XML systems and agents.
+      Supports topology validation, dependency tracking, and architecture drift detection.
+    </purpose>
+  </meta>
+
+  <scan>
+    <scope>Brain Core, Agents, XML Protocols, MCP Servers, Vector Memory, and Diagnostic Systems.</scope>
+    <frequency>on boot, daily, and after module installation or removal.</frequency>
+    <method>
+      <step>Enumerate all registered modules and XML configuration files.</step>
+      <step>Build directed dependency graph based on <depends-on> tags.</step>
+      <step>Detect missing or orphaned nodes and validate integrity.</step>
+    </method>
+  </scan>
+
+  <graph>
+    <node id="brain-core" type="core" depends-on="vector-master-storage, correction-protocol-enforcement, context-analysis" />
+    <node id="architect-agent" type="manager" depends-on="delegation-protocols, quality-gates, self-diagnostic" />
+    <node id="execution-agent" type="worker" depends-on="tools-only-execution-integrated, compaction-recovery" />
+    <node id="mcp-server" type="external" depends-on="core-constraints" />
+  </graph>
+
+  <validation>
+    <criterion>All core nodes must respond to architecture ping within 200ms.</criterion>
+    <criterion>No circular dependencies detected in directed graph.</criterion>
+    <criterion>Module registration checksum verified for all XML files.</criterion>
+    <criterion>Dependency graph hash stable across 24h monitoring window.</criterion>
+  </validation>
+
+  <mode_detection>
+    <self_dev_mode>
+      <signals>
+        <signal>Working directory includes `claude-agent-brain` (canonical Brain repo).</signal>
+        <signal>Active task targets Brain/BRAIN.xml/personality/templates.</signal>
+        <signal>Git remote matches Brain repository; vector memory contains architecture patterns.</signal>
+      </signals>
+      <permissions>
+        <permission>Edit `.claude/` assets (Brain, personality banks, templates).</permission>
+        <permission>Run `/self-optimize` and Brain compilation commands.</permission>
+        <permission>Store Brain architecture learnings to vector memory.</permission>
+      </permissions>
+    </self_dev_mode>
+    <user_project_mode>
+      <signals>
+        <signal>Working directory ≠ Brain repo (user project subtree).</signal>
+        <signal>Tasks reference product code, not Brain internals.</signal>
+      </signals>
+      <restrictions>
+        <restriction>Do NOT edit `.claude/` Brain files (use universal configuration).</restriction>
+        <restriction>`/self-optimize` unavailable (symlink gitignored).</restriction>
+        <restriction>Store only project-specific knowledge to memory.</restriction>
+      </restrictions>
+    </user_project_mode>
+  </mode_detection>
+
+  <canonical_artifacts>
+    <artifact path=".claude/templates/agent-template.xml" purpose="Agent blueprint for new specialists"/>
+    <artifact path=".claude/templates/personality-bank-template.xml" purpose="Baseline contract for new personality banks"/>
+    <artifact path=".claude/BRAIN.xml" purpose="Brain orchestration core"/>
+    <artifact path=".claude/AGENTS.xml" purpose="Delegation registry"/>
+  </canonical_artifacts>
+
+  <compilation_protocol>
+    <step>After modifying templates/personality banks: run `npm run brain:compile`.</step>
+    <step>Confirm agents/*.md regenerated from templates/agents/*.xml.</step>
+    <step>Restart Claude to reload Brain + agent registry.</step>
+  </compilation_protocol>
+
+  <subtree_separation>
+    <mechanism>
+      <item>User projects receive Brain via `git subtree add --prefix=.claude`.</item>
+      <item>Symlinked `/self-optimize` command is gitignored in subtree contexts.</item>
+      <item>Brain repo retains editable source; user projects treat `.claude/` as read-only.</item>
+    </mechanism>
+  </subtree_separation>
+
+  <alerts>
+    <alert id="orphan-node">Node registered without dependency references — auto-remove or quarantine.</alert>
+    <alert id="missing-module">Dependency not found — trigger rescan and notify Architect Agent.</alert>
+    <alert id="drift-detected">Architecture hash mismatch — initiate topology revalidation.</alert>
+  </alerts>
+
+  <actions>
+    <action id="rescan">Perform full rescan and rebuild of architecture graph.</action>
+    <action id="revalidate">Run dependency consistency checks against vector master map.</action>
+    <action id="notify">Alert Architect Agent with drift report and module impact list.</action>
+  </actions>
+
+  <metrics>
+    <architecture-integrity>≥ 0.98</architecture-integrity>
+    <dependency-accuracy>≥ 0.95</dependency-accuracy>
+    <response-latency-ms>≤ 200</response-latency-ms>
+  </metrics>
+
+  <integration>
+    <link>vector-master-storage-strategy.xml</link>
+    <link>core-constraints.xml</link>
+    <link>self-diagnostic.xml</link>
+    <link>context-analysis.xml</link>
+    <link>correction-protocol-enforcement.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML schema for architecture introspection and CI validation.</compactness>
+    <governance>Architect Agent manages structure map updates and dependency registry.</governance>
+    <logging>All scans and drift detections logged in architecture_awareness.log with node IDs and timestamps.</logging>
+  </meta-controls>
+
+</self-architecture-awareness>

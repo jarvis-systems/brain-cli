@@ -1,0 +1,85 @@
+<self-diagnostic>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain’s autonomous diagnostic protocol to detect degradation, synchronization drift, or internal inconsistencies.
+      Ensures proactive health monitoring, predictive maintenance, and stability across all subsystems.
+    </purpose>
+  </meta>
+
+  <trigger-group>
+    <trigger id="scheduled">
+      <frequency>every 60m</frequency>
+      <condition>Normal operation; periodic system health check.</condition>
+    </trigger>
+    <trigger id="event-based">
+      <condition>Error frequency > 0.05 within 10 minutes OR edge-case triggered.</condition>
+      <source>edge-cases.xml, correction-protocol-enforcement.xml</source>
+    </trigger>
+    <trigger id="manual">
+      <condition>Explicit request from Architect Agent or Brain console.</condition>
+    </trigger>
+  </trigger-group>
+
+  <check-group>
+    <check id="resource-health">
+      <metric>CPU usage ≤ 80%</metric>
+      <metric>Memory usage ≤ 75%</metric>
+      <metric>Disk I/O latency ≤ 50ms</metric>
+      <action>If exceeded, log degradation and trigger system-throttle sequence.</action>
+    </check>
+
+    <check id="vector-integrity">
+      <metric>Master-replica checksum-match = true</metric>
+      <metric>Last-sync-age ≤ 5m</metric>
+      <action>If mismatch, reinitiate sync via vector-master-storage-strategy.xml.</action>
+    </check>
+
+    <check id="reasoning-stability">
+      <metric>Failed reasoning cycles ≤ 3 per 100 executions</metric>
+      <metric>Average reasoning coherence ≥ 0.9</metric>
+      <action>If threshold breached, trigger correction-protocol-enforcement.xml.</action>
+    </check>
+
+    <check id="context-health">
+      <metric>Active agents reporting context > 0.9 completeness</metric>
+      <metric>Brain readiness-index ≥ 0.85</metric>
+      <action>If below threshold, rerun context-analysis.xml to rebuild situational map.</action>
+    </check>
+  </check-group>
+
+  <metrics>
+    <system-uptime>≥ 0.99</system-uptime>
+    <diagnostic-success>≥ 0.95</diagnostic-success>
+    <false-positive-rate>≤ 0.02</false-positive-rate>
+  </metrics>
+
+  <alerting>
+    <level id="warning">Minor deviation detected; logged for monitoring.</level>
+    <level id="critical">Threshold exceeded; trigger recovery sequence.</level>
+    <level id="fatal">Integrity compromised; isolate Brain node and escalate to Architect Agent.</level>
+  </alerting>
+
+  <actions>
+    <action id="auto-correct">Attempt automatic remediation if safe to execute.</action>
+    <action id="resync">Trigger full resynchronization with vector master.</action>
+    <action id="rollback">Revert to last stable Brain state if integrity check fails.</action>
+  </actions>
+
+  <integration>
+    <link>edge-cases.xml</link>
+    <link>context-analysis.xml</link>
+    <link>vector-master-storage-strategy.xml</link>
+    <link>correction-protocol-enforcement.xml</link>
+    <link>core-constraints.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict XML schema optimized for CI-driven self-diagnostic validation.</compactness>
+    <governance>Architect Agent defines diagnostic intervals and escalation policy.</governance>
+    <logging>All diagnostic runs logged to self_diagnostic.log with results, metrics, and timestamp.</logging>
+  </meta-controls>
+
+</self-diagnostic>

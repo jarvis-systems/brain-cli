@@ -1,0 +1,85 @@
+<correction-protocol-enforcement>
+
+  <meta>
+    <version>2.0</version>
+    <last-updated>2025-10-15</last-updated>
+    <purpose>
+      Defines Brain-level correction enforcement procedures for handling agent or system errors.
+      Ensures automatic detection, validation, correction, and rollback of faulty reasoning or execution outputs.
+    </purpose>
+  </meta>
+
+  <trigger-group>
+    <trigger id="error-detected">
+      <source>quality-gates.xml, agent-runtime-logs</source>
+      <condition>Any output failing validation or producing inconsistent state.</condition>
+      <severity>medium-high</severity>
+    </trigger>
+
+    <trigger id="integrity-failure">
+      <source>core-constraints.xml</source>
+      <condition>Checksum or state hash mismatch between Brain and agents.</condition>
+      <severity>critical</severity>
+    </trigger>
+
+    <trigger id="semantic-anomaly">
+      <source>sequential-reasoning-capability.xml</source>
+      <condition>Detected logical contradiction or reasoning inconsistency.</condition>
+      <severity>medium</severity>
+    </trigger>
+  </trigger-group>
+
+  <validation>
+    <criterion>Error must be reproducible in controlled re-run (2 consecutive fails).</criterion>
+    <criterion>Validation must confirm output divergence ≥ 10% from expected baseline.</criterion>
+    <criterion>If ambiguity detected, escalate to Architect Agent.</criterion>
+  </validation>
+
+  <action-group>
+    <action id="auto-correction">
+      <phase>re-evaluate reasoning path under modified constraints</phase>
+      <method>apply adaptive re-reasoning using recent vector memory snapshot</method>
+      <expected-outcome>stabilized output consistency ≥ 0.9</expected-outcome>
+    </action>
+
+    <action id="manual-escalation">
+      <phase>notify Architect Agent for human-in-loop correction</phase>
+      <condition>error severity = critical OR auto-correction failed</condition>
+      <expected-outcome>reviewed correction applied with validation pass</expected-outcome>
+    </action>
+
+    <action id="retry-protocol">
+      <phase>re-execute original task with sandboxed parameters</phase>
+      <condition>non-deterministic or transient error detected</condition>
+      <expected-outcome>error non-reproducible after 3 attempts</expected-outcome>
+    </action>
+  </action-group>
+
+  <rollback>
+    <trigger>Correction did not improve metrics or worsened system state.</trigger>
+    <action>Revert to last stable version from backup memory or commit snapshot.</action>
+    <validation>Ensure integrity check passes and state hash restored.</validation>
+    <logging>Record rollback event in correction_pipeline.log with timestamp and affected modules.</logging>
+  </rollback>
+
+  <metrics>
+    <stability>≥ 0.95</stability>
+    <recovery-success>≥ 0.9</recovery-success>
+    <rollback-frequency>≤ 0.05</rollback-frequency>
+    <response-latency-ms>≤ 500</response-latency-ms>
+  </metrics>
+
+  <integration>
+    <link>quality-gates.xml</link>
+    <link>error-recovery.xml</link>
+    <link>core-constraints.xml</link>
+    <link>sequential-reasoning-capability.xml</link>
+  </integration>
+
+  <meta-controls>
+    <compactness>Strict declarative XML for CI and runtime enforcement.</compactness>
+    <governance>Architect Agent manages correction thresholds and escalation policies.</governance>
+    <logging>All correction attempts logged to correction_pipeline.log with outcome classification.</logging>
+  </meta-controls>
+
+</correction-protocol-enforcement>

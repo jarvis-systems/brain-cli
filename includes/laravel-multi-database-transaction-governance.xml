@@ -1,0 +1,303 @@
+<laravel-multi-database-transaction-governance>
+
+  <meta>
+    <version>1.0</version>
+    <last-updated>2025-10-19</last-updated>
+    <purpose>
+      Enforces runtime-critical cross-database transaction integrity for Laravel multi-database architectures.
+      Ensures atomic operations, event-after-commit safety, connection-aware transaction boundaries, and app-layer validation for MySQL cross-DB environments.
+    </purpose>
+  </meta>
+
+  <purpose>
+    Govern multi-database transaction safety in Laravel applications with multiple MySQL connections, enforcing connection-aware boundaries, typed closures, event dispatch timing, and cross-DB integrity validation.
+  </purpose>
+
+  <role>
+    - Services: Wrap multi-write operations in DB::transaction() with explicit connection specification
+    - Jobs: Implement ShouldDispatchAfterCommit for transaction-safe queue dispatch
+    - Events/Listeners: Use ShouldDispatchAfterCommit/ShouldQueueAfterCommit to prevent rollback-orphaned events
+    - FormRequests/DTOs: Validate cross-DB integrity at application layer (no cross-DB FK constraints)
+    - Repositories: Maintain connection consistency throughout query chains
+  </role>
+
+  <iron_rules>
+    ✓ ALWAYS wrap multi-write operations in DB::transaction(fn() => ...) with typed closure return
+    ✓ ALWAYS specify explicit connection in Schema/DB operations (never assume default)
+    ✓ ALWAYS dispatch events AFTER transaction commit (ShouldDispatchAfterCommit interface)
+    ✓ ALWAYS validate cross-DB integrity in FormRequests/DTOs (MySQL cross-DB FK limitation)
+    ✓ ALWAYS use connection-qualified validation rules (connection.table syntax)
+    ✗ NEVER create cross-database foreign key constraints (MySQL limitation)
+    ✗ NEVER dispatch events inside DB::transaction() without ShouldDispatchAfterCommit
+    ✗ NEVER assume default connection in multi-DB environments
+    ✗ NEVER use nested DB::transaction() without understanding savepoint behavior
+  </iron_rules>
+
+  <dependencies>
+    Required tools/APIs (Laravel 12 framework):
+    - DB::transaction(Closure $callback, int $attempts = 1): mixed
+    - DB::connection(string $name): Connection
+    - Schema::connection(string $name): Builder
+    - Event::dispatch(object $event): void
+    - ShouldDispatchAfterCommit interface (App\Events)
+    - ShouldQueueAfterCommit interface (App\Listeners)
+    - Rule::exists(string $connection.table, string $column)
+    - Rule::unique(string $connection.table, string $column)
+  </dependencies>
+
+  <when_to_use>
+    Threshold criteria (boolean-style):
+    - IF service method performs multiple database writes THEN wrap in DB::transaction()
+    - IF operation spans multiple connections THEN use manual transaction per connection
+    - IF event dispatched within service layer THEN implement ShouldDispatchAfterCommit
+    - IF validation requires cross-DB reference check THEN use connection.table syntax
+    - IF job dispatched from event listener THEN implement ShouldQueueAfterCommit
+    - ELSE standard single-write operations do not require explicit transaction
+  </when_to_use>
+
+  <workflow>
+    <action>
+      Step 1 — Identify: Detect multi-write operations or cross-DB dependencies requiring transaction safety
+      Step 2 — Connection Scope: Determine which connection(s) involved; reject cross-DB single-transaction assumptions
+      Step 3 — Transaction Wrapper: Wrap in DB::transaction() OR DB::connection('name')->transaction() with typed closure
+      Step 4 — Event Safety: Ensure all dispatched events implement ShouldDispatchAfterCommit
+      Step 5 — Validation Layer: Add app-layer cross-DB integrity checks in FormRequest/DTO rules
+      Step 6 — Testing: Verify rollback behavior via TransactionSafetyTest patterns (Event::fake, rollback tests)
+    </action>
+  </workflow>
+
+  <patterns>
+    <pattern id="single-connection-transaction">
+      <description>Standard atomic write within single database connection</description>
+      <example>
+        // Service layer
+        public function create(int $reviewId, CreateReviewExtensionDto $dto): ReviewExtension
+        {
+            return DB::transaction(function () use ($reviewId, $dto): ReviewExtension {
+                $extension = $this->extensionsRepo->create([...]);
+                $this->extensionsRepo->syncTags($extension, $dto->tags);
+                $this->attachments->add($reviewId, $dto->attachments);
+
+                Event::dispatch(new ReviewExtensionCreated($extension)); // ShouldDispatchAfterCommit
+
+                return $extension->fresh(['tags', 'attachments']);
+            });
+        }
+      </example>
+      <rules>
+        - Use typed closure return: DB::transaction(function (): Type { ... })
+        - Dispatch events inside transaction (events deferred via ShouldDispatchAfterCommit)
+        - Return fresh model with relations after transaction commit
+      </rules>
+    </pattern>
+
+    <pattern id="cross-connection-transaction">
+      <description>Multi-database write requiring independent transaction per connection</description>
+      <example>
+        // Service layer (manual coordination)
+        public function syncAcrossConnections(array $data): void
+        {
+            DB::connection('customers_mysql')->beginTransaction();
+            DB::connection('export_mysql')->beginTransaction();
+
+            try {
+                DB::connection('customers_mysql')->table('go_review_extensions')->insert([...]);
+                DB::connection('export_mysql')->table('ext_reviews')->update([...]);
+
+                DB::connection('export_mysql')->commit();
+                DB::connection('customers_mysql')->commit();
+            } catch (\Throwable $e) {
+                DB::connection('customers_mysql')->rollBack();
+                DB::connection('export_mysql')->rollBack();
+                throw $e;
+            }
+        }
+      </example>
+      <rules>
+        - Manually manage transactions per connection (no automatic cross-DB atomicity)
+        - Commit in reverse dependency order (child → parent)
+        - Rollback ALL connections on ANY failure
+        - Consider two-phase commit pattern for critical operations
+      </rules>
+    </pattern>
+
+    <pattern id="event-after-commit">
+      <description>Transaction-safe event dispatch preventing rollback-orphaned events</description>
+      <example>
+        // Event class
+        class ReviewExtensionCreated implements ShouldDispatchAfterCommit
+        {
+            public function __construct(public ReviewExtension $extension) {}
+        }
+
+        // Listener class
+        class SendReviewExtensionNotificationListener implements ShouldQueueAfterCommit
+        {
+            public function handle(ReviewExtensionCreated $event): void
+            {
+                // Executes only AFTER transaction commits
+                $this->notificationService->send($event->extension);
+            }
+        }
+      </example>
+      <rules>
+        - Events: implement ShouldDispatchAfterCommit (defers dispatch until commit)
+        - Listeners: implement ShouldQueueAfterCommit (queues job after commit)
+        - Jobs: implement ShouldQueueAfterCommit OR configure after_commit: true in config/queue.php
+        - Testing: use Event::fake() and assert events NOT dispatched on rollback
+      </rules>
+    </pattern>
+
+    <pattern id="cross-db-validation">
+      <description>Application-layer validation for cross-database integrity (no FK constraints)</description>
+      <example>
+        // FormRequest validation
+        public function rules(): array
+        {
+            return [
+                'restaurant_branch_id' => [
+                    'required',
+                    Rule::exists('web_mysql.go__restaurants', 'id'),
+                ],
+                'review_id' => [
+                    'required',
+                    Rule::exists('export_mysql.ext_reviews', 'id')
+                        ->where('status', 'published'),
+                ],
+            ];
+        }
+
+        // DTO validation
+        protected array $rules = [
+            'customer_id' => 'required|exists:customers_mysql.go_customers,id',
+            'order_id' => 'required|exists:web_mysql.go__orders,id',
+        ];
+      </example>
+      <rules>
+        - Use connection.table syntax for exists/unique rules
+        - Add indexes on cross-DB foreign key columns for performance
+        - Document cross-DB references in migration comments
+        - Test validation rules per connection in Feature tests
+      </rules>
+    </pattern>
+
+    <pattern id="nested-transaction-awareness">
+      <description>Understanding MySQL savepoint behavior in nested transactions</description>
+      <example>
+        // Outer transaction
+        DB::transaction(function () {
+            $extension = ReviewExtension::create([...]); // SAVEPOINT level 1
+
+            // Inner transaction (creates savepoint)
+            DB::transaction(function () {
+                ReviewTag::create([...]); // SAVEPOINT level 2
+                throw new \Exception('Force rollback'); // Rolls back to SAVEPOINT level 1
+            });
+
+            // $extension still exists (outer savepoint committed before inner rollback)
+        });
+      </example>
+      <rules>
+        - MySQL savepoints do NOT rollback committed inner transactions
+        - Nested transactions may leave partial data on outer rollback
+        - Prefer flat transaction structure over nesting when possible
+        - Test nested rollback scenarios explicitly (TransactionSafetyTest patterns)
+      </rules>
+    </pattern>
+
+    <pattern id="two-phase-whereIn">
+      <description>Cross-database relationship query pattern (no JOINs across connections)</description>
+      <example>
+        // Phase 1: Query local connection
+        $extensionIds = DB::connection('customers_mysql')
+            ->table('go_customer_review_extensions')
+            ->where('restaurant_branch_id', $branchId)
+            ->limit(50)
+            ->pluck('review_id');
+
+        // Phase 2: Query remote connection
+        $reviews = DB::connection('export_mysql')
+            ->table('ext_reviews')
+            ->whereIn('id', $extensionIds)
+            ->get()
+            ->keyBy('id');
+
+        // Phase 3: Merge in application layer
+        $extensions->each(fn($ext) => $ext->review = $reviews[$ext->review_id] ?? null);
+      </example>
+      <rules>
+        - Use whereIn() batch queries instead of loops (prevents N+1)
+        - Index foreign key columns on both sides
+        - Cache cross-DB queries when possible (Cache::tags())
+        - Use lazyById() for large dataset operations
+      </rules>
+    </pattern>
+  </patterns>
+
+  <return_contract>
+    - Summary: Transaction governance rules enforced throughout codebase (Services, Events, Jobs, Validation)
+    - Include: Connection-specific transaction wrappers, ShouldDispatchAfterCommit implementations, app-layer validation
+    - Blockers: Cross-DB FK constraints attempted, events dispatched without after-commit safety, default connection assumptions
+    - Next steps: Test rollback scenarios, verify event dispatch timing, validate cross-DB integrity rules
+  </return_contract>
+
+  <quality_gates>
+    - Appropriateness: Multi-write operations wrapped in DB::transaction()
+    - Completeness: All events/listeners implement ShouldDispatchAfterCommit/ShouldQueueAfterCommit
+    - Verifiability: TransactionSafetyTest validates rollback behavior and event timing
+    - Connection Safety: All Schema/DB operations specify explicit connection
+    - Cross-DB Integrity: FormRequest/DTO validation rules use connection.table syntax
+  </quality_gates>
+
+  <anti_patterns>
+    ❌ Cross-database foreign key constraints (MySQL limitation)
+    ❌ Events dispatched inside transaction without ShouldDispatchAfterCommit
+    ❌ Default connection assumption in multi-DB environments
+    ❌ Nested transactions without understanding savepoint behavior
+    ❌ Cross-DB JOINs via Eloquent (use two-phase whereIn pattern)
+    ❌ Validation rules without connection specification
+    ❌ Jobs dispatched without ShouldQueueAfterCommit in event-driven flows
+  </anti_patterns>
+
+  <examples>
+    <example id="service-transaction-safety">
+      Scenario: Create ReviewExtension with tags, attachments, and event dispatch.
+      Flow: Wrap in DB::transaction() → create extension → sync tags → add attachments → dispatch ReviewExtensionCreated (ShouldDispatchAfterCommit) → return fresh model.
+      Testing: Event::fake() → rollback transaction → assert event NOT dispatched.
+    </example>
+
+    <example id="cross-db-validation">
+      Scenario: Validate restaurant_branch_id from web_mysql and review_id from export_mysql.
+      Flow: FormRequest rules use Rule::exists('web_mysql.go__restaurants', 'id') and Rule::exists('export_mysql.ext_reviews', 'id') → validation executes per connection → failure prevents DB write.
+      Testing: Feature test with invalid cross-DB IDs → assert validation failure.
+    </example>
+
+    <example id="event-listener-after-commit">
+      Scenario: Send notification after ReviewExtension created.
+      Flow: ReviewExtensionCreated implements ShouldDispatchAfterCommit → SendReviewExtensionNotificationListener implements ShouldQueueAfterCommit → event deferred until transaction commits → job queued after commit → notification sent.
+      Testing: Transaction rollback → assert job NOT queued.
+    </example>
+  </examples>
+
+  <integration>
+    Usage in agent template (pattern, not code):
+    - Import this bank in service/job/event agent templates via @-include
+    - Enforce transaction wrappers in all multi-write service methods
+    - Mandate ShouldDispatchAfterCommit for all events dispatched from services
+    - Require connection.table syntax in all FormRequest/DTO validation rules
+    - Test transaction safety via TransactionSafetyTest patterns
+  </integration>
+
+  <monitoring>
+    - Log transaction rollbacks with context: Log::warning('Transaction rolled back', ['exception' => $e])
+    - Monitor DatabaseBusy events for connection pool exhaustion
+    - Track slow cross-DB queries (>1000ms threshold)
+    - Alert on orphaned events (events dispatched without after-commit safety)
+    - Audit cross-DB validation failures for integrity breach patterns
+  </monitoring>
+
+  <directive>
+    Enforce connection-aware transaction boundaries → mandate after-commit event safety → validate cross-DB integrity at app layer → test rollback scenarios → prevent MySQL cross-DB FK attempts.
+  </directive>
+
+</laravel-multi-database-transaction-governance>
