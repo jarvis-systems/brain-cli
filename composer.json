@@ -1,5 +1,5 @@
 {
-  "name": "jarvis/brain-cli",
+  "name": "jarvis-brain/cli",
   "description": "The Brain CLI Tool for Agent Management",
   "keywords": ["jarvis", "brain", "cli"],
   "type": "library",
