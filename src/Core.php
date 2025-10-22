@@ -10,13 +10,20 @@ class Core
 
     public function workingDirectory(): string
     {
+        return $this->projectDirectory()
+            . DS
+            . to_string(config('brain.dir', '.brain'));
+    }
+
+    public function projectDirectory(): string
+    {
         $result = getcwd();
 
         if (! $result) {
             throw new \RuntimeException('Unable to determine the current working directory.');
         }
 
-        return $result . DS . to_string(config('brain.dir', '.brain'));
+        return $result;
     }
 
     public function version(): string|null

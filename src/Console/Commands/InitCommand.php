@@ -4,53 +4,53 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
+use Symfony\Component\Process\Process;
+
+use function Illuminate\Support\php_binary;
+
 class InitCommand extends Command
 {
-    use StubGeneratorTrait;
+    protected $signature = 'init {--composer=composer : The composer binary to use}';
 
-    protected $signature = 'init {--force : Overwrite existing configuration file}';
-
-    protected $description = 'Initialize Brain Configuration';
+    protected $description = 'Initialize Brain';
 
     public function handle(): int
     {
-        try {
-            $this->generate();
-        } catch (\Exception $e) {
-            $this->components->error($e->getMessage());
+        $workingDir = Brain::workingDirectory();
+
+        if (is_dir($workingDir)) {
+            $this->components->error("The brain already initialized in this directory: {$workingDir}");
             return 1;
         }
 
+        $php = php_binary();
+        $composer = $this->option('composer');
+        $brainFolder = to_string(config('brain.dir', '.brain'));
+        $projectFolder = Brain::projectDirectory();
+
+
+        $command = [
+            $php,
+            $composer,
+            'create-project',
+            'jarvis-brain/node',
+            $brainFolder,
+            '--stability=dev'
+        ];
+
+        (new Process($command, $dir))
+            ->setTimeout(null)
+            ->setPty(true)
+            ->run(function ($type, $output) {
+                $this->output->write($output);
+            });
+
+        dd($command, $projectFolder);
+
         return 0;
-    }
-
-    protected function generate(): void
-    {
-        $version = Brain::version();
-        if (! $version) {
-            throw new \RuntimeException('Unable to determine Brain version.');
-        }
-        $schema = config('brain.schema_url');
-        if (! $schema) {
-            throw new \RuntimeException('Schema URL is not defined in the configuration.');
-        }
-        $name = 'brain';
-        $this->generateFile('brain.yaml', $name, [
-            'schema' => tag_replace($schema, compact('version', 'name')),
-        ]);
-        $name = 'mcp';
-        $this->generateFile('mcp.yaml', $name, [
-            'schema' => tag_replace($schema, compact('version', 'name')),
-        ]);
-
-        $this->generateFile('agents' . DS . '.gitkeep', 'gitkeep');
-        $this->generateFile('skills' . DS . '.gitkeep', 'gitkeep');
-        $this->generateFile('commands' . DS . '.gitkeep', 'gitkeep');
-        $this->generateFile('includes' . DS . '.gitkeep', 'gitkeep');
     }
 }
 

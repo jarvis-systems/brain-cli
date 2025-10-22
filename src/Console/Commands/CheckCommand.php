@@ -8,6 +8,10 @@ use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
+use Symfony\Component\Process\Process;
+
+use function Illuminate\Support\php_binary;
+
 class CheckCommand extends Command
 {
     use StubGeneratorTrait;
@@ -24,15 +28,20 @@ class CheckCommand extends Command
             $dir = dirname($dir);
         }
 
-        $dir = $dir . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+        $core = $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core';
 
-        include $dir;
+        $php = php_binary();
 
-        $result = app(\Barin\Brain::class)->run();
+        $command = [$php, $core, 'build'];
 
-        dd($result);
+        $result = (new Process($command, $dir))
+            ->setTimeout(null)
+            ->setPty(true)
+            ->run(function ($type, $output) {
+                $this->output->write($output);
+            });
 
-        return 0;
+        return $result;
     }
 }
 
