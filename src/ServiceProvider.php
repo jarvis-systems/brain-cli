@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI;
 
 use BrainCLI\Console\Commands\MasterListCommand;
+use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Support\Brain;
 use Illuminate\Events\Dispatcher;
 use BrainCLI\Config\ConfigManager;
@@ -32,6 +33,7 @@ class ServiceProvider
      */
     protected array $commands = [
         InitCommand::class,
+        UpdateCommand::class,
         CompileCommand::class,
         MakeMcpCommand::class,
         MakeSkillCommand::class,
