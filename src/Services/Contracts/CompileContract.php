@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace BrainCLI\Services\Contracts;
 
-use BrainCLI\Console\Commands\CompileCommand;
+use Illuminate\Support\Collection;
 
 interface CompileContract
 {
-    public function boot(CompileCommand $command): void;
+    /**
+     * @param  Collection<int, array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>  $files
+     * @return void
+     */
+    public function boot(Collection $files): void;
 
     public function compile(): bool;
 

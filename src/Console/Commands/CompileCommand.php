@@ -39,11 +39,14 @@ class CompileCommand extends Command
 
         $this->agent = $enum;
 
+        $this->components->info('Starting compilation for agent: ' . $this->agent->value);
+
         try {
             $compiler = $this->laravel->make($this->agent->containerName());
             if ($compiler instanceof CompileContract) {
                 $this->compiler = $compiler;
-                $this->compiler->boot($this);
+                $files = $this->getFile($this->getFileList());
+                $this->compiler->boot(collect($files));
                 if ($this->compiler->compile()) {
                     $this->components->success("Compiled Brain configurations files successfully.");
                 } else {
@@ -55,6 +58,9 @@ class CompileCommand extends Command
                 return ERROR;
             }
         } catch (\Throwable $e) {
+            if (getenv('BRAIN_CLI_DEBUG') === '1') {
+                dump($e);
+            }
             $this->components->error("Compilation failed: " . $e->getMessage());
             return ERROR;
         }
@@ -64,10 +70,10 @@ class CompileCommand extends Command
     /**
      * @return array<string>
      */
-    public function getFileList(string $path): array
+    public function getFileList(string $path = ''): array
     {
         $dir = Brain::workingDirectory();
-        $nodeFolderName = DS . 'node' . DS . $path;
+        $nodeFolderName = DS . 'node' . (! empty($path) ? DS . $path : '');
         $projectPathToNodes = to_string(config('brain.dir', '.brain'))
             . $nodeFolderName . DS;
         $files = File::allFiles($dir . $nodeFolderName);
@@ -83,13 +89,14 @@ class CompileCommand extends Command
     /**
      * @param  non-empty-string|array<non-empty-string>  $file
      * @param  'xml'|'json'|'yaml'|'toml'|'meta'  $format
-     * @return array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}
+     * @return array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}
      */
     public function getFile(string|array $file, string $format = 'xml'): array
     {
         $dir = Brain::workingDirectory();
         $command = [
             php_binary(),
+            '-d', 'xdebug.mode=off', '-d', 'opcache.enable_cli=1',
             $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core',
             'get:file',
             is_array($file) ? implode(' && ', $file) : $file,
@@ -131,6 +138,9 @@ class CompileCommand extends Command
             }
             throw new \JsonException("Unexpected JSON output");
         } catch (\JsonException $e) {
+            if (getenv('BRAIN_CLI_DEBUG') === '1') {
+                dump($e);
+            }
             $this->components->error("Failed to decode JSON output: " . $e->getMessage());
             exit(ERROR);
         }
