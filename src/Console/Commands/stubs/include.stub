@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use BrainCore\Archetypes\SkillArchetype;
+use BrainCore\Archetypes\IncludeArchetype;
 use BrainCore\Attributes\Purpose;
 
 #[Purpose('{{ purpose }}')]
-class {{ className }} extends SkillArchetype
+class {{ className }} extends IncludeArchetype
 {
     /**
      * Handle the architecture logic.

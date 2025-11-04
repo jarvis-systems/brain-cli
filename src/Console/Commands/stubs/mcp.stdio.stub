@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use BrainCore\Attributes\Meta;
+use BrainCore\Mcp\StdioMcp;
+
+#[Meta('id', '{{ mcpId }}')]
+class {{ className }} extends StdioMcp
+{
+    protected static function defaultCommand(): string
+    {
+        return {{ source }};
+    }
+
+    protected static function defaultArgs(): array
+    {
+        return {{ parameters }};
+    }
+}

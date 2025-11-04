@@ -3,35 +3,31 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Illuminate\Container\Container;
-use Illuminate\Events\Dispatcher;
-use Illuminate\Console\Application;
-use BrainCLI\Foundation\Application as BrainApplication;
-use BrainCLI\Database\DatabaseManager;
-use BrainCLI\Config\ConfigManager;
-use Illuminate\Support\Facades\Facade;
+use BrainCLI\ServiceProvider;
+use BrainCLI\Foundation\Application as LaravelApplication;
+use Illuminate\Contracts\Container\BindingResolutionException;
 
 defined("DS") || define("DS", DIRECTORY_SEPARATOR);
+defined("OK") || define("OK", 0);
+defined("ERROR") || define("ERROR", 1);
 
 
-$container = new BrainApplication();
+$laravel = new LaravelApplication();
+$app = ServiceProvider::bootApplication($laravel);
+$provider = new ServiceProvider($app, $laravel);
 
-Container::setInstance($container);
-$container->instance('app', $container);
+try {
+    $provider->register();
+} catch (BindingResolutionException|ReflectionException $e) {
+    fwrite(STDERR, "Error: " . $e->getMessage() . PHP_EOL);
+    exit($e->getCode() ?: ERROR);
+}
 
-// Enable facades and configuration repository
-Facade::setFacadeApplication($container);
-ConfigManager::boot($container);
-
-$events = new Dispatcher($container);
-
-DatabaseManager::boot($container, $events);
-
-$app = new Application($container, $events, \BrainCLI\Support\Brain::version());
-
-$app->add(new \BrainCLI\Console\Commands\InitCommand());
-$app->add(new \BrainCLI\Console\Commands\CheckCommand());
-
-$status = $app->run();
+try {
+    $status = $app->run();
+} catch (Exception $e) {
+    fwrite(STDERR, "Error: " . $e->getMessage() . PHP_EOL);
+    $status = $e->getCode() ?: ERROR;
+}
 
 exit($status);

@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use BrainCore\Attributes\Meta;
+use BrainCore\Mcp\HttpMcp;
+
+#[Meta('id', '{{ mcpId }}')]
+class {{ className }} extends HttpMcp
+{
+    protected static function defaultUrl(): string
+    {
+        return {{ source }};
+    }
+
+    protected static function defaultHeaders(): array
+    {
+        return {{ parameters }};
+    }
+}

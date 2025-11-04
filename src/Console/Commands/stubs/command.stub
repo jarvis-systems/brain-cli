@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use BrainCore\Archetypes\SkillArchetype;
+use BrainCore\Archetypes\CommandArchetype;
 use BrainCore\Attributes\Purpose;
+use BrainCore\Attributes\Meta;
 
+#[Meta('id', '{{ commandId }}')]
+#[Meta('description', '<description here>')]
 #[Purpose('{{ purpose }}')]
-class {{ className }} extends SkillArchetype
+class {{ className }} extends CommandArchetype
 {
     /**
      * Handle the architecture logic.

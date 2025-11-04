@@ -31,26 +31,38 @@ class InitCommand extends Command
         $brainFolder = to_string(config('brain.dir', '.brain'));
         $projectFolder = Brain::projectDirectory();
 
+        if ($composer === 'composer') {
+            $command = [$composer];
+        } else {
+            $command = [$php, $composer];
+        }
 
-        $command = [
-            $php,
-            $composer,
+        $command = array_merge($command, [
             'create-project',
             'jarvis-brain/node',
             $brainFolder,
             '--stability=dev'
-        ];
+        ]);
 
-        (new Process($command, $dir))
+        (new Process($command, $projectFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
             ->setTimeout(null)
-            ->setPty(true)
+            ->setPty(Process::isPtySupported())
+            ->setTTY(Process::isTTYSupported())
             ->run(function ($type, $output) {
                 $this->output->write($output);
             });
 
-        dd($command, $projectFolder);
+        $this->call('make:mcp', [
+            'name' => 'context7',
+        ]);
 
-        return 0;
+        $this->call('make:mcp', [
+            'name' => 'vector-memory',
+        ]);
+
+        $this->call('make:mcp', [
+            'name' => 'sequential-thinking',
+        ]);
     }
 }
 

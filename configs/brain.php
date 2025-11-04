@@ -7,7 +7,10 @@ return [
     // for storing YAML brains and compiled artifacts
     'dir' => '.brain',
 
-    // Default schema URL for YAML authoring assistance
-   'schema_url' => 'https://raw.githack.com/Xsaven/jarvis-brain/{version}/schema/{name}.json',
+    'mcp' => [
+        'markets' => [
+            __DIR__ . '/../awesome-mcp.json'
+        ]
+    ]
 ];
 

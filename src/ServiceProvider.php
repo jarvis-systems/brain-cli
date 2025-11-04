@@ -1,0 +1,100 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BrainCLI;
+
+use BrainCLI\Console\Commands\MasterListCommand;
+use BrainCLI\Support\Brain;
+use Illuminate\Events\Dispatcher;
+use BrainCLI\Config\ConfigManager;
+use Illuminate\Console\Application;
+use Illuminate\Container\Container;
+use BrainCLI\Services\ClaudeCompile;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Facade;
+use BrainCLI\Database\DatabaseManager;
+use BrainCLI\Console\Commands\InitCommand;
+use BrainCLI\Console\Commands\CompileCommand;
+use BrainCLI\Console\Commands\MakeMcpCommand;
+use BrainCLI\Console\Commands\MakeSkillCommand;
+use BrainCLI\Console\Commands\MakeMasterCommand;
+use BrainCLI\Console\Commands\MakeCommandCommand;
+use BrainCLI\Console\Commands\MakeIncludeCommand;
+use BrainCLI\Foundation\Application as LaravelApplication;
+
+class ServiceProvider
+{
+    /**
+     * The commands provided by the service provider.
+     *
+     * @var list<class-string<\Illuminate\Console\Command>>
+     */
+    protected array $commands = [
+        InitCommand::class,
+        CompileCommand::class,
+        MakeMcpCommand::class,
+        MakeSkillCommand::class,
+        MakeMasterCommand::class,
+        MasterListCommand::class,
+        MakeIncludeCommand::class,
+        MakeCommandCommand::class,
+    ];
+
+    /**
+     * The singleton bindings provided by the service provider.
+     *
+     * @var array<string, class-string>
+     */
+    protected array $singletons = [
+        'claude:compile' => ClaudeCompile::class,
+    ];
+
+    /**
+     * @param  \Illuminate\Console\Application  $app
+     * @param  \BrainCLI\Foundation\Application  $laravel
+     */
+    public function __construct(
+        protected Application $app,
+        protected LaravelApplication $laravel,
+    ) {
+    }
+
+    /**
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
+     * @throws \ReflectionException
+     */
+    public function register(): void
+    {
+        foreach ($this->commands as $command) {
+            $this->app->add($this->laravel->make($command));
+        }
+
+        foreach ($this->singletons as $name => $singleton) {
+            $this->laravel->singleton($name, $singleton);
+        }
+
+        $this->laravel->bind('files', Filesystem::class);
+    }
+
+    /**
+     * Boot the application.
+     *
+     * @param  \BrainCLI\Foundation\Application  $laravel
+     * @return \Illuminate\Console\Application
+     */
+    public static function bootApplication(LaravelApplication $laravel): Application
+    {
+        $laravel->instance('app', $laravel);
+
+        Container::setInstance($laravel);
+        Facade::setFacadeApplication($laravel);
+        ConfigManager::boot($laravel);
+
+        $events = new Dispatcher($laravel);
+
+        DatabaseManager::boot($laravel, $events);
+
+        return new Application($laravel, $events, Brain::version());
+    }
+}

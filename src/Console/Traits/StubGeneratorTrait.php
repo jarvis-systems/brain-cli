@@ -10,26 +10,27 @@ use ReflectionClass;
 trait StubGeneratorTrait
 {
     public function generateFile(
-        string $relativeFilePath,
-        string $stubName,
+        string $file,
+        string $stub,
         array $replacements = [],
     ): bool {
-        $content = $this->generateStub($stubName, $replacements);
-        $fullPath = Brain::workingDirectory() . DS . $relativeFilePath;
+        $content = $this->generateStub($stub, $replacements);
+        $fullPath = Brain::workingDirectory() . DS . $file;
+        $file = to_string(config('brain.dir', '.brain')) . DS . $file;
         $directory = dirname($fullPath);
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
         if (file_exists($fullPath) && ! $this->option('force')) {
-            $this->components->warn("File {$relativeFilePath} already exists. Use --force to overwrite.");
+            $this->components->warn("File {$file} already exists. Use --force to overwrite.");
             return false;
         }
         $result = file_put_contents($fullPath, $content);
         if ($result === false) {
-            $this->components->error("Failed to write file {$relativeFilePath}.");
+            $this->components->error("Failed to write file {$file}.");
             return false;
         }
-        $this->components->success("File {$relativeFilePath} created successfully.");
+        $this->components->success("File {$file} created successfully.");
         return true;
     }
 

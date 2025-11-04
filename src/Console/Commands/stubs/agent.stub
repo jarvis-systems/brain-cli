@@ -1,1 +1,70 @@
-# yaml-language-server: $schema={{ schema }}
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use BrainCore\Attributes\Meta;
+use BrainCore\Attributes\Purpose;
+use BrainCore\Attributes\Includes;
+use BrainCore\Archetypes\AgentArchetype;
+use BrainCore\Includes\Agent\AgentIdentity;
+use BrainCore\Includes\Agent\GithubHierarchy;
+use BrainCore\Includes\Agent\SkillsUsagePolicy;
+use BrainCore\Includes\Agent\AgentVectorMemory;
+use BrainCore\Includes\Agent\ToolsOnlyExecution;
+use BrainCore\Includes\Agent\ArchitectLifecycle;
+use BrainCore\Includes\Agent\WebRecursiveResearch;
+use BrainCore\Includes\Agent\GitConventionalCommits;
+use BrainCore\Includes\Agent\ArchitectTemplateSystem;
+use BrainCore\Includes\Agent\DocumentationFirstPolicy;
+use BrainCore\Includes\Agent\TemporalContextAwareness;
+use BrainCore\Includes\Universal\QualityGates;
+use BrainCore\Includes\Universal\CoreConstraints;
+use BrainCore\Includes\Universal\AgentLifecycleFramework;
+use BrainCore\Includes\Universal\VectorMasterStorageStrategy;
+use BrainCore\Includes\Universal\SequentialReasoningCapability;
+
+#[Meta('id', '{{ agentId }}')]
+#[Meta('model', 'sonnet')]
+#[Meta('color', '<color here `blue` | `green` | `yellow` | `purple` | `orange` | `pink` | `cyan` | `red`>')]
+#[Meta('description', '<description here>')]
+#[Purpose('{{ agentPurpose }}')]
+
+// === UNIVERSAL (спільні для всіх) ===
+#[Includes(CoreConstraints::class)]                     // Системні обмеження (фундамент)
+#[Includes(QualityGates::class)]                        // Якісні вимоги
+#[Includes(AgentLifecycleFramework::class)]             // Життєвий цикл агентів
+#[Includes(SequentialReasoningCapability::class)]       // Фреймворк міркування
+#[Includes(VectorMasterStorageStrategy::class)]         // Архітектура пам'яті
+
+// Core identity and boundarie
+#[Includes(AgentIdentity::class)]
+#[Includes(ToolsOnlyExecution::class)]
+
+// Execution policies
+#[Includes(SkillsUsagePolicy::class)]
+#[Includes(DocumentationFirstPolicy::class)]
+
+// Context and memory
+#[Includes(TemporalContextAwareness::class)]
+#[Includes(AgentVectorMemory::class)]
+
+// Specialized capabilities (optional, per agent type)
+#[Includes(WebRecursiveResearch::class)]                // For research agents
+#[Includes(GitConventionalCommits::class)]              // For dev agents
+#[Includes(GithubHierarchy::class)]                     // For PM agents
+#[Includes(ArchitectLifecycle::class)]                  // For architect agent
+#[Includes(ArchitectTemplateSystem::class)]             // For architect agent
+class {{ className }} extends AgentArchetype
+{
+    /**
+     * Handle the architecture logic.
+     *
+     * @return void
+     */
+    protected function handle(): void
+    {
+        // Architecture logic goes here
+    }
+}

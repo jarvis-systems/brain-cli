@@ -8,22 +8,39 @@ class Core
 {
     protected string|null $versionCache = null;
 
-    public function workingDirectory(): string
+    public function nodeDirectory(string|array $path = '', bool $relative = false): string
     {
-        return $this->projectDirectory()
-            . DS
-            . to_string(config('brain.dir', '.brain'));
+        $path = is_array($path) ? implode(DS, $path) : $path;
+        return $this->workingDirectory([
+            'node',
+            (! empty($path) ? ltrim($path, DS) : null)
+        ], $relative);
     }
 
-    public function projectDirectory(): string
+    public function workingDirectory(string|array $path = '', bool $relative = false): string
     {
-        $result = getcwd();
+        $path = is_array($path) ? implode(DS, $path) : $path;
+        return $this->projectDirectory([
+            to_string(config('brain.dir', '.brain')),
+            (! empty($path) ? ltrim($path, DS) : null)
+        ], $relative);
+    }
 
-        if (! $result) {
-            throw new \RuntimeException('Unable to determine the current working directory.');
+    public function projectDirectory(string|array $path = '', bool $relative = false): string
+    {
+        if (! $relative) {
+            $result = getcwd();
+
+            if (! $result) {
+                throw new \RuntimeException('Unable to determine the current working directory.');
+            }
+        } else {
+            $result = '';
         }
 
-        return $result;
+        $path = is_array($path) ? implode(DS, array_filter($path)) : $path;
+        return $result
+            . (! empty($path) ? ($relative ? '' : DS) . ltrim($path, DS) : '');
     }
 
     public function version(): string|null

@@ -1,0 +1,60 @@
+{
+  "web-scout": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@pinkpixel/web-scout-mcp"
+    ]
+  },
+  "context7": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@upstash/context7-mcp",
+      "--api-key",
+      "<input.CONTEXT7_API_KEY>"
+    ]
+  },
+  "vector-memory": {
+    "type": "stdio",
+    "command": "uvx",
+    "args": [
+      "vector-memory-mcp",
+      "--working-dir",
+      "<const.PROJECT_DIRECTORY>"
+    ]
+  },
+  "sequential-thinking": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-sequential-thinking"
+    ]
+  },
+  "github": {
+    "type": "http",
+    "url": "https://api.githubcopilot.com/mcp",
+    "headers": {
+      "Authorization": "Bearer <input.GITHUB_TOKEN>",
+      "X-MCP-Toolsets": "<input.GITHUB_TOOLSETS(multiselect:actions|code_security|dependabot|discussions|experiments|gists|issues|labels|notifications|orgs|projects|pull_requests|repos|secret_protection|security_advisories|stargazers|users)>"
+    }
+  },
+  "jet-brains": {
+    "type": "sse",
+    "url": "http://localhost:64342/sse",
+    "headers": {
+      "IJ_MCP_SERVER_PROJECT_PATH": "<const.PROJECT_DIRECTORY>"
+    }
+  },
+  "laravel-boost": {
+    "type": "stdio",
+    "command": "<input.LARAVEL_ARTISAN_PHP(select:php|./vendor/bin/sail)>",
+    "args": [
+      "artisan",
+      "boost:mcp"
+    ]
+  }
+}

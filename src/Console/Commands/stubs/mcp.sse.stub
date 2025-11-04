@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use BrainCore\Attributes\Meta;
+use BrainCore\Mcp\SseMcp;
+
+#[Meta('id', '{{ mcpId }}')]
+class {{ className }} extends SseMcp
+{
+    protected static function defaultUrl(): string
+    {
+        return {{ source }};
+    }
+
+    protected static function defaultHeaders(): array
+    {
+        return {{ parameters }};
+    }
+}
