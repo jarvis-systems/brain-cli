@@ -95,6 +95,8 @@ class ServiceProvider
 
         DatabaseManager::boot($laravel, $events);
 
-        return new Application($laravel, $events, Brain::version());
+        $app = new Application($laravel, $events, Brain::version());
+        $app->setName('Brain CLI');
+        return $app;
     }
 }
