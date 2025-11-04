@@ -96,7 +96,7 @@ class CompileCommand extends Command
             '--' . $format,
         ];
 
-        $result = trim((new Process($command, $dir))
+        $result = trim((new Process($command, Brain::projectDirectory()))
             ->setTimeout(null)
             ->mustRun()
             ->getOutput());

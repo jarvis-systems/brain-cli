@@ -49,7 +49,7 @@ class ClaudeCompile implements CompileContract
         $this->agentFiles = $command->getFile($command->getFileList('Agents'));
         $this->commandFiles = $command->getFile($command->getFileList('Commands'));
         $this->mcpFiles = $command->getFile($command->getFileList('Mcp'), 'json');
-        $this->skillFiles = $command->getFile($command->getFileList('Skills'));
+        $this->skillFiles = []; //$command->getFile($command->getFileList('Skills'));
         $this->brainFile = $command->getFile(Brain::nodeDirectory('Brain.php', true));
     }
 
