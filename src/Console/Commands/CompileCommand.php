@@ -45,7 +45,7 @@ class CompileCommand extends Command
                 $this->compiler = $compiler;
                 $this->compiler->boot($this);
                 if ($this->compiler->compile()) {
-                    $this->info("Compiled Brain configurations files successfully.");
+                    $this->components->success("Compiled Brain configurations files successfully.");
                 } else {
                     $this->components->error("Compilation failed for agent {$agent}.");
                     return ERROR;
