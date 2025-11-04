@@ -44,7 +44,7 @@ class InitCommand extends Command
             '--stability=dev'
         ]);
 
-        (new Process($command, $projectFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
+        $result = (new Process($command, $projectFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
             ->setTimeout(null)
             ->setPty(Process::isPtySupported())
             ->setTTY(Process::isTTYSupported())
@@ -52,17 +52,20 @@ class InitCommand extends Command
                 $this->output->write($output);
             });
 
-        $this->call('make:mcp', [
-            'name' => 'context7',
-        ]);
+        if (! $result) {
 
-        $this->call('make:mcp', [
-            'name' => 'vector-memory',
-        ]);
+            $this->call('make:mcp', [
+                'name' => 'context7',
+            ]);
 
-        $this->call('make:mcp', [
-            'name' => 'sequential-thinking',
-        ]);
+            $this->call('make:mcp', [
+                'name' => 'vector-memory',
+            ]);
+
+            $this->call('make:mcp', [
+                'name' => 'sequential-thinking',
+            ]);
+        }
 
         return OK;
     }
