@@ -63,6 +63,8 @@ class InitCommand extends Command
         $this->call('make:mcp', [
             'name' => 'sequential-thinking',
         ]);
+
+        return OK;
     }
 }
 
