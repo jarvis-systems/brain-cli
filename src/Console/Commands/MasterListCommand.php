@@ -30,6 +30,8 @@ class MasterListCommand extends CompileCommand
                 $this->line("Description: " . ($file['meta']['description'] ?? 'N/A'));
                 $this->line('---');
             }
+
+            return OK;
         });
     }
 }
