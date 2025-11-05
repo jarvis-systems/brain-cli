@@ -220,4 +220,16 @@ MD;
     {
         return implode(DS, static::SKILLS_FOLDER);
     }
+
+    /**
+     * Set unique formats for folders
+     *
+     * @return array<non-empty-string, non-empty-string>
+     */
+    public function formats(): array
+    {
+        return [
+            Brain::nodeDirectory('Mcp') => 'json'
+        ];
+    }
 }

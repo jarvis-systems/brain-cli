@@ -29,6 +29,27 @@ class CompileCommand extends Command
      */
     public function handle(): int
     {
+        if ($error = $this->initCommand()) {
+            return $error;
+        }
+
+        $this->components->info('Starting compilation for agent: ' . $this->agent->value);
+
+        return $this->applyComplier(function () {
+            $files = $this->getFile($this->getFileList());
+            $this->compiler->boot(collect($files));
+            if ($this->compiler->compile()) {
+                $this->components->success("Compilation Brain configurations files successfully.");
+                return OK;
+            } else {
+                $this->components->error("Compilation failed for agent {$this->agent->value}.");
+                return ERROR;
+            }
+        });
+    }
+
+    protected function initCommand(): int
+    {
         $agent = $this->argument('agent');
         $enum = Agent::tryFrom($agent);
 
@@ -39,32 +60,27 @@ class CompileCommand extends Command
 
         $this->agent = $enum;
 
-        $this->components->info('Starting compilation for agent: ' . $this->agent->value);
+        return OK;
+    }
 
+    protected function applyComplier(callable $cb): int
+    {
         try {
             $compiler = $this->laravel->make($this->agent->containerName());
             if ($compiler instanceof CompileContract) {
                 $this->compiler = $compiler;
-                $files = $this->getFile($this->getFileList());
-                $this->compiler->boot(collect($files));
-                if ($this->compiler->compile()) {
-                    $this->components->success("Compiled Brain configurations files successfully.");
-                } else {
-                    $this->components->error("Compilation failed for agent {$agent}.");
-                    return ERROR;
-                }
+                return $cb();
             } else {
-                $this->components->error("Compiler for agent {$agent} does not implement CompileContract");
+                $this->components->error("Compiler for agent {$this->agent->value} does not implement CompileContract");
                 return ERROR;
             }
         } catch (\Throwable $e) {
             if (getenv('BRAIN_CLI_DEBUG') === '1') {
                 dump($e);
             }
-            $this->components->error("Compilation failed: " . $e->getMessage());
+            $this->components->error("Compiler failed: " . $e->getMessage());
             return ERROR;
         }
-        return OK;
     }
 
     /**
@@ -77,12 +93,21 @@ class CompileCommand extends Command
         $projectPathToNodes = to_string(config('brain.dir', '.brain'))
             . $nodeFolderName . DS;
         $files = File::allFiles($dir . $nodeFolderName);
-        return array_filter(array_map(function ($file) use ($projectPathToNodes) {
+        $formats = $this->compiler->formats();
+        return array_filter(array_map(function ($file) use ($projectPathToNodes, $formats) {
+            $pn = $file->getPathname();
             $rp = $file->getRelativePathname();
+            $resultFormat = 'xml';
+            foreach ($formats as $path => $format) {
+                if (str_starts_with($pn, $path)) {
+                    $resultFormat = $format;
+                    break;
+                }
+            }
             if (! str_ends_with($rp, '.php')) {
                 return null;
             }
-            return $projectPathToNodes . $rp;
+            return $projectPathToNodes . $rp . "::" . $resultFormat;
         }, $files));
     }
 

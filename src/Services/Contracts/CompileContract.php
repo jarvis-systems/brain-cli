@@ -16,6 +16,11 @@ interface CompileContract
 
     public function compile(): bool;
 
+    /**
+     * @return array<non-empty-string, non-empty-string>
+     */
+    public function formats(): array;
+
     public function brainFile(): string;
     public function mcpFile(): string;
     public function brainFolder(): string;
