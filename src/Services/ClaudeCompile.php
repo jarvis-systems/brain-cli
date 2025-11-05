@@ -52,13 +52,13 @@ class ClaudeCompile implements CompileContract
     public function boot(Collection $files): void
     {
         $files->map(function (array $file) {
-            if ($file['namespaceType'] === 'Agents') {
+            if ($file['namespaceType'] && str_starts_with($file['namespaceType'], 'Agents')) {
                 $this->agentFiles[] = $file;
-            } elseif ($file['namespaceType'] === 'Commands') {
+            } elseif ($file['namespaceType'] && str_starts_with($file['namespaceType'], 'Commands')) {
                 $this->commandFiles[] = $file;
-            } elseif ($file['namespaceType'] === 'Mcp') {
+            } elseif ($file['namespaceType'] && str_starts_with($file['namespaceType'], 'Mcp')) {
                 $this->mcpFiles[] = $file;
-            } elseif ($file['namespaceType'] === 'Skills') {
+            } elseif ($file['namespaceType'] && str_starts_with($file['namespaceType'], 'Skills')) {
                 $this->skillFiles[] = $file;
             } elseif ($file['namespaceType'] === null && $file['classBasename'] === 'Brain') {
                 $this->brainFile = $file;
