@@ -10,6 +10,7 @@ use BrainCore\Attributes\Includes;
 use BrainCore\Archetypes\AgentArchetype;
 use BrainCore\Includes\Agent\AgentIdentity;
 use BrainCore\Includes\Agent\GithubHierarchy;
+use BrainCore\Includes\Agent\WebBasicResearch;
 use BrainCore\Includes\Agent\SkillsUsagePolicy;
 use BrainCore\Includes\Agent\AgentVectorMemory;
 use BrainCore\Includes\Agent\ToolsOnlyExecution;
@@ -52,6 +53,7 @@ use BrainCore\Includes\Universal\SequentialReasoningCapability;
 
 // Specialized capabilities (optional, per agent type)
 #[Includes(WebRecursiveResearch::class)]                // For research agents
+#[Includes(WebBasicResearch::class)]                    // For light research agents
 #[Includes(GitConventionalCommits::class)]              // For dev agents
 #[Includes(GithubHierarchy::class)]                     // For PM agents
 #[Includes(ArchitectLifecycle::class)]                  // For architect agent
