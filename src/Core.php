@@ -43,6 +43,27 @@ class Core
             . (! empty($path) ? ($relative ? '' : DS) . ltrim($path, DS) : '');
     }
 
+    public function localDirectory(string|array $path = ''): string
+    {
+        $result = __DIR__ . DS . '..';
+        $result = realpath($result);
+        $path = is_array($path) ? implode(DS, array_filter($path)) : $path;
+        return $result
+            . (! empty($path) ? DS . ltrim($path, DS) : '');
+    }
+
+    public function getPackageName(): string
+    {
+        $composerPath = $this->localDirectory('composer.json');
+        if (is_file($composerPath)) {
+            $json = json_decode((string) file_get_contents($composerPath), true);
+            if (is_array($json) && isset($json['name']) && is_string($json['name'])) {
+                return $json['name'];
+            }
+        }
+        return 'jarvis-brain/cli';
+    }
+
     public function version(): string|null
     {
         if ($this->versionCache !== null) {

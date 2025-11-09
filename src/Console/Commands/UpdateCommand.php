@@ -23,7 +23,7 @@ class UpdateCommand extends Command
 
         if (! is_dir($workingDir)) {
             $this->components->error("The brain is not initialized in this directory: {$workingDir}");
-            return 1;
+            return ERROR;
         }
 
         $php = php_binary();
@@ -36,15 +36,38 @@ class UpdateCommand extends Command
             $command = [$php, $composer];
         }
 
-        $command = array_merge($command, ['update']);
+        $commandUpdateBrain = array_merge($command, ['update']);
 
-        return (new Process($command, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
+        $resultOfProjectUpdate = (new Process($commandUpdateBrain, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
             ->setTimeout(null)
             ->setPty(Process::isPtySupported())
             ->setTTY(Process::isTTYSupported())
             ->run(function ($type, $output) {
                 $this->output->write($output);
             });
+
+        if ($resultOfProjectUpdate !== 0) {
+            $this->components->error("Failed to update Brain dependencies.");
+            return $resultOfProjectUpdate;
+        }
+
+        $localPackageName = Brain::getPackageName();
+        $commandUpdateBrainCLI = array_merge($command, ['global', 'update', $localPackageName]);
+
+        $resultOfLocalUpdate = (new Process($commandUpdateBrainCLI, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
+            ->setTimeout(null)
+            ->setPty(Process::isPtySupported())
+            ->setTTY(Process::isTTYSupported())
+            ->run(function ($type, $output) {
+                $this->output->write($output);
+            });
+
+        if ($resultOfLocalUpdate !== 0) {
+            $this->components->error("Failed to update Brain CLI dependencies.");
+            return $resultOfLocalUpdate;
+        }
+        $this->components->info("Brain has been updated successfully.");
+        return OK;
     }
 }
 

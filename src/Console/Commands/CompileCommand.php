@@ -137,9 +137,9 @@ class CompileCommand extends Command
             if ($result) {
 
                 $result = tag_replace(to_string($result), [
-                    'PROJECT_DIRECTORY' => Brain::projectDirectory(relative: true) ?: '.',
-                    'BRAIN_DIRECTORY' => Brain::workingDirectory(relative: true),
-                    'NODE_DIRECTORY' => Brain::workingDirectory('node', true),
+                    'PROJECT_DIRECTORY' => (Brain::projectDirectory(relative: true) ?: '.') . DS,
+                    'BRAIN_DIRECTORY' => Brain::workingDirectory(relative: true) . DS,
+                    'NODE_DIRECTORY' => Brain::workingDirectory('node', true) . DS,
                     'TIMESTAMP' => time(),
                     'DATE_TIME' => date('Y-m-d H:i:s'),
                     'DATE' => date('Y-m-d'),
@@ -151,10 +151,10 @@ class CompileCommand extends Command
                     'AGENT' => $this->agent->value,
                     'BRAIN_FILE' => $this->compiler->brainFile(),
                     'MCP_FILE' => $this->compiler->mcpFile(),
-                    'BRAIN_FOLDER' => $this->compiler->brainFolder(),
-                    'AGENTS_FOLDER' => $this->compiler->agentsFolder(),
-                    'COMMANDS_FOLDER' => $this->compiler->commandsFolder(),
-                    'SKILLS_FOLDER' => $this->compiler->skillsFolder(),
+                    'BRAIN_FOLDER' => $this->compiler->brainFolder() . DS,
+                    'AGENTS_FOLDER' => $this->compiler->agentsFolder() . DS,
+                    'COMMANDS_FOLDER' => $this->compiler->commandsFolder() . DS,
+                    'SKILLS_FOLDER' => $this->compiler->skillsFolder() . DS,
                 ], '{{ * }}');
 
                 return $result

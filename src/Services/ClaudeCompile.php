@@ -112,6 +112,9 @@ class ClaudeCompile implements CompileContract
         File::cleanDirectory(Brain::projectDirectory($this->agentsFolder()));
 
         foreach ($this->agentFiles as $agentFile) {
+            if ($agentFile['classBasename'] === 'ExploreMaster') {
+                continue;
+            }
             $insidePath = $this->insidePath($agentFile['file'], 'Agents');
             $directory = Brain::projectDirectory([$this->agentsFolder(), $insidePath]);
             if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
