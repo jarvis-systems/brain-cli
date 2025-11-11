@@ -84,12 +84,18 @@ class CompileCommand extends Command
     }
 
     /**
+     * @param  string  $path
+     * @param  bool  $vendor
      * @return array<string>
      */
-    public function getFileList(string $path = ''): array
+    public function getFileList(string $path = '', bool $vendor = false): array
     {
         $dir = Brain::workingDirectory();
-        $nodeFolderName = DS . 'node' . (! empty($path) ? DS . $path : '');
+        if ($vendor) {
+            $nodeFolderName = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src' . DS . $path;
+        } else {
+            $nodeFolderName = DS . 'node' . (! empty($path) ? DS . $path : '');
+        }
         $projectPathToNodes = to_string(config('brain.dir', '.brain'))
             . $nodeFolderName . DS;
         $files = File::allFiles($dir . $nodeFolderName);
@@ -118,13 +124,18 @@ class CompileCommand extends Command
      */
     public function getFile(string|array $file, string $format = 'xml'): array
     {
+        if (empty($file)) {
+            return [];
+        }
         $dir = Brain::workingDirectory();
+        $file = is_array($file) ? implode(' && ', $file) : $file;
+
         $command = [
             php_binary(),
             '-d', 'xdebug.mode=off', '-d', 'opcache.enable_cli=1',
             $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core',
             'get:file',
-            is_array($file) ? implode(' && ', $file) : $file,
+            $file,
             '--' . $format,
         ];
 

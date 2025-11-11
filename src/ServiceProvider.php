@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
+use BrainCLI\Console\Commands\IncludesListCommand;
 use BrainCLI\Console\Commands\MasterListCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Support\Brain;
@@ -41,6 +42,7 @@ class ServiceProvider
         MasterListCommand::class,
         MakeIncludeCommand::class,
         MakeCommandCommand::class,
+        IncludesListCommand::class,
     ];
 
     /**
