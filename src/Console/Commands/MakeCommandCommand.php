@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -11,6 +12,7 @@ use Illuminate\Support\Str;
 class MakeCommandCommand extends Command
 {
     use StubGeneratorTrait;
+    use HelpersTrait;
 
     protected $signature = 'make:command {name} {--force : Overwrite existing files}';
 
@@ -25,7 +27,9 @@ class MakeCommandCommand extends Command
 
     protected function generateParameters(): array
     {
-        [$directory, $name, $namespace] = $this->extractInnerPathNameName();
+        [$directory, $name, $namespace] = $this->extractInnerPathNameName(
+            $this->argument('name')
+        );
         $className = Str::studly($name);
         $id = Str::snake($name, '-');
         if (! str_ends_with($className, 'Command')) {
@@ -41,22 +45,6 @@ class MakeCommandCommand extends Command
                 'className' => $className,
                 'purpose' => 'Command for ' . $id,
             ]
-        ];
-    }
-
-    protected function extractInnerPathNameName(): array
-    {
-        $name = $this->argument('name');
-        $path = str_replace('\\', DS, $name);
-        $className = class_basename($name);
-        $directory = str_replace($className, '', $path);
-        $directory = array_map(function ($directory) {
-            return Str::studly($directory);
-        }, explode(DS, $directory));
-        return [
-            implode(DS, $directory),
-            $className,
-            ($directory ? '\\' . trim(implode('\\', $directory), '\\') : '')
         ];
     }
 }

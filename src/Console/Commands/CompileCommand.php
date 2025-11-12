@@ -168,6 +168,8 @@ class CompileCommand extends Command
                     'SKILLS_FOLDER' => $this->compiler->skillsFolder() . DS,
                 ], '{{ * }}');
 
+                $result = str_replace(["\\\\{\\\\{", "\\\\}\\\\}"], ["{{", "}}"], $result);
+
                 return $result
                     ? json_decode($result, true, flags: JSON_THROW_ON_ERROR)
                     : throw new \JsonException("Empty JSON output");
