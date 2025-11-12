@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
+use BrainCLI\Console\Commands\DocsCommand;
 use BrainCLI\Console\Commands\IncludesListCommand;
 use BrainCLI\Console\Commands\MasterListCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
@@ -34,6 +35,7 @@ class ServiceProvider
      */
     protected array $commands = [
         InitCommand::class,
+        DocsCommand::class,
         UpdateCommand::class,
         CompileCommand::class,
         MakeMcpCommand::class,

@@ -28,7 +28,7 @@ class IncludesListCommand extends CompileCommand
             foreach (array_merge($files1, $files2) as $file) {
                 $this->line("Name: {$file['classBasename']}");
                 $this->line("Class: {$file['class']}");
-                $this->line("Purpose: " . ($file['meta']['purpose'] ?? 'N/A'));
+                $this->line("Purpose: " . ($file['meta']['purposeText'] ?? 'N/A'));
                 $this->line('---');
             }
 

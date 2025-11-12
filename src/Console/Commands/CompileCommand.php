@@ -102,6 +102,9 @@ class CompileCommand extends Command
         }
         $projectPathToNodes = to_string(config('brain.dir', '.brain'))
             . $nodeFolderName . DS;
+        if (! is_dir($dir . $nodeFolderName)) {
+            return [];
+        }
         $files = File::allFiles($dir . $nodeFolderName);
         $formats = $this->compiler->formats();
         return array_filter(array_map(function ($file) use ($projectPathToNodes, $formats) {

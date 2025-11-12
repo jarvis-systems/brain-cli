@@ -72,7 +72,7 @@
       "Bash(git log:*)",
       "Bash(./vendor/bin/sail:*)",
       "SlashCommand(/help)",
-      "WebFetch(domain:*)",
+      "WebFetch(domain::*)",
       "Bash(xargs cat:*)",
       "Bash(sail:*)",
       "Bash(TZ:*)",
