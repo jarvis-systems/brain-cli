@@ -39,6 +39,10 @@ class CompileCommand extends Command
             $files = $this->getFile($this->getFileList());
             $this->compiler->boot(collect($files));
             if ($this->compiler->compile()) {
+                $assets = __DIR__ . '/../../../assets/' . $this->agent->value . '/';
+                if (File::exists($assets)) {
+                    File::copyDirectory($assets, Brain::projectDirectory($this->compiler->brainFolder()));
+                }
                 $this->components->success("Compilation Brain configurations files successfully.");
                 return OK;
             } else {
