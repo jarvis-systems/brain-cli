@@ -23,7 +23,8 @@
   "require": {
     "php": "^8.2",
     "jarvis-brain/core": "^v0.0.1",
-    "symfony/var-exporter": "^7.3"
+    "symfony/var-exporter": "^7.3",
+    "symfony/yaml": "^7.3"
   },
   "scripts": {
     "post-install-cmd": [

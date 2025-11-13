@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Finder\SplFileInfo;
+use Symfony\Component\Yaml\Yaml;
 
 class DocsCommand extends Command
 {
@@ -48,14 +49,6 @@ class DocsCommand extends Command
             if (isset($file['type'])) {
                 $this->line("Type: {$file['type']}");
             }
-            if (isset($file['date'])) {
-                $date = Carbon::parse($file['date']);
-                $this->line("Date: " . $file['date']
-                    . (! $date->isToday() ? " (Updated: " .$date ->diffForHumans() . ")" : ''));
-            }
-            if (isset($file['version'])) {
-                $this->line("Version: {$file['version']}");
-            }
             $this->line("---");
         }
 
@@ -91,12 +84,15 @@ class DocsCommand extends Command
                 return null;
             }
 
-            // $keywords filtering
             if ($keywords->isNotEmpty()) {
                 $found = false;
                 foreach ($keywords as $keyword) {
-                    if (Str::contains(Str::lower($content), Str::lower($keyword))) {
+                    if (
+                        Str::contains(Str::lower($content), Str::lower($keyword))
+                    ) {
                         $found = true;
+                    } else {
+                        $found = false;
                         break;
                     }
                 }
@@ -109,15 +105,23 @@ class DocsCommand extends Command
                 'date' => Carbon::parse($date)->toDateString(),
             ];
             if (preg_match('/---(.*?)---/s', $content, $matches)) {
-                $header = trim($matches[1]);
-                $lines = explode("\n", $header);
-                foreach ($lines as $line) {
-                    if (preg_match('/^(\w+):\s*"?(.*?)"?$/', trim($line), $lineMatches)) {
-                        $key = $lineMatches[1];
-                        $value = $lineMatches[2];
-                        $metadata[$key] = $value;
+
+                $yamlParsed = Yaml::parse($matches[1]);
+                if (is_array($yamlParsed)) {
+                    foreach ($yamlParsed as $key => $value) {
+                        $metadata[$key] = (string)$value;
                     }
                 }
+
+//                $header = trim($matches[1]);
+//                $lines = explode("\n", $header);
+//                foreach ($lines as $line) {
+//                    if (preg_match('/^(\w+):\s*"?(.*?)"?$/', trim($line), $lineMatches)) {
+//                        $key = $lineMatches[1];
+//                        $value = $lineMatches[2];
+//                        $metadata[$key] = $value;
+//                    }
+//                }
             }
 
             return [
