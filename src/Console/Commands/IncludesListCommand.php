@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Enums\Agent;
-use BrainCLI\Services\Contracts\CompileContract;
-use Illuminate\Support\Str;
-
 class IncludesListCommand extends CompileCommand
 {
     protected $signature = 'includes:list {agent=claude : Agent for which compilation}';
 
     protected $description = 'List all available includes with their metadata.';
+
+    protected $aliases = [];
 
     public function handle(): int
     {

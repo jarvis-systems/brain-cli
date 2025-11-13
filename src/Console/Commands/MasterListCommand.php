@@ -13,6 +13,8 @@ class MasterListCommand extends CompileCommand
 
     protected $description = 'List all available masters for a given agent';
 
+    protected $aliases = [];
+
     public function handle(): int
     {
         if ($error = $this->initCommand()) {
