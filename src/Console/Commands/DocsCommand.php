@@ -91,8 +91,6 @@ class DocsCommand extends Command
                         Str::contains(Str::lower($content), Str::lower($keyword))
                     ) {
                         $found = true;
-                    } else {
-                        $found = false;
                         break;
                     }
                 }

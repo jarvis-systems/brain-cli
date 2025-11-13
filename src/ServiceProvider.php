@@ -6,7 +6,9 @@ namespace BrainCLI;
 
 use BrainCLI\Console\Commands\DocsCommand;
 use BrainCLI\Console\Commands\IncludesListCommand;
+use BrainCLI\Console\Commands\MakeScriptCommand;
 use BrainCLI\Console\Commands\MasterListCommand;
+use BrainCLI\Console\Commands\ScriptCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Support\Brain;
 use Illuminate\Events\Dispatcher;
@@ -36,11 +38,13 @@ class ServiceProvider
     protected array $commands = [
         InitCommand::class,
         DocsCommand::class,
+        ScriptCommand::class,
         UpdateCommand::class,
         CompileCommand::class,
         MakeMcpCommand::class,
         MakeSkillCommand::class,
         MakeMasterCommand::class,
+        MakeScriptCommand::class,
         MasterListCommand::class,
         MakeIncludeCommand::class,
         MakeCommandCommand::class,

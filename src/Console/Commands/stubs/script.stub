@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Console\Command;
+
+class {{ className }} extends Command
+{
+    protected $signature = '{{ signature }}';
+
+    protected $description = 'Command description';
+
+    public function handle(): void
+    {
+        // Command logic goes here
+    }
+}
