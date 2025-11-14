@@ -39,7 +39,7 @@ use BrainCore\Includes\Universal\SequentialReasoningCapability;
 #[Includes(DocumentationFirstPolicy::class)]
 #[Includes(SequentialReasoningCapability::class)]
 
-// Specialized capabilities (optional, per agent type) (use brain includes:list to see all available includes)
+// Specialized capabilities (optional, per agent type) (use brain list:includes to see all available includes)
 class {{ className }} extends AgentArchetype
 {
     /**

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-class IncludesListCommand extends CompileCommand
+class ListIncludesCommand extends CompileCommand
 {
-    protected $signature = 'includes:list {agent=claude : Agent for which compilation}';
+    protected $signature = 'list:includes {agent=claude : Agent for which compilation}';
 
     protected $description = 'List all available includes with their metadata.';
 

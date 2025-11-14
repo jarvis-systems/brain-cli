@@ -7,11 +7,11 @@ namespace BrainCLI\Console\Commands;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\Contracts\CompileContract;
 
-class MasterListCommand extends CompileCommand
+class ListMastersCommand extends CompileCommand
 {
-    protected $signature = 'master:list {agent=claude : Agent for which compilation}';
+    protected $signature = 'list:masters {agent=claude : Agent for which compilation}';
 
-    protected $description = 'List all available masters for a given agent';
+    protected $description = 'List all available subagent masters for a given agent';
 
     protected $aliases = [];
 

@@ -21,7 +21,7 @@ class CompileCommand extends Command
 
     protected $description = 'Compile the Brain configurations files';
 
-    protected $aliases = ['c', 'generate', 'build'];
+    protected $aliases = ['c', 'generate', 'build', 'make'];
 
     protected Agent $agent;
     protected CompileContract $compiler;

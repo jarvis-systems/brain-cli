@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace BrainCLI;
 
 use BrainCLI\Console\Commands\DocsCommand;
-use BrainCLI\Console\Commands\IncludesListCommand;
+use BrainCLI\Console\Commands\ListIncludesCommand;
 use BrainCLI\Console\Commands\MakeScriptCommand;
-use BrainCLI\Console\Commands\MasterListCommand;
+use BrainCLI\Console\Commands\ListMastersCommand;
 use BrainCLI\Console\Commands\ScriptCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Support\Brain;
@@ -27,6 +27,9 @@ use BrainCLI\Console\Commands\MakeMasterCommand;
 use BrainCLI\Console\Commands\MakeCommandCommand;
 use BrainCLI\Console\Commands\MakeIncludeCommand;
 use BrainCLI\Foundation\Application as LaravelApplication;
+use Dotenv\Dotenv;
+use Dotenv\Repository\RepositoryBuilder;
+use Dotenv\Repository\Adapter\PutenvAdapter;
 
 class ServiceProvider
 {
@@ -45,10 +48,10 @@ class ServiceProvider
         MakeSkillCommand::class,
         MakeMasterCommand::class,
         MakeScriptCommand::class,
-        MasterListCommand::class,
+        ListMastersCommand::class,
         MakeIncludeCommand::class,
         MakeCommandCommand::class,
-        IncludesListCommand::class,
+        ListIncludesCommand::class,
     ];
 
     /**
@@ -95,6 +98,8 @@ class ServiceProvider
      */
     public static function bootApplication(LaravelApplication $laravel): Application
     {
+        static::loadEnv();
+
         $laravel->instance('app', $laravel);
 
         Container::setInstance($laravel);
@@ -108,5 +113,20 @@ class ServiceProvider
         $app = new Application($laravel, $events, Brain::version());
         $app->setName('Brain CLI');
         return $app;
+    }
+
+    protected static function loadEnv(): void
+    {
+        $brain = new Core;
+        // Load environment variables
+        if (file_exists($brain->workingDirectory('.env'))) {
+            $repository = RepositoryBuilder::createWithDefaultAdapters()
+                ->addAdapter(PutenvAdapter::class)
+                ->immutable()
+                ->make();
+
+            $dotenv = Dotenv::create($repository, $brain->workingDirectory());
+            $dotenv->load();
+        }
     }
 }
