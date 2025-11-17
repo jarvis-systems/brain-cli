@@ -6,7 +6,6 @@ namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
-
 use Symfony\Component\Process\Process;
 
 use function Illuminate\Support\php_binary;

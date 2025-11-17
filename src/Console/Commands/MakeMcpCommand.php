@@ -10,6 +10,9 @@ use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\VarExporter\VarExporter;
+use Symfony\Component\Process\Process;
+
+use function Illuminate\Support\php_binary;
 
 class MakeMcpCommand extends Command
 {
@@ -19,6 +22,7 @@ class MakeMcpCommand extends Command
         {name} 
         {--source= : The command, URL, or source for the MCP}
         {--parameters= : Additional parameters such as args or headers (JSON format)}
+        {--composer=composer : Use Composer to install dependencies}
         {--force : Overwrite existing files}
         {--http : Create an HTTP-based MCP (default is STDIO)}
         {--sse : Create an SSE-based MCP}
@@ -37,9 +41,40 @@ class MakeMcpCommand extends Command
 
         $info = $this->findInMarket($this->argument('name'));
 
-        return $this->generateFile(
+        $result = $this->generateFile(
             ...$this->generateParameters($info, $this->generateData($info))
         ) ? OK : ERROR;
+
+        if ($result === OK && $info['setup'] ?? false) {
+            $this->components->info('Running MCP setup...');
+            $commands = $info['setup'] ?? [];
+            if (is_array($commands) && count($commands)) {
+                foreach ($commands as $command) {
+                    if (is_array($command) && is_assoc($command)) {
+
+                        $result = (new Process($command, Brain::projectDirectory(), ['COMPOSER_MEMORY_LIMIT' => '-1']))
+                            ->setTimeout(null)
+                            ->setPty(Process::isPtySupported())
+                            ->setTTY(Process::isTTYSupported())
+                            ->run(function ($type, $output) {
+                                $this->output->write($output);
+                            });
+
+                        if ($result !== OK) {
+                            break;
+                        }
+                    }
+                }
+
+                if ($result === OK) {
+                    $this->components->info('MCP setup completed successfully.');
+                } else {
+                    $this->components->error('MCP setup failed.');
+                }
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -100,6 +135,9 @@ class MakeMcpCommand extends Command
         $this->const['MONTH'] = date('m');
         $this->const['DAY'] = date('d');
         $this->const['UNIQUE_ID'] = uniqid();
+        $this->const['COMPOSER'] = $this->option('composer');
+        $this->const['PHP'] = php_binary();
+        $this->const['BRAIN_VERSION'] = Brain::version();
     }
 
     protected function tabsMultiline(string $value): string
@@ -159,6 +197,7 @@ class MakeMcpCommand extends Command
                 'url' => null,
                 'args' => null,
                 'headers' => null,
+                'setup' => null,
             ],
         ];
     }
@@ -194,7 +233,7 @@ class MakeMcpCommand extends Command
             }
             foreach ($varArgs as $key => $arg) {
                 if (str_contains($arg, '|')) {
-                    $varArgs[$key] = array_filter(explode('|', $arg));
+                    $varArgs[$key] = array_unique($this->variablesDetectArray(array_filter(explode('|', $arg))));
                 }
             }
 
@@ -250,6 +289,9 @@ class MakeMcpCommand extends Command
     protected function selectInputVariable(string $name, Credential|null $credential, string|array $variants): string
     {
         $variants = (array) $variants;
+        if (count($variants) == 1) {
+            return array_values($variants)[0];
+        }
         $value = $this->components->choice('Please provide value for ' . $name, $variants, $credential?->value);
         if (! $value) {
             return $this->selectInputVariable($name, $credential, $variants);
@@ -260,6 +302,9 @@ class MakeMcpCommand extends Command
     protected function multiselectInputVariable(string $name, Credential|null $credential, string|array $variants, string $separator = ','): string
     {
         $variants = (array) $variants;
+        if (count($variants) == 1) {
+            return array_values($variants)[0];
+        }
         if (count($variants) > 1) {
             $all = implode($separator, $variants);
             $variants = [$all, ...$variants];

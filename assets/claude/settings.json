@@ -37,6 +37,10 @@
       "mcp__laravel-boost__database-schema",
       "mcp__laravel-boost__tinker",
       "mcp__laravel-boost__last-error",
+      "mcp__laravel-boost__get-absolute-url",
+      "mcp__laravel-boost__class-list",
+      "mcp__laravel-boost__class-detail",
+      "mcp__laravel-boost__class-usages",
       "mcp__vector-memory__store_memory",
       "mcp__vector-memory__search_memories",
       "mcp__vector-memory__get_memory_stats",
@@ -59,7 +63,6 @@
       "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "Bash(git --version)",
-      "WebSearch",
       "Bash(curl:*)",
       "Bash(cat:*)",
       "Bash(find:*)",
@@ -72,7 +75,6 @@
       "Bash(git log:*)",
       "Bash(./vendor/bin/sail:*)",
       "SlashCommand(/help)",
-      "WebFetch(domain::*)",
       "Bash(xargs cat:*)",
       "Bash(sail:*)",
       "Bash(TZ:*)",
@@ -105,7 +107,10 @@
       "Bash(vendor/bin/pest:*)",
       "Bash(./vendor/bin/pest:*)",
       "Bash(while read file)",
-      "Bash(brain:*)"
+      "Bash(brain:*)",
+      "Bash(basename:*)",
+      "WebSearch",
+      "WebFetch(:*)"
     ],
     "deny": [],
     "ask": []

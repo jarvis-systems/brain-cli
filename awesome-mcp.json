@@ -51,10 +51,13 @@
   },
   "laravel-boost": {
     "type": "stdio",
-    "command": "<input.LARAVEL_ARTISAN_PHP(select:php|vendor/bin/sail)>",
+    "command": "<input.LARAVEL_ARTISAN_PHP(select:php|./vendor/bin/sail|<const.PHP>)>",
     "args": [
       "artisan",
       "boost:mcp"
+    ],
+    "setup": [
+      ["<input.COMPOSER(select:<const.COMPOSER>|composer)>", "require", "bfg/laravel-boost-reflector", "--dev"]
     ]
   }
 }

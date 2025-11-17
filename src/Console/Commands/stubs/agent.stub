@@ -14,6 +14,8 @@ use BrainCore\Includes\Agent\DocumentationFirstPolicy;
 use BrainCore\Includes\Universal\QualityGates;
 use BrainCore\Includes\Universal\AgentLifecycleFramework;
 use BrainCore\Includes\Universal\SequentialReasoningCapability;
+use BrainCore\Includes\Universal\BrainDocsCommand;
+use BrainCore\Includes\Universal\BrainScriptsCommand;
 
 #[Meta('id', '{{ agentId }}')]
 #[Meta('model', 'sonnet')]
@@ -26,6 +28,8 @@ use BrainCore\Includes\Universal\SequentialReasoningCapability;
 #[Includes(QualityGates::class)]
 #[Includes(AgentLifecycleFramework::class)]
 #[Includes(VectorMemoryMCP::class)]
+#[Includes(BrainDocsCommand::class)]
+#[Includes(BrainScriptsCommand::class)]
 
 // === AGENT CORE ===
 #[Includes(AgentCoreIdentity::class)]
