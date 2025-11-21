@@ -18,27 +18,13 @@ if (is_file(__DIR__ . DS . '..' . DS . 'vendor' . DS . 'autoload.php')) {
 
 use BrainCLI\ServiceProvider;
 use BrainCLI\Foundation\Application as LaravelApplication;
-use Illuminate\Contracts\Container\BindingResolutionException;
 
 defined("OK") || define("OK", 0);
 defined("ERROR") || define("ERROR", 1);
 
-$laravel = new LaravelApplication();
+$laravel = LaravelApplication::create();
 $app = ServiceProvider::bootApplication($laravel);
-$provider = new ServiceProvider($app, $laravel);
-
-try {
-    $provider->register();
-} catch (BindingResolutionException|ReflectionException $e) {
-    fwrite(STDERR, "Error: " . $e->getMessage() . PHP_EOL);
-    exit($e->getCode() ?: ERROR);
-}
-
-try {
-    $status = $app->run();
-} catch (Exception $e) {
-    fwrite(STDERR, "Error: " . $e->getMessage() . PHP_EOL);
-    $status = $e->getCode() ?: ERROR;
-}
+$provider = ServiceProvider::create($app, $laravel);
+$status = ServiceProvider::run($app, $provider);
 
 exit($status);

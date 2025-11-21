@@ -10,6 +10,7 @@ use BrainCLI\Console\Commands\MakeScriptCommand;
 use BrainCLI\Console\Commands\ListMastersCommand;
 use BrainCLI\Console\Commands\ScriptCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
+use BrainCLI\Services\CodexCompile;
 use BrainCLI\Support\Brain;
 use Illuminate\Events\Dispatcher;
 use BrainCLI\Config\ConfigManager;
@@ -61,6 +62,7 @@ class ServiceProvider
      */
     protected array $singletons = [
         'claude:compile' => ClaudeCompile::class,
+        'codex:compile' => CodexCompile::class,
     ];
 
     /**
@@ -71,6 +73,12 @@ class ServiceProvider
         protected Application $app,
         protected LaravelApplication $laravel,
     ) {
+    }
+
+    public static function create(
+        Application $app, LaravelApplication $laravel,
+    ): static {
+        return new static($app, $laravel);
     }
 
     /**
@@ -128,5 +136,28 @@ class ServiceProvider
             $dotenv = Dotenv::create($repository, $brain->workingDirectory());
             $dotenv->load();
         }
+    }
+
+    public static function run(Application $app, ServiceProvider $provider): int
+    {
+        $status = OK;
+
+        try {
+            $provider->register();
+        } catch (\Throwable $e) {
+            dump($e);
+            $status = $e->getCode() ?: ERROR;
+        }
+
+        if ($status === OK) {
+            try {
+                $status = $app->run();
+            } catch (\Throwable $e) {
+                dump($e);
+                $status = $e->getCode() ?: ERROR;
+            }
+        }
+
+        return $status;
     }
 }

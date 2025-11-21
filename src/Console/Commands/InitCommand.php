@@ -23,7 +23,7 @@ class InitCommand extends Command
 
         if (is_dir($workingDir)) {
             $this->components->error("The brain already initialized in this directory: {$workingDir}");
-            return 1;
+            return ERROR;
         }
 
         $php = php_binary();

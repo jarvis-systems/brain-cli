@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Models\Credential;
 use BrainCLI\Support\Brain;
@@ -17,6 +18,7 @@ use function Illuminate\Support\php_binary;
 class MakeMcpCommand extends Command
 {
     use StubGeneratorTrait;
+    use HelpersTrait;
 
     protected $signature = 'make:mcp 
         {name} 
@@ -37,6 +39,8 @@ class MakeMcpCommand extends Command
      */
     public function handle(): int
     {
+        $this->checkWorkingDir();
+
         $this->addDefaultConstants();
 
         $info = $this->findInMarket($this->argument('name'));
@@ -45,14 +49,17 @@ class MakeMcpCommand extends Command
             ...$this->generateParameters($info, $this->generateData($info))
         ) ? OK : ERROR;
 
-        if ($result === OK && $info['setup'] ?? false) {
+        if ($result === OK && ($info['config']['setup'] ?? false)) {
             $this->components->info('Running MCP setup...');
-            $commands = $info['setup'] ?? [];
+            $commands = $info['config']['setup'] ?? [];
             if (is_array($commands) && count($commands)) {
                 foreach ($commands as $command) {
-                    if (is_array($command) && is_assoc($command)) {
+                    if (is_array($command) && ! is_assoc($command)) {
 
-                        $result = (new Process($command, Brain::projectDirectory(), ['COMPOSER_MEMORY_LIMIT' => '-1']))
+                        $explodedCommand = explode(" ", $command[0]);
+                        $processCommand = array_merge($explodedCommand, array_slice($command, 1));
+
+                        $result = (new Process($processCommand, Brain::projectDirectory(), ['COMPOSER_MEMORY_LIMIT' => '-1']))
                             ->setTimeout(null)
                             ->setPty(Process::isPtySupported())
                             ->setTTY(Process::isTTYSupported())
@@ -66,9 +73,7 @@ class MakeMcpCommand extends Command
                     }
                 }
 
-                if ($result === OK) {
-                    $this->components->info('MCP setup completed successfully.');
-                } else {
+                if ($result !== OK) {
                     $this->components->error('MCP setup failed.');
                 }
             }
@@ -233,7 +238,9 @@ class MakeMcpCommand extends Command
             }
             foreach ($varArgs as $key => $arg) {
                 if (str_contains($arg, '|')) {
-                    $varArgs[$key] = array_unique($this->variablesDetectArray(array_filter(explode('|', $arg))));
+                    $varArgs[$key] = array_values(array_unique(
+                        $this->variablesDetectArray(array_filter(explode('|', $arg)))
+                    ));
                 }
             }
 
@@ -289,7 +296,7 @@ class MakeMcpCommand extends Command
     protected function selectInputVariable(string $name, Credential|null $credential, string|array $variants): string
     {
         $variants = (array) $variants;
-        if (count($variants) == 1) {
+        if (count($variants) == 1 && $credential?->value == array_values($variants)[0]) {
             return array_values($variants)[0];
         }
         $value = $this->components->choice('Please provide value for ' . $name, $variants, $credential?->value);
@@ -302,7 +309,7 @@ class MakeMcpCommand extends Command
     protected function multiselectInputVariable(string $name, Credential|null $credential, string|array $variants, string $separator = ','): string
     {
         $variants = (array) $variants;
-        if (count($variants) == 1) {
+        if (count($variants) == 1 && $credential?->value == array_values($variants)[0]) {
             return array_values($variants)[0];
         }
         if (count($variants) > 1) {

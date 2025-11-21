@@ -27,4 +27,8 @@ interface CompileContract
     public function agentsFolder(): string;
     public function commandsFolder(): string;
     public function skillsFolder(): string;
+    public function compileVariables(): array;
+
+    public function compileAgentPrefix(): string|array;
+    public function compileStoreVarPrefixPrefix(): string|array;
 }

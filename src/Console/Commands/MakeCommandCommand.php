@@ -27,6 +27,8 @@ class MakeCommandCommand extends Command
 
     protected function generateParameters(): array
     {
+        $this->checkWorkingDir();
+
         [$directory, $name, $namespace] = $this->extractInnerPathNameName(
             $this->argument('name')
         );

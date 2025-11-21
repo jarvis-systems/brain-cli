@@ -20,6 +20,8 @@ class MakeScriptCommand extends Command
 
     public function handle(): int
     {
+        $this->checkWorkingDir();
+
         return $this->generateFile(
             ...$this->generateParameters()
         ) ? OK : ERROR;

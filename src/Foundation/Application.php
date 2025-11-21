@@ -12,5 +12,10 @@ class Application extends Container
     {
         return false;
     }
+
+    public static function create(): static
+    {
+        return new static();
+    }
 }
 

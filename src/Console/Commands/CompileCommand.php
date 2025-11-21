@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\Contracts\CompileContract;
@@ -17,6 +18,8 @@ use function Illuminate\Support\php_binary;
 
 class CompileCommand extends Command
 {
+    use HelpersTrait;
+
     protected $signature = 'compile {agent=claude : Agent for which compilation}';
 
     protected $description = 'Compile the Brain configurations files';
@@ -39,6 +42,10 @@ class CompileCommand extends Command
 
         return $this->applyComplier(function () {
             $files = $this->getFile($this->getFileList());
+            if (empty($files)) {
+                $this->components->warn("No configuration files found for agent {$this->agent->value}.");
+                return ERROR;
+            }
             $this->compiler->boot(collect($files));
             if ($this->compiler->compile()) {
                 $assets = __DIR__ . '/../../../assets/' . $this->agent->value . '/';
@@ -56,6 +63,8 @@ class CompileCommand extends Command
 
     protected function initCommand(): int
     {
+        $this->checkWorkingDir();
+
         $agent = $this->argument('agent');
         $enum = Agent::tryFrom($agent);
 
@@ -137,6 +146,7 @@ class CompileCommand extends Command
             return [];
         }
         $dir = Brain::workingDirectory();
+        $vars = $this->getDefaultVariables();
         $file = is_array($file) ? implode(' && ', $file) : $file;
 
         $command = [
@@ -146,36 +156,27 @@ class CompileCommand extends Command
             'get:file',
             $file,
             '--' . $format,
+            '--variables',
+            json_encode(array_merge($vars, $this->compiler->compileVariables(), [
+                'puzzle-agent' => $this->compiler->compileAgentPrefix(),
+                'puzzle-store-var' => $this->compiler->compileStoreVarPrefixPrefix(),
+            ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ];
 
-        $result = trim((new Process($command, Brain::projectDirectory()))
+        $process = (new Process($command, Brain::projectDirectory()))
             ->setTimeout(null)
-            ->mustRun()
-            ->getOutput());
+            ->mustRun();
 
-        try {
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException($process->getErrorOutput());
+        }
+
+        $result = trim($process->getOutput());
+
+        try{
             if ($result) {
 
-                $result = tag_replace(to_string($result), [
-                    'PROJECT_DIRECTORY' => (Brain::projectDirectory(relative: true) ?: '.') . DS,
-                    'BRAIN_DIRECTORY' => Brain::workingDirectory(relative: true) . DS,
-                    'NODE_DIRECTORY' => Brain::workingDirectory('node', true) . DS,
-                    'TIMESTAMP' => time(),
-                    'DATE_TIME' => date('Y-m-d H:i:s'),
-                    'DATE' => date('Y-m-d'),
-                    'TIME' => date('H:i:s'),
-                    'YEAR' => date('Y'),
-                    'MONTH' => date('m'),
-                    'DAY' => date('d'),
-                    'UNIQUE_ID' => uniqid(),
-                    'AGENT' => $this->agent->value,
-                    'BRAIN_FILE' => $this->compiler->brainFile(),
-                    'MCP_FILE' => $this->compiler->mcpFile(),
-                    'BRAIN_FOLDER' => $this->compiler->brainFolder() . DS,
-                    'AGENTS_FOLDER' => $this->compiler->agentsFolder() . DS,
-                    'COMMANDS_FOLDER' => $this->compiler->commandsFolder() . DS,
-                    'SKILLS_FOLDER' => $this->compiler->skillsFolder() . DS,
-                ], '{{ * }}');
+                $result = tag_replace(to_string($result), $vars, '{{ * }}');
 
                 $result = str_replace(["\\\\{\\\\{", "\\\\}\\\\}"], ["{{", "}}"], $result);
 
@@ -191,6 +192,30 @@ class CompileCommand extends Command
             $this->components->error("Failed to decode JSON output: " . $e->getMessage());
             exit(ERROR);
         }
+    }
+
+    protected function getDefaultVariables(): array
+    {
+        return array_merge([
+            'PROJECT_DIRECTORY' => (Brain::projectDirectory(relative: true) ?: '.') . DS,
+            'BRAIN_DIRECTORY' => Brain::workingDirectory(relative: true) . DS,
+            'NODE_DIRECTORY' => Brain::workingDirectory('node', true) . DS,
+            'TIMESTAMP' => time(),
+            'DATE_TIME' => date('Y-m-d H:i:s'),
+            'DATE' => date('Y-m-d'),
+            'TIME' => date('H:i:s'),
+            'YEAR' => date('Y'),
+            'MONTH' => date('m'),
+            'DAY' => date('d'),
+            'UNIQUE_ID' => uniqid(),
+            'AGENT' => $this->agent->value,
+            'BRAIN_FILE' => $this->compiler->brainFile(),
+            'MCP_FILE' => $this->compiler->mcpFile(),
+            'BRAIN_FOLDER' => $this->compiler->brainFolder() . DS,
+            'AGENTS_FOLDER' => $this->compiler->agentsFolder() . DS,
+            'COMMANDS_FOLDER' => $this->compiler->commandsFolder() . DS,
+            'SKILLS_FOLDER' => $this->compiler->skillsFolder() . DS,
+        ]);
     }
 }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -11,6 +12,7 @@ use Illuminate\Support\Str;
 class MakeSkillCommand extends Command
 {
     use StubGeneratorTrait;
+    use HelpersTrait;
 
     protected $signature = 'make:skill {name} {--force : Overwrite existing files}';
 
@@ -25,6 +27,7 @@ class MakeSkillCommand extends Command
 
     protected function generateParameters(): array
     {
+        $this->checkWorkingDir();
         $name = $this->argument('name');
         $className = Str::studly($name);
         $id = Str::snake($name, '-');

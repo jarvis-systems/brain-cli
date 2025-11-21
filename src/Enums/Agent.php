@@ -7,7 +7,7 @@ namespace BrainCLI\Enums;
 enum Agent: string
 {
     case CLAUDE = 'claude';
-//    case CODEX = 'codex';
+    case CODEX = 'codex';
 //    case GEMINI = 'gemini';
 //    case QWEN = 'qwen';
 

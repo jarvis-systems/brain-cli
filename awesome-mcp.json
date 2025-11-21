@@ -57,7 +57,7 @@
       "boost:mcp"
     ],
     "setup": [
-      ["<input.COMPOSER(select:<const.COMPOSER>|composer)>", "require", "bfg/laravel-boost-reflector", "--dev"]
+      ["<input.COMPOSER(select:<const.COMPOSER>|composer|./vendor/bin/sail composer)>", "require", "bfg/laravel-boost-reflector", "--dev"]
     ]
   }
 }

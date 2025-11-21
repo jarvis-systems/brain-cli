@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
@@ -15,6 +16,8 @@ use function Illuminate\Support\php_binary;
 
 class ScriptCommand extends Command
 {
+    use HelpersTrait;
+
     protected $signature = 'script';
 
     protected $description = 'Run a script';
@@ -30,6 +33,8 @@ class ScriptCommand extends Command
 
     public function handle(): int
     {
+        $this->checkWorkingDir();
+
         // Get all raw arguments after 'script' command
         $argv = $_SERVER['argv'] ?? [];
 

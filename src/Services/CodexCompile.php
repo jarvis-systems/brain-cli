@@ -11,14 +11,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-class ClaudeCompile implements CompileContract
+class CodexCompile implements CompileContract
 {
-    const MCP_FILE = '.mcp.json';
-    const CLAUDE_FILE = ['.claude', 'CLAUDE.md'];
-    const CLAUDE_FOLDER = '.claude';
-    const AGENTS_FOLDER = ['.claude', 'agents'];
-    const COMMANDS_FOLDER = ['.claude', 'commands'];
-    const SKILLS_FOLDER = ['.claude', 'skills'];
+    const MCP_FILE = '.codex/config.toml';
+    const CODEX_FILE = ['AGENTS.md'];
+    const CODEX_FOLDER = '.codex';
+    const AGENTS_FOLDER = ['.codex', 'agents'];
+    const COMMANDS_FOLDER = ['.codex', 'prompts'];
+    const SKILLS_FOLDER = ['.codex', 'skills'];
 
     /**
      * @var array<array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>
@@ -68,14 +68,12 @@ class ClaudeCompile implements CompileContract
 
     public function compile(): bool
     {
-        return $this->makeClaudeFile()
+        return $this->makeCodexFile()
             && $this->makeMcpFile()
-            && $this->makeAgentsFiles()
-            && $this->makeCommandsFiles()
-            && $this->makeSkillsFiles();
+            && $this->makeCommandsFiles();
     }
 
-    protected function makeClaudeFile(): bool
+    protected function makeCodexFile(): bool
     {
         if (
             !is_dir($dir = Brain::projectDirectory($this->brainFolder()))
@@ -93,55 +91,21 @@ class ClaudeCompile implements CompileContract
     protected function makeMcpFile(): bool
     {
         $file = Brain::projectDirectory($this->mcpFile());
-        $json = ['mcpServers' => []];
+        $tomls = [];
+
 
         foreach ($this->mcpFiles as $mcpFile) {
             $server = $mcpFile['structure'];
-            if (is_array($server)) {
+            if (is_string($server)) {
                 $name = $mcpFile['meta']['id'] ?? preg_replace('/(.*)-mcp/', '$1', $mcpFile['id']);
-                $json['mcpServers'][$name] = $server;
+                $server = preg_replace('/\n\[(.*)]\n/', "\n[mcp_servers.{$name}.$1]\n", $server);
+                $tomls[] = "[mcp_servers.{$name}]\n" . $server;
             }
         }
 
         return !!file_put_contents($file,
-            json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    protected function makeAgentsFiles(): bool
-    {
-        File::cleanDirectory(Brain::projectDirectory($this->agentsFolder()));
-
-        foreach ($this->agentFiles as $agentFile) {
-            if ($agentFile['classBasename'] === 'ExploreMaster') {
-                continue;
-            }
-            $insidePath = $this->insidePath($agentFile['file'], 'Agents');
-            $directory = Brain::projectDirectory([$this->agentsFolder(), $insidePath]);
-            if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
-                return false;
-            }
-            $filename = ($agentFile['meta']['id'] ?? $agentFile['id']).'.md';
-            $file = implode(DS, [$directory, $filename]);
-            $model = $agentFile['meta']['model'] ?? 'sonnet';
-            $color = $agentFile['meta']['color'] ?? 'blue';
-            $name = $agentFile['meta']['id'] ?? $agentFile['id'];
-            $description = $agentFile['meta']['description'] ?? '';
-            $structure = <<<MD
----
-name: $name
-description: "$description"
-model: $model
-color: $color
----
-
-{$agentFile['structure']}
-MD;
-
-            if (!file_put_contents($file, $structure)) {
-                return false;
-            }
-        }
-        return true;
+            implode("\n\n", $tomls)
+        );
     }
 
     protected function makeCommandsFiles(): bool
@@ -174,11 +138,6 @@ MD;
         return true;
     }
 
-    protected function makeSkillsFiles(): bool
-    {
-        return true;
-    }
-
     protected function insidePath(string $file, string $from): string
     {
         $path = trim(to_string(str_replace([
@@ -196,7 +155,7 @@ MD;
 
     public function brainFile(): string
     {
-        return implode(DS, static::CLAUDE_FILE);
+        return implode(DS, static::CODEX_FILE);
     }
 
     public function mcpFile(): string
@@ -206,7 +165,7 @@ MD;
 
     public function brainFolder(): string
     {
-        return static::CLAUDE_FOLDER;
+        return static::CODEX_FOLDER;
     }
 
     public function agentsFolder(): string
@@ -232,7 +191,7 @@ MD;
     public function formats(): array
     {
         return [
-            Brain::nodeDirectory('Mcp') => 'json'
+            Brain::nodeDirectory('Mcp') => 'toml'
         ];
     }
 
@@ -241,13 +200,13 @@ MD;
         return [];
     }
 
-    public function compileAgentPrefix(): string
+    public function compileAgentPrefix(): string|array
     {
-        return '@agent-{{ name }}';
+        return 'mcp__brain__task-drone({{ name }})';
     }
 
     public function compileStoreVarPrefixPrefix(): string
     {
-        return '${{ name }}';
+        return 'var {{ name }}';
     }
 }

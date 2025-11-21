@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Enums\Agent;
-use BrainCLI\Services\Contracts\CompileContract;
-
 class ListMastersCommand extends CompileCommand
 {
     protected $signature = 'list:masters {agent=claude : Agent for which compilation}';

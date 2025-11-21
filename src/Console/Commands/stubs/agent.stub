@@ -7,15 +7,19 @@ namespace {{ namespace }};
 use BrainCore\Attributes\Meta;
 use BrainCore\Attributes\Purpose;
 use BrainCore\Attributes\Includes;
+use BrainCore\Archetypes\AgentArchetype;
 use BrainCore\Includes\Agent\SkillsUsagePolicy;
 use BrainCore\Includes\Agent\AgentVectorMemory;
 use BrainCore\Includes\Agent\ToolsOnlyExecution;
 use BrainCore\Includes\Agent\DocumentationFirstPolicy;
+use BrainCore\Includes\Agent\AgentCoreIdentity;
+use BrainCore\Includes\Universal\BaseConstraints;
 use BrainCore\Includes\Universal\QualityGates;
 use BrainCore\Includes\Universal\AgentLifecycleFramework;
 use BrainCore\Includes\Universal\SequentialReasoningCapability;
 use BrainCore\Includes\Universal\BrainDocsCommand;
 use BrainCore\Includes\Universal\BrainScriptsCommand;
+use BrainCore\Includes\Universal\VectorMemoryMCP;
 
 #[Meta('id', '{{ agentId }}')]
 #[Meta('model', 'sonnet')]

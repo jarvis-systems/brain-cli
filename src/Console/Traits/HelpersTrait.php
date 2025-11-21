@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Traits;
 
+use BrainCLI\Support\Brain;
 use Illuminate\Support\Str;
 
 trait HelpersTrait
@@ -22,5 +23,15 @@ trait HelpersTrait
             $className,
             (! empty($nm) ? '\\' . $nm : '')
         ];
+    }
+
+    public function checkWorkingDir(): void
+    {
+        $workingDir = Brain::workingDirectory();
+
+        if (! is_dir($workingDir)) {
+            $this->components->error("The brain working directory does not exist: {$workingDir}");
+            exit(ERROR);
+        }
     }
 }
