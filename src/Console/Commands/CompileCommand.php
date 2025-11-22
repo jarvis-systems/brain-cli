@@ -168,6 +168,7 @@ class CompileCommand extends Command
         }
 
         $checkPath = str_replace(Brain::projectDirectory() . DS, '', dirname($fullPath));
+        $checkPath = str_replace($bf . DS, '', $checkPath);
 
         if ($detectFormat) {
             $formats = $this->compiler->formats();
