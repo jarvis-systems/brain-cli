@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
+use BrainCLI\Console\Commands\BrainCommand;
 use BrainCLI\Console\Commands\DocsCommand;
 use BrainCLI\Console\Commands\ListIncludesCommand;
 use BrainCLI\Console\Commands\MakeScriptCommand;
@@ -42,6 +43,7 @@ class ServiceProvider
     protected array $commands = [
         InitCommand::class,
         DocsCommand::class,
+        //BrainCommand::class,
         ScriptCommand::class,
         UpdateCommand::class,
         CompileCommand::class,
@@ -87,8 +89,10 @@ class ServiceProvider
      */
     public function register(): void
     {
-        foreach ($this->commands as $command) {
-            $this->app->add($this->laravel->make($command));
+        if (count($_SERVER['argv']) !== 1) {
+            foreach ($this->commands as $command) {
+                $this->app->add($this->laravel->make($command));
+            }
         }
 
         foreach ($this->singletons as $name => $singleton) {
@@ -103,6 +107,7 @@ class ServiceProvider
      *
      * @param  \BrainCLI\Foundation\Application  $laravel
      * @return \Illuminate\Console\Application
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public static function bootApplication(LaravelApplication $laravel): Application
     {
@@ -120,6 +125,11 @@ class ServiceProvider
 
         $app = new Application($laravel, $events, Brain::version());
         $app->setName('Brain CLI');
+        if (count($_SERVER['argv']) === 1) {
+            $app->add($laravel->make(BrainCommand::class));
+            $app->setDefaultCommand('brain', true);
+        }
+        $app->get('completion')->setHidden();
         return $app;
     }
 

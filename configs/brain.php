@@ -10,6 +10,9 @@ return [
     'mcp' => [
         'markets' => [
             __DIR__ . '/../awesome-mcp.json'
+        ],
+        'default' => [
+            'context7', 'vector-memory', 'vector-task', 'sequential-thinking'
         ]
     ]
 ];

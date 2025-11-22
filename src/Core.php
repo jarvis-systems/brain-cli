@@ -8,6 +8,12 @@ class Core
 {
     protected string|null $versionCache = null;
 
+    public function isDebug(): bool
+    {
+        return ($env = getenv('BRAIN_CLI_DEBUG')) === '1'
+            || $env === 'true';
+    }
+
     public function nodeDirectory(string|array $path = '', bool $relative = false): string
     {
         $path = is_array($path) ? implode(DS, $path) : $path;

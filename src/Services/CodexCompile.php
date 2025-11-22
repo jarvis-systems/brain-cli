@@ -191,7 +191,7 @@ MD;
     public function formats(): array
     {
         return [
-            Brain::nodeDirectory('Mcp') => 'toml'
+            Brain::nodeDirectory('Mcp', true) => 'toml'
         ];
     }
 
@@ -202,11 +202,11 @@ MD;
 
     public function compileAgentPrefix(): string|array
     {
-        return 'mcp__brain__task-drone({{ name }})';
+        return 'mcp__brain__task-drone({{ value }})';
     }
 
     public function compileStoreVarPrefixPrefix(): string
     {
-        return 'var {{ name }}';
+        return 'var {{ value }}';
     }
 }

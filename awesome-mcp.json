@@ -23,6 +23,17 @@
     "args": [
       "vector-memory-mcp",
       "--working-dir",
+      "<const.PROJECT_DIRECTORY>",
+      "--memory-limit",
+      "<input.VECTOR_MEMORY_LIMIT(select:1000|10000|100000|500000|1000000|2000000|5000000|10000000)>"
+    ]
+  },
+  "vector-task": {
+    "type": "stdio",
+    "command": "uvx",
+    "args": [
+      "vector-task-mcp",
+      "--working-dir",
       "<const.PROJECT_DIRECTORY>"
     ]
   },

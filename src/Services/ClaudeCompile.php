@@ -232,7 +232,7 @@ MD;
     public function formats(): array
     {
         return [
-            Brain::nodeDirectory('Mcp') => 'json'
+            Brain::nodeDirectory('Mcp', true) => 'json'
         ];
     }
 
@@ -243,11 +243,11 @@ MD;
 
     public function compileAgentPrefix(): string
     {
-        return '@agent-{{ name }}';
+        return '@agent-{{ value }}';
     }
 
     public function compileStoreVarPrefixPrefix(): string
     {
-        return '${{ name }}';
+        return '${{ value }}';
     }
 }

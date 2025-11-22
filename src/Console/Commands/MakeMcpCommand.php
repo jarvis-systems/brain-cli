@@ -83,6 +83,22 @@ class MakeMcpCommand extends Command
     }
 
     /**
+     * Get real mcp methods with parameters from MCP config
+     *
+     * @param  array  $config
+     * @return array
+     */
+    protected function getMcpMethodsWithParameters(array $config): array
+    {
+        if ($config['type'] === 'stdio') {
+            $result = (new Process([$config['command'], ...$config['args'] ?? []]))
+                ->setTimeout(10)
+                ->setInput('{"type":"methods"}')
+                ->run();
+        }
+    }
+
+    /**
      * @param  array{'name': non-empty-string, 'config': array{'type': non-empty-string, 'command': non-empty-string|null, 'url': non-empty-string|null, 'args': list<non-empty-string>|null, 'headers': array<non-empty-string, non-empty-string>|null}}  $info
      * @param  array{'source': non-empty-string, 'parameters': array<int|non-empty-string, non-empty-string>, 'className': non-empty-string}  $data
      * @return array{file: non-empty-string, stub: non-empty-string, replacements: array<non-empty-string, non-empty-string>}

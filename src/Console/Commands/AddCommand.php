@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 use BrainCLI\Library;
 use BrainCLI\McpFileDetector;
@@ -24,8 +25,11 @@ class AddCommand extends Command
                 ->setNotFoundCredentialCallback([$this, 'askCredentials'])
                 ->get($name, true);
         } catch (\Throwable $e) {
+            if (Brain::isDebug()) {
+                dd($e);
+            }
             $this->components->error($e->getMessage());
-            return 1;
+            return ERROR;
         }
 
         $fileDetector = McpFileDetector::create();
@@ -33,6 +37,9 @@ class AddCommand extends Command
         try {
             $fileDetector->addServer($serverInfo);
         } catch (\Throwable $e) {
+            if (Brain::isDebug()) {
+                dd($e);
+            }
             $this->components->error($e->getMessage());
             return 1;
         }

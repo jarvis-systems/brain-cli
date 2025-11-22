@@ -20,7 +20,7 @@ class ListMastersCommand extends CompileCommand
 
         return $this->applyComplier(function () {
 
-            $files = $this->getFile($this->getFileList('Agents'), 'meta');
+            $files = $this->convertFiles($this->getWorkingFiles('Agents'), 'meta');
 
             foreach ($files as $file) {
                 $id = $file['meta']['id'] ?? $file['id'];

@@ -53,18 +53,9 @@ class InitCommand extends Command
             });
 
         if (! $result) {
-
-            $this->call('make:mcp', [
-                'name' => 'context7',
-            ]);
-
-            $this->call('make:mcp', [
-                'name' => 'vector-memory',
-            ]);
-
-            $this->call('make:mcp', [
-                'name' => 'sequential-thinking',
-            ]);
+            foreach (to_array(config('brain.mcp.default', [])) as $name) {
+                $this->call('make:mcp', compact('name'));
+            }
         }
 
         return OK;

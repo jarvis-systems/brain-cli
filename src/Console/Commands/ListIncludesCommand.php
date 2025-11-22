@@ -20,10 +20,9 @@ class ListIncludesCommand extends CompileCommand
 
         return $this->applyComplier(function () {
 
-            $files1 = $this->getFile($this->getFileList('Includes'), 'meta');
-            $files2 = $this->getFile($this->getFileList('Includes', true), 'meta');
+            $files = $this->convertFiles($this->getWorkingFiles('Includes'), 'meta');
 
-            foreach (array_merge($files1, $files2) as $file) {
+            foreach ($files as $file) {
                 $this->line("Name: {$file['classBasename']}");
                 $this->line("Class: {$file['class']}");
                 $this->line("Purpose: " . ($file['meta']['purposeText'] ?? 'N/A'));

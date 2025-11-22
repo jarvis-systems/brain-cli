@@ -110,8 +110,7 @@ class DocsCommand extends Command
             $metadata = [
                 'date' => Carbon::parse($date)->toDateString(),
             ];
-//dump($date);
-            //if (preg_match('/---(.*?)---/s', $content, $matches)) { // need only from start file
+
             if (preg_match('/^---\s*(.*?)\s*---/s', $content, $matches)) {
 
                 try {
@@ -124,18 +123,12 @@ class DocsCommand extends Command
                         }
                     }
                 } catch (\Exception $e) {
-                    dd($e);
+                    if (Brain::isDebug()) {
+                        dd($e);
+                    }
+                    $this->components->error("Failed to parse {$matches[1]}");
+                    exit(ERROR);
                 }
-
-//                $header = trim($matches[1]);
-//                $lines = explode("\n", $header);
-//                foreach ($lines as $line) {
-//                    if (preg_match('/^(\w+):\s*"?(.*?)"?$/', trim($line), $lineMatches)) {
-//                        $key = $lineMatches[1];
-//                        $value = $lineMatches[2];
-//                        $metadata[$key] = $value;
-//                    }
-//                }
             }
 
             return [

@@ -15,4 +15,14 @@ enum Agent: string
     {
         return $this->value . ':compile';
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::CLAUDE => 'Claude Code',
+            self::CODEX => 'Codex CLI',
+//            self::GEMINI => 'Gemini CLI',
+//            self::QWEN => 'Qwen CLI',
+        };
+    }
 }

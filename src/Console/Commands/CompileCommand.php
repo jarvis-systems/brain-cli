@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
-use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\Contracts\CompileContract;
 use BrainCLI\Support\Brain;
@@ -20,7 +19,10 @@ class CompileCommand extends Command
 {
     use HelpersTrait;
 
-    protected $signature = 'compile {agent=claude : Agent for which compilation}';
+    protected $signature = 'compile 
+        {agent=claude : Agent for which compilation}
+        {--show-variables : Show available variables for compilation}
+        ';
 
     protected $description = 'Compile the Brain configurations files';
 
@@ -41,7 +43,25 @@ class CompileCommand extends Command
         $this->components->info('Starting compilation for agent: ' . $this->agent->value);
 
         return $this->applyComplier(function () {
-            $files = $this->getFile($this->getFileList());
+
+            if ($this->option('show-variables')) {
+                $brainFile = $this->getWorkingFile('Brain.php::meta');
+                $brain = collect($this->convertFiles($brainFile))->first();
+                if ($brain === null) {
+                    $this->components->error("Brain configuration file not found.");
+                    return ERROR;
+                }
+                $this->components->info('Available compilation variables:');
+                $vars = $brain['meta'];
+                $compilerVars = $this->compiler->compileVariables();
+                $allVars = array_merge($vars, $compilerVars);
+                foreach ($allVars as $key => $value) {
+                    $this->line(" - <fg=cyan>{{ $key }}</>: " . to_string($value));
+                }
+                return OK;
+            }
+
+            $files = $this->convertFiles($this->getWorkingFiles());
             if (empty($files)) {
                 $this->components->warn("No configuration files found for agent {$this->agent->value}.");
                 return ERROR;
@@ -90,10 +110,10 @@ class CompileCommand extends Command
                 return ERROR;
             }
         } catch (\Throwable $e) {
-            if (getenv('BRAIN_CLI_DEBUG') === '1') {
-                dump($e);
+            if (Brain::isDebug()) {
+                dd($e);
             }
-            $this->components->error("Compiler failed: " . $e->getMessage());
+            $this->components->error("Compiler failed!");
             return ERROR;
         }
     }
@@ -103,7 +123,7 @@ class CompileCommand extends Command
      * @param  bool  $vendor
      * @return array<string>
      */
-    public function getFileList(string $path = '', bool $vendor = false): array
+    public function getWorkingFiles(string $path = '', bool $vendor = false): array
     {
         $dir = Brain::workingDirectory();
         if ($vendor) {
@@ -111,36 +131,66 @@ class CompileCommand extends Command
         } else {
             $nodeFolderName = DS . 'node' . (! empty($path) ? DS . $path : '');
         }
-        $projectPathToNodes = to_string(config('brain.dir', '.brain'))
-            . $nodeFolderName . DS;
+
         if (! is_dir($dir . $nodeFolderName)) {
             return [];
         }
         $files = File::allFiles($dir . $nodeFolderName);
-        $formats = $this->compiler->formats();
-        return array_filter(array_map(function ($file) use ($projectPathToNodes, $formats) {
-            $pn = $file->getPathname();
-            $rp = $file->getRelativePathname();
-            $resultFormat = 'xml';
+        return array_filter(array_map(function ($file) use ($vendor) {
+            return $this->getWorkingFile($file->getRelativePathname(), $vendor);
+        }, $files));
+    }
+
+    public function getWorkingFile(string $file, bool $vendor = false): string|null
+    {
+        $resultFormat = 'xml';
+        $detectFormat = true;
+
+        if (preg_match('/::([a-z]+)$/', $file, $matches)) {
+            $file = preg_replace('/(::[a-z]+)$/', '', $file);
+            $resultFormat = $matches[1];
+            $detectFormat = false;
+        }
+
+        if ($vendor) {
+            $nodeFolderName = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src' . DS . $file;
+        } else {
+            $nodeFolderName = DS . 'node' . DS . $file;
+        }
+
+        $bf = to_string(config('brain.dir', '.brain'));
+        $projectPathToNodes = $bf . $nodeFolderName;
+
+        $fullPath = Brain::projectDirectory($projectPathToNodes);
+
+        if (($fullPath = realpath($fullPath)) === false || ! is_file($fullPath)) {
+            return null;
+        }
+
+        $checkPath = str_replace(Brain::projectDirectory() . DS, '', dirname($fullPath));
+
+        if ($detectFormat) {
+            $formats = $this->compiler->formats();
             foreach ($formats as $path => $format) {
-                if (str_starts_with($pn, $path)) {
+                $path = str_replace($bf . DS, '', $path);
+                if ($checkPath === $path) {
                     $resultFormat = $format;
                     break;
                 }
             }
-            if (! str_ends_with($rp, '.php')) {
-                return null;
-            }
-            return $projectPathToNodes . $rp . "::" . $resultFormat;
-        }, $files));
+        }
+        if (! str_ends_with($projectPathToNodes, '.php')) {
+            return null;
+        }
+        return $projectPathToNodes . "::" . $resultFormat;
     }
 
     /**
      * @param  non-empty-string|array<non-empty-string>  $file
      * @param  'xml'|'json'|'yaml'|'toml'|'meta'  $format
-     * @return array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}
+     * @return array<array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>
      */
-    public function getFile(string|array $file, string $format = 'xml'): array
+    public function convertFiles(string|array $file, string $format = 'xml'): array
     {
         if (empty($file)) {
             return [];
@@ -153,7 +203,7 @@ class CompileCommand extends Command
             php_binary(),
             '-d', 'xdebug.mode=off', '-d', 'opcache.enable_cli=1',
             $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core',
-            'get:file',
+            'convert',
             $file,
             '--' . $format,
             '--variables',
@@ -208,7 +258,14 @@ class CompileCommand extends Command
             'MONTH' => date('m'),
             'DAY' => date('d'),
             'UNIQUE_ID' => uniqid(),
+            'HAS_PYTHON' => file_exists(Brain::projectDirectory('requirements.txt')) || file_exists(Brain::projectDirectory('pyproject.toml')),
+            'HAS_COMPOSER' => file_exists(Brain::projectDirectory('composer.json')),
+            'HAS_LARAVEL' => file_exists(Brain::projectDirectory('composer.json')) && str_contains(file_get_contents(Brain::projectDirectory('composer.json')), 'laravel/framework'),
+            'HAS_NODE_JS' => file_exists(Brain::projectDirectory('package.json')),
+            'HAS_GO_LANG' => file_exists(Brain::projectDirectory('go.mod')),
+
             'AGENT' => $this->agent->value,
+            'AGENT_LABEL' => $this->agent->label(),
             'BRAIN_FILE' => $this->compiler->brainFile(),
             'MCP_FILE' => $this->compiler->mcpFile(),
             'BRAIN_FOLDER' => $this->compiler->brainFolder() . DS,
