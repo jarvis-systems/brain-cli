@@ -127,17 +127,20 @@ class CompileCommand extends Command
     {
         $dir = Brain::workingDirectory();
         if ($vendor) {
-            $nodeFolderName = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src' . DS . $path;
+            $fo = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src';
+            $nodeFolderName = $fo . (! empty($path) ? DS . $path : '');
         } else {
-            $nodeFolderName = DS . 'node' . (! empty($path) ? DS . $path : '');
+            $fo = DS . 'node';
+            $nodeFolderName = $fo . (! empty($path) ? DS . $path : '');
         }
 
         if (! is_dir($dir . $nodeFolderName)) {
             return [];
         }
         $files = File::allFiles($dir . $nodeFolderName);
-        return array_filter(array_map(function ($file) use ($vendor) {
-            return $this->getWorkingFile($file->getRelativePathname(), $vendor);
+        return array_filter(array_map(function ($file) use ($vendor, $dir, $fo) {
+            $path = str_replace($dir . $fo . DS, '', $file->getPathname());
+            return $this->getWorkingFile($path, $vendor);
         }, $files));
     }
 
@@ -188,10 +191,10 @@ class CompileCommand extends Command
 
     /**
      * @param  non-empty-string|array<non-empty-string>  $file
-     * @param  'xml'|'json'|'yaml'|'toml'|'meta'  $format
+     * @param  'xml'|'json'|'yaml'|'toml'|'meta'|null  $format
      * @return array<array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>
      */
-    public function convertFiles(string|array $file, string $format = 'xml'): array
+    public function convertFiles(string|array $file, string|null $format = null): array
     {
         if (empty($file)) {
             return [];
@@ -200,19 +203,19 @@ class CompileCommand extends Command
         $vars = $this->getDefaultVariables();
         $file = is_array($file) ? implode(' && ', $file) : $file;
 
-        $command = [
+        $command = array_filter([
             php_binary(),
             '-d', 'xdebug.mode=off', '-d', 'opcache.enable_cli=1',
             $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core',
             'convert',
             $file,
-            '--' . $format,
+            ($format ? '--' . $format : null),
             '--variables',
             json_encode(array_merge($vars, $this->compiler->compileVariables(), [
                 'puzzle-agent' => $this->compiler->compileAgentPrefix(),
                 'puzzle-store-var' => $this->compiler->compileStoreVarPrefixPrefix(),
             ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ];
+        ]);
 
         $process = (new Process($command, Brain::projectDirectory()))
             ->setTimeout(null)

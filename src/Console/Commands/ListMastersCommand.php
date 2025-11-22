@@ -21,13 +21,17 @@ class ListMastersCommand extends CompileCommand
         return $this->applyComplier(function () {
 
             $files = $this->convertFiles($this->getWorkingFiles('Agents'), 'meta');
+            $json = [];
 
             foreach ($files as $file) {
                 $id = $file['meta']['id'] ?? $file['id'];
-                $this->line("ID: @agent-{$id}");
-                $this->line("Master Name: {$file['classBasename']}");
-                $this->line("Description: " . ($file['meta']['description'] ?? 'N/A'));
-                $this->line('---');
+                $json[$id] = $file['meta']['description'] ?? 'N/A';
+            }
+
+            if ($json) {
+                $this->line(json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            } else {
+                $this->components->warn('No masters found.');
             }
 
             return OK;
