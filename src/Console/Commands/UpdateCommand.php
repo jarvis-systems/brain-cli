@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Console\Traits\CompilerBridgeTrait;
+use BrainCLI\Services\Contracts\CompileContract;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -13,7 +14,7 @@ use function Illuminate\Support\php_binary;
 
 class UpdateCommand extends Command
 {
-    use HelpersTrait;
+    use CompilerBridgeTrait;
 
     protected $signature = 'update {--composer=composer : The composer binary to use}';
 
@@ -21,8 +22,6 @@ class UpdateCommand extends Command
 
     public function handle(): int
     {
-        $this->checkWorkingDir();
-
         $php = php_binary();
         $composer = $this->option('composer');
         $brainFolder = to_string(config('brain.dir', '.brain'));
@@ -63,7 +62,29 @@ class UpdateCommand extends Command
             $this->components->error("Failed to update Brain CLI dependencies.");
             return $resultOfLocalUpdate;
         }
+
+        foreach ($this->detectExistsAgents() as $agent) {
+
+            $compiler = $this->laravel->make($agent->containerName());
+            if ($compiler instanceof CompileContract) {
+                $this->compiler = $compiler;
+                $commandUpdateAgent = $compiler->update();
+
+                if ($commandUpdateAgent) {
+
+                    (new Process($commandUpdateAgent, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
+                        ->setTimeout(null)
+                        ->setPty(Process::isPtySupported())
+                        ->setTTY(Process::isTTYSupported())
+                        ->run(function ($type, $output) {
+                            $this->output->write($output);
+                        });
+                }
+            }
+        }
+
         $this->components->info("Brain has been updated successfully.");
+
         return OK;
     }
 }

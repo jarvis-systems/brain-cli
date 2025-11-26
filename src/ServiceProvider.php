@@ -100,6 +100,12 @@ class ServiceProvider
         }
 
         $this->laravel->bind('files', Filesystem::class);
+
+        $callCommand = $_SERVER['argv'][1] ?? null;
+        if (! $callCommand || ! $this->app->has($callCommand)) {
+            $this->app->add($this->laravel->make(BrainCommand::class));
+            $this->app->setDefaultCommand('brain', true);
+        }
     }
 
     /**
@@ -125,10 +131,6 @@ class ServiceProvider
 
         $app = new Application($laravel, $events, Brain::version());
         $app->setName('Brain CLI');
-        if (count($_SERVER['argv']) === 1) {
-            $app->add($laravel->make(BrainCommand::class));
-            $app->setDefaultCommand('brain', true);
-        }
         $app->get('completion')->setHidden();
         return $app;
     }
@@ -155,7 +157,9 @@ class ServiceProvider
         try {
             $provider->register();
         } catch (\Throwable $e) {
-            dump($e);
+            if (static::isDebug()) {
+                dd($e);
+            }
             $status = $e->getCode() ?: ERROR;
         }
 
@@ -163,11 +167,19 @@ class ServiceProvider
             try {
                 $status = $app->run();
             } catch (\Throwable $e) {
-                dump($e);
+                if (static::isDebug()) {
+                    dd($e);
+                }
                 $status = $e->getCode() ?: ERROR;
             }
         }
 
         return $status;
+    }
+
+    public static function isDebug(): bool
+    {
+        return ($env = getenv('BRAIN_CLI_DEBUG')) === '1'
+            || $env === 'true';
     }
 }

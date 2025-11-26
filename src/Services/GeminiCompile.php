@@ -11,14 +11,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-class CodexCompile implements CompileContract
+class GeminiCompile implements CompileContract
 {
-    const MCP_FILE = '.codex/config.toml';
-    const CODEX_FILE = ['AGENTS.md'];
-    const CODEX_FOLDER = '.codex';
-    const AGENTS_FOLDER = ['.codex', 'agents'];
-    const COMMANDS_FOLDER = ['.codex', 'prompts'];
-    const SKILLS_FOLDER = ['.codex', 'skills'];
+    const MCP_FILE = ['.gemini', 'settings.json'];
+    const GEMINI_FILE = 'GEMINI.md';
+    const GEMINI_FOLDER = '.gemini';
+    const AGENTS_FOLDER = ['.gemini', 'agents'];
+    const COMMANDS_FOLDER = ['.gemini', 'commands'];
+    const SKILLS_FOLDER = ['.gemini', 'skills'];
 
     /**
      * @var array<array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>
@@ -68,17 +68,28 @@ class CodexCompile implements CompileContract
 
     public function compile(): bool
     {
-        return $this->makeCodexFile()
-            && $this->makeConfigFile()
-            && $this->makeCommandsFiles();
+        return $this->makeClaudeFile()
+            && $this->makeMcpFile()
+            && $this->makeAgentsFiles()
+            && $this->makeCommandsFiles()
+            && $this->makeSkillsFiles();
     }
 
     public function compiled(): void
     {
-
+        if (isset($this->brainFile['meta']['model'])) {
+            $settingsFile = Brain::projectDirectory([$this->brainFolder(), 'settings.json']);
+            if (is_file($settingsFile)) {
+                $settings = json_decode(file_get_contents($settingsFile), true);
+                if ($settingsFile !== false) {
+                    $settings['model'] = $this->brainFile['meta']['model'];
+                    file_put_contents($settingsFile, json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) );
+                }
+            }
+        }
     }
 
-    protected function makeCodexFile(): bool
+    protected function makeClaudeFile(): bool
     {
         if (
             !is_dir($dir = Brain::projectDirectory($this->brainFolder()))
@@ -93,79 +104,58 @@ class CodexCompile implements CompileContract
         );
     }
 
-    /**
-     * Mcp file example:
-     * model = "gpt-5.1-codex-max"
-     *
-     * # <-- Auto-config zone -->
-     * [mcp_servers.context7]
-     * type = "stdio"
-     * command = "npx"
-     * args = ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-d066fdcb-bd7e-4e10-acf4-522c7621e2c4"]
-     *
-     * [mcp_servers.laravel-boost]
-     * type = "stdio"
-     * command = "php"
-     * args = ["/Users/xsaven/PhpstormProjects/getorder/customers/artisan", "boost:mcp"]
-     *
-     * [mcp_servers.sequential-thinking]
-     * type = "stdio"
-     * command = "npx"
-     * args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-     *
-     * [mcp_servers.vector-memory]
-     * type = "stdio"
-     * command = "uvx"
-     * args = ["vector-memory-mcp", "--working-dir", "/Users/xsaven/PhpstormProjects/getorder/customers", "--memory-limit", "2000000"]
-     *
-     * [mcp_servers.vector-task]
-     * type = "stdio"
-     * command = "uvx"
-     * args = ["vector-task-mcp", "--working-dir", "/Users/xsaven/PhpstormProjects/getorder/customers"]
-     *
-     * [projects."/Users/xsaven/PhpstormProjects/getorder/customers"]
-     * trust_level = "trusted"
-     * # <-- End Auto-config zone -->
-     *
-     * [notice]
-     * hide_gpt5_1_migration_prompt = true
-     * "hide_gpt-5.1-codex-max_migration_prompt" = true
-     */
-    protected function makeConfigFile(): bool
+    protected function makeMcpFile(): bool
     {
         $file = Brain::projectDirectory($this->mcpFile());
-        $tomls = [];
-
-        if (isset($this->brainFile['meta']['model'])) {
-            $tomls[] = "model = \"{$this->brainFile['meta']['model']}\"";
-        }
+        $json = ['mcpServers' => []];
 
         foreach ($this->mcpFiles as $mcpFile) {
             $server = $mcpFile['structure'];
-            if (is_string($server)) {
+            if (is_array($server)) {
                 $name = $mcpFile['meta']['id'] ?? preg_replace('/(.*)-mcp/', '$1', $mcpFile['id']);
-                $server = preg_replace('/\n\[(.*)]\n/', "\n[mcp_servers.{$name}.$1]\n", $server);
-                $tomls[] = "[mcp_servers.{$name}]\n" . $server;
+                $json['mcpServers'][$name] = $server;
             }
         }
 
-        $toml = implode("\n\n", $tomls);
+        return !!file_put_contents($file,
+            json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
 
-        $toml = "# <-- Auto-config zone -->\n" . $toml . "\n# <-- End Auto-config zone -->";
+    protected function makeAgentsFiles(): bool
+    {
+        File::cleanDirectory(Brain::projectDirectory($this->agentsFolder()));
 
-        if (is_file($file)) {
-            $content = file_get_contents($file);
-            if ($content === false) {
-                return !!file_put_contents($file, $toml);
+        foreach ($this->agentFiles as $agentFile) {
+            if ($agentFile['classBasename'] === 'ExploreMaster') {
+                continue;
             }
-            $content = preg_replace('/model = "(.*)"\n*/', '', $content);
-            $toml = preg_replace(
-                '/# <-- Auto-config zone -->\n(.*)\n# <-- End Auto-config zone -->/ms',
-                $toml,
-                $content);
-        }
+            $insidePath = $this->insidePath($agentFile['file'], 'Agents');
+            $directory = Brain::projectDirectory([$this->agentsFolder(), $insidePath]);
+            if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+                return false;
+            }
+            $filename = ($agentFile['meta']['id'] ?? $agentFile['id']).'.md';
+            $file = implode(DS, [$directory, $filename]);
+            $model = $agentFile['meta']['model'] ?? 'sonnet';
+            $color = $agentFile['meta']['color'] ?? 'blue';
+            $name = $agentFile['meta']['id'] ?? $agentFile['id'];
+            $description = $agentFile['meta']['description'] ?? '';
+            $structure = <<<MD
+---
+name: $name
+description: "$description"
+model: $model
+color: $color
+---
 
-        return !!file_put_contents($file, $toml);
+{$agentFile['structure']}
+MD;
+
+            if (!file_put_contents($file, $structure)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected function makeCommandsFiles(): bool
@@ -174,14 +164,13 @@ class CodexCompile implements CompileContract
 
         foreach ($this->commandFiles as $commandFile) {
             $insidePath = $this->insidePath($commandFile['file'], 'Commands');
-            $directory = Brain::projectDirectory($this->commandsFolder());
+            $directory = Brain::projectDirectory([$this->commandsFolder(), $insidePath]);
             if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
                 return false;
             }
-            $name = ($commandFile['meta']['id'] ?? preg_replace('/(.*)-command/', '$1', $commandFile['id']));
-            $filename = ($insidePath ? str_replace(DS, '-', $insidePath) . '-' : '')
-                . preg_replace('/(.*)-command/', '$1', $commandFile['id']) . '.md';
+            $filename = preg_replace('/(.*)-command/', '$1', $commandFile['id']).'.md';
             $file = implode(DS, [$directory, $filename]);
+            $name = $commandFile['meta']['id'] ?? $commandFile['id'];
             $description = $commandFile['meta']['description'] ?? '';
             $structure = <<<MD
 ---
@@ -196,6 +185,11 @@ MD;
                 return false;
             }
         }
+        return true;
+    }
+
+    protected function makeSkillsFiles(): bool
+    {
         return true;
     }
 
@@ -216,17 +210,17 @@ MD;
 
     public function brainFile(): string
     {
-        return implode(DS, static::CODEX_FILE);
+        return static::GEMINI_FILE;
     }
 
     public function mcpFile(): string
     {
-        return static::MCP_FILE;
+        return implode(DS, static::MCP_FILE);
     }
 
     public function brainFolder(): string
     {
-        return static::CODEX_FOLDER;
+        return static::GEMINI_FOLDER;
     }
 
     public function agentsFolder(): string
@@ -252,7 +246,7 @@ MD;
     public function formats(): array
     {
         return [
-            Brain::nodeDirectory('Mcp', true) => 'toml'
+            Brain::nodeDirectory('Mcp', true) => 'json'
         ];
     }
 
@@ -261,40 +255,13 @@ MD;
         return [];
     }
 
-    public function compileAgentPrefix(): string|array
+    public function compileAgentPrefix(): string
     {
-        return 'mcp__brain__task-drone({{ value }})';
+        return '@agent-{{ value }}';
     }
 
     public function compileStoreVarPrefixPrefix(): string
     {
-        return 'var {{ value }}';
-    }
-
-    public function run(): array
-    {
-        return ['codex'];
-    }
-
-    public function exit(): void
-    {
-        // TODO: Implement exit() method.
-    }
-
-    public function resume(): array
-    {
-        return ['codex', 'resume', '--last'];
-    }
-
-    public function commandEnv(): array
-    {
-        return [
-            'CODEX_HOME' => Brain::projectDirectory($this->brainFolder())
-        ];
-    }
-
-    public function update(): array
-    {
-        return ['npm', 'install', '-g', '@openai/codex@latest'];
+        return '${{ value }}';
     }
 }

@@ -10,8 +10,7 @@ class Core
 
     public function isDebug(): bool
     {
-        return ($env = getenv('BRAIN_CLI_DEBUG')) === '1'
-            || $env === 'true';
+        return ServiceProvider::isDebug();
     }
 
     public function nodeDirectory(string|array $path = '', bool $relative = false): string

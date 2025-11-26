@@ -34,7 +34,9 @@
     "args": [
       "vector-task-mcp",
       "--working-dir",
-      "<const.PROJECT_DIRECTORY>"
+      "<const.PROJECT_DIRECTORY>",
+      "--timezone",
+      "<input.TIMEZONE(select:UTC|Europe/Kyiv|Europe/Berlin|America/New_York)>"
     ]
   },
   "sequential-thinking": {

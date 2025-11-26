@@ -15,6 +15,7 @@ interface CompileContract
     public function boot(Collection $files): void;
 
     public function compile(): bool;
+    public function compiled(): void;
 
     /**
      * @return array<non-empty-string, non-empty-string>
@@ -31,4 +32,10 @@ interface CompileContract
 
     public function compileAgentPrefix(): string|array;
     public function compileStoreVarPrefixPrefix(): string|array;
+
+    public function commandEnv(): array;
+    public function run(): array;
+    public function exit(): void;
+    public function resume(): array;
+    public function update(): array;
 }

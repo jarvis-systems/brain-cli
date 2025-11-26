@@ -6,9 +6,12 @@ namespace BrainCLI\Console\Traits;
 
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Str;
+use Laravel\Prompts\Concerns\Colors;
 
 trait HelpersTrait
 {
+    use Colors;
+    
     protected function extractInnerPathNameName(string $name): array
     {
         $path = str_replace('\\', DS, $name);

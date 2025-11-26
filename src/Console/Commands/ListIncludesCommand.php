@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-class ListIncludesCommand extends CompileCommand
+use BrainCLI\Console\Traits\CompilerBridgeTrait;
+use Illuminate\Console\Command;
+
+class ListIncludesCommand extends Command
 {
+    use CompilerBridgeTrait;
+
     protected $signature = 'list:includes {agent=claude : Agent for which compilation}';
 
     protected $description = 'List all available includes with their metadata.';
@@ -14,7 +19,7 @@ class ListIncludesCommand extends CompileCommand
 
     public function handle(): int
     {
-        if ($error = $this->initCommand()) {
+        if ($error = $this->initCommand($this->argument('agent'))) {
             return $error;
         }
 

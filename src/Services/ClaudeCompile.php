@@ -75,6 +75,20 @@ class ClaudeCompile implements CompileContract
             && $this->makeSkillsFiles();
     }
 
+    public function compiled(): void
+    {
+        if (isset($this->brainFile['meta']['model'])) {
+            $settingsFile = Brain::projectDirectory([$this->brainFolder(), 'settings.json']);
+            if (is_file($settingsFile)) {
+                $settings = json_decode(file_get_contents($settingsFile), true);
+                if ($settingsFile !== false) {
+                    $settings['model'] = $this->brainFile['meta']['model'];
+                    file_put_contents($settingsFile, json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) );
+                }
+            }
+        }
+    }
+
     protected function makeClaudeFile(): bool
     {
         if (
@@ -249,5 +263,30 @@ MD;
     public function compileStoreVarPrefixPrefix(): string
     {
         return '${{ value }}';
+    }
+
+    public function run(): array
+    {
+        return ['claude'];
+    }
+
+    public function exit(): void
+    {
+        // TODO: Implement exit() method.
+    }
+
+    public function resume(): array
+    {
+        return ['claude', '--continue'];
+    }
+
+    public function commandEnv(): array
+    {
+        return [];
+    }
+
+    public function update(): array
+    {
+        return ['npm', 'install', '-g', '@anthropic-ai/claude-code'];
     }
 }

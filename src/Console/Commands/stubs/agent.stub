@@ -12,7 +12,6 @@ use BrainCore\Variations\Agents\SystemMaster;
 use BrainCore\Variations\Agents\Master;
 
 #[Meta('id', '{{ agentId }}')]
-#[Meta('model', 'sonnet')]
 #[Meta('color', '<color here `blue` | `green` | `yellow` | `purple` | `orange` | `pink` | `cyan` | `red`>')]
 #[Meta('description', '<description here>')]
 #[Purpose('{{ agentPurpose }}')]

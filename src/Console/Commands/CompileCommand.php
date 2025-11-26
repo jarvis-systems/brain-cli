@@ -4,23 +4,20 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Console\Traits\CompilerBridgeTrait;
 use BrainCLI\Enums\Agent;
-use BrainCLI\Services\Contracts\CompileContract;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
-
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
-
-use function Illuminate\Support\php_binary;
+use Symfony\Component\VarExporter\VarExporter;
+use ValueError;
 
 class CompileCommand extends Command
 {
-    use HelpersTrait;
+    use CompilerBridgeTrait;
 
     protected $signature = 'compile 
-        {agent=claude : Agent for which compilation}
+        {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
         ';
 
@@ -28,255 +25,107 @@ class CompileCommand extends Command
 
     protected $aliases = ['c', 'generate', 'build', 'make'];
 
-    protected Agent $agent;
-    protected CompileContract $compiler;
-
     /**
      * @return int
      */
     public function handle(): int
     {
-        if ($error = $this->initCommand()) {
-            return $error;
-        }
-
-        $this->components->info('Starting compilation for agent: ' . $this->agent->value);
-
-        return $this->applyComplier(function () {
-
-            if ($this->option('show-variables')) {
-                $brainFile = $this->getWorkingFile('Brain.php::meta');
-                $brain = collect($this->convertFiles($brainFile))->first();
-                if ($brain === null) {
-                    $this->components->error("Brain configuration file not found.");
+        $selectAgent = $this->argument('agent');
+        $agents = [];
+        if ($selectAgent === 'exists') {
+            $agents = $this->detectExistsAgents();
+        } else {
+            foreach (explode(',', $selectAgent) as $item) {
+                try {
+                    $agents[] = Agent::from($item);
+                } catch (ValueError) {
+                    $this->components->error("Unsupported agent: {$item}");
                     return ERROR;
                 }
-                $this->components->info('Available compilation variables:');
-                $vars = $brain['meta'];
-                $compilerVars = $this->compiler->compileVariables();
-                $allVars = array_merge($vars, $compilerVars);
-                foreach ($allVars as $key => $value) {
-                    $this->line(" - <fg=cyan>{{ $key }}</>: " . to_string($value));
-                }
-                return OK;
             }
-
-            $files = $this->convertFiles($this->getWorkingFiles());
-            if (empty($files)) {
-                $this->components->warn("No configuration files found for agent {$this->agent->value}.");
-                return ERROR;
-            }
-            $this->compiler->boot(collect($files));
-            if ($this->compiler->compile()) {
-                $assets = __DIR__ . '/../../../assets/' . $this->agent->value . '/';
-                if (File::exists($assets)) {
-                    File::copyDirectory($assets, Brain::projectDirectory($this->compiler->brainFolder()));
-                }
-                $this->components->success("Compilation Brain configurations files successfully.");
-                return OK;
-            } else {
-                $this->components->error("Compilation failed for agent {$this->agent->value}.");
-                return ERROR;
-            }
-        });
-    }
-
-    protected function initCommand(): int
-    {
-        $this->checkWorkingDir();
-
-        $agent = $this->argument('agent');
-        $enum = Agent::tryFrom($agent);
-
-        if ($enum === null) {
-            $this->components->error("Unsupported agent: {$agent}");
-            return ERROR;
         }
 
-        $this->agent = $enum;
+        if (! count($agents)) {
+            try {
+                $agents[] = Agent::from(
+                    $this->components->choice('Select agent for compilation', Agent::list(), Agent::CLAUDE->value)
+                );
+            } catch (ValueError) {
+                $this->components->error("Unsupported agent: {$item}");
+                return ERROR;
+            }
+        }
+        $this->line('');
+        foreach ($agents as $agent) {
+            if ($error = $this->initCommand($agent)) {
+                return $error;
+            }
 
+            $result = $this->applyComplier(function () {
+
+                if ($this->option('show-variables')) {
+                    return $this->showVariables();
+                }
+
+                $result = ERROR;
+
+                $this->components->task("Compiling for [{$this->agent->value}]", function () use (&$result) {
+                    $result = $this->compilingProcess();
+                });
+
+                return $result;
+            });
+
+            if ($result !== OK) {
+                return $result;
+            }
+        }
+        $this->line('');
         return OK;
     }
 
-    protected function applyComplier(callable $cb): int
+    protected function compilingProcess(): int
     {
-        try {
-            $compiler = $this->laravel->make($this->agent->containerName());
-            if ($compiler instanceof CompileContract) {
-                $this->compiler = $compiler;
-                return $cb();
-            } else {
-                $this->components->error("Compiler for agent {$this->agent->value} does not implement CompileContract");
-                return ERROR;
-            }
-        } catch (\Throwable $e) {
-            if (Brain::isDebug()) {
-                dd($e);
-            }
-            $this->components->error("Compiler failed!");
+        $files = $this->convertFiles($this->getWorkingFiles());
+        if (empty($files)) {
+            $this->components->warn("No configuration files found for agent {$this->agent->value}.");
             return ERROR;
         }
-    }
-
-    /**
-     * @param  string  $path
-     * @param  bool  $vendor
-     * @return array<string>
-     */
-    public function getWorkingFiles(string $path = '', bool $vendor = false): array
-    {
-        $dir = Brain::workingDirectory();
-        if ($vendor) {
-            $fo = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src';
-            $nodeFolderName = $fo . (! empty($path) ? DS . $path : '');
-        } else {
-            $fo = DS . 'node';
-            $nodeFolderName = $fo . (! empty($path) ? DS . $path : '');
-        }
-
-        if (! is_dir($dir . $nodeFolderName)) {
-            return [];
-        }
-        $files = File::allFiles($dir . $nodeFolderName);
-        return array_filter(array_map(function ($file) use ($vendor, $dir, $fo) {
-            $path = str_replace($dir . $fo . DS, '', $file->getPathname());
-            return $this->getWorkingFile($path, $vendor);
-        }, $files));
-    }
-
-    public function getWorkingFile(string $file, bool $vendor = false): string|null
-    {
-        $resultFormat = 'xml';
-        $detectFormat = true;
-
-        if (preg_match('/::([a-z]+)$/', $file, $matches)) {
-            $file = preg_replace('/(::[a-z]+)$/', '', $file);
-            $resultFormat = $matches[1];
-            $detectFormat = false;
-        }
-
-        if ($vendor) {
-            $nodeFolderName = DS . 'vendor' . DS . 'jarvis-brain' . DS . 'core' . DS . 'src' . DS . $file;
-        } else {
-            $nodeFolderName = DS . 'node' . DS . $file;
-        }
-
-        $bf = to_string(config('brain.dir', '.brain'));
-        $projectPathToNodes = $bf . $nodeFolderName;
-
-        $fullPath = Brain::projectDirectory($projectPathToNodes);
-
-        if (($fullPath = realpath($fullPath)) === false || ! is_file($fullPath)) {
-            return null;
-        }
-
-        $checkPath = str_replace(Brain::projectDirectory() . DS, '', dirname($fullPath));
-        $checkPath = str_replace($bf . DS, '', $checkPath);
-
-        if ($detectFormat) {
-            $formats = $this->compiler->formats();
-            foreach ($formats as $path => $format) {
-                $path = str_replace($bf . DS, '', $path);
-                if ($checkPath === $path) {
-                    $resultFormat = $format;
-                    break;
-                }
+        $this->compiler->boot(collect($files));
+        if ($this->compiler->compile()) {
+            $assets = __DIR__ . '/../../../assets/' . $this->agent->value . '/';
+            if (File::exists($assets)) {
+                File::copyDirectory($assets, Brain::projectDirectory($this->compiler->brainFolder()));
             }
+            $this->compiler->compiled();
+            return OK;
         }
-        if (! str_ends_with($projectPathToNodes, '.php')) {
-            return null;
-        }
-        return $projectPathToNodes . "::" . $resultFormat;
+        $this->components->error("Compilation failed for agent {$this->agent->value}.");
+        return ERROR;
     }
 
-    /**
-     * @param  non-empty-string|array<non-empty-string>  $file
-     * @param  'xml'|'json'|'yaml'|'toml'|'meta'|null  $format
-     * @return array<array{'id': non-empty-string, 'file': non-empty-string, 'meta': array<string, string>, 'class': class-string<\Bfg\Dto\Dto>, 'namespace': non-empty-string, 'namespaceType': non-empty-string, 'classBasename': non-empty-string, 'format': 'xml'|'json'|'yaml'|'toml', 'structure': string}>
-     */
-    public function convertFiles(string|array $file, string|null $format = null): array
+    protected function showVariables(): int
     {
-        if (empty($file)) {
-            return [];
+        $brainFile = $this->getWorkingFile('Brain.php::meta');
+        $brain = collect($this->convertFiles($brainFile))->first();
+        if ($brain === null) {
+            $this->components->error("Brain configuration file not found.");
+            return ERROR;
         }
-        $dir = Brain::workingDirectory();
-        $vars = $this->getDefaultVariables();
-        $file = is_array($file) ? implode(' && ', $file) : $file;
-
-        $command = array_filter([
-            php_binary(),
-            '-d', 'xdebug.mode=off', '-d', 'opcache.enable_cli=1',
-            $dir . DS . 'vendor' . DS . 'bin' . DS . 'brain-core',
-            'convert',
-            $file,
-            ($format ? '--' . $format : null),
-            '--variables',
-            json_encode(array_merge($vars, $this->compiler->compileVariables(), [
-                'puzzle-agent' => $this->compiler->compileAgentPrefix(),
-                'puzzle-store-var' => $this->compiler->compileStoreVarPrefixPrefix(),
-            ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ]);
-
-        $process = (new Process($command, Brain::projectDirectory()))
-            ->setTimeout(null)
-            ->mustRun();
-
-        if (! $process->isSuccessful()) {
-            throw new \RuntimeException($process->getErrorOutput());
-        }
-
-        $result = trim($process->getOutput());
-
-        try{
-            if ($result) {
-
-                $result = tag_replace(to_string($result), $vars, '{{ * }}');
-
-                $result = str_replace(["\\\\{\\\\{", "\\\\}\\\\}"], ["{{", "}}"], $result);
-
-                return $result
-                    ? json_decode($result, true, flags: JSON_THROW_ON_ERROR)
-                    : throw new \JsonException("Empty JSON output");
+        $this->components->info('Available compilation variables:');
+        $vars = $brain['meta'];
+        $compilerVars = $this->compiler->compileVariables();
+        $allVars = array_merge($vars, $compilerVars);
+        foreach ($allVars as $key => $value) {
+            try {
+                $value = is_string($value) ? $value : VarExporter::export($value);
+            } catch (\Throwable $e) {
+                $value = '<error>Cannot export variable</error>';
             }
-            throw new \JsonException("Unexpected JSON output");
-        } catch (\JsonException $e) {
-            if (getenv('BRAIN_CLI_DEBUG') === '1') {
-                dump($e);
-            }
-            $this->components->error("Failed to decode JSON output: " . $e->getMessage());
-            exit(ERROR);
+            $this->line(" - <fg=cyan>{{ $key }}</>: $value");
         }
-    }
-
-    protected function getDefaultVariables(): array
-    {
-        return array_merge([
-            'PROJECT_DIRECTORY' => (Brain::projectDirectory(relative: true) ?: '.') . DS,
-            'BRAIN_DIRECTORY' => Brain::workingDirectory(relative: true) . DS,
-            'NODE_DIRECTORY' => Brain::workingDirectory('node', true) . DS,
-            'TIMESTAMP' => time(),
-            'DATE_TIME' => date('Y-m-d H:i:s'),
-            'DATE' => date('Y-m-d'),
-            'TIME' => date('H:i:s'),
-            'YEAR' => date('Y'),
-            'MONTH' => date('m'),
-            'DAY' => date('d'),
-            'UNIQUE_ID' => uniqid(),
-            'HAS_PYTHON' => file_exists(Brain::projectDirectory('requirements.txt')) || file_exists(Brain::projectDirectory('pyproject.toml')),
-            'HAS_COMPOSER' => file_exists(Brain::projectDirectory('composer.json')),
-            'HAS_LARAVEL' => file_exists(Brain::projectDirectory('composer.json')) && str_contains(file_get_contents(Brain::projectDirectory('composer.json')), 'laravel/framework'),
-            'HAS_NODE_JS' => file_exists(Brain::projectDirectory('package.json')),
-            'HAS_GO_LANG' => file_exists(Brain::projectDirectory('go.mod')),
-
-            'AGENT' => $this->agent->value,
-            'AGENT_LABEL' => $this->agent->label(),
-            'BRAIN_FILE' => $this->compiler->brainFile(),
-            'MCP_FILE' => $this->compiler->mcpFile(),
-            'BRAIN_FOLDER' => $this->compiler->brainFolder() . DS,
-            'AGENTS_FOLDER' => $this->compiler->agentsFolder() . DS,
-            'COMMANDS_FOLDER' => $this->compiler->commandsFolder() . DS,
-            'SKILLS_FOLDER' => $this->compiler->skillsFolder() . DS,
-        ]);
+        $this->line('');
+        return OK;
     }
 }
 

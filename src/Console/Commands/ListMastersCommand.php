@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-class ListMastersCommand extends CompileCommand
+use BrainCLI\Console\Traits\CompilerBridgeTrait;
+use BrainCLI\Enums\Agent;
+use Illuminate\Console\Command;
+
+class ListMastersCommand extends Command
 {
+    use CompilerBridgeTrait;
+
     protected $signature = 'list:masters {agent=claude : Agent for which compilation}';
 
     protected $description = 'List all available subagent masters for a given agent';
@@ -14,7 +20,7 @@ class ListMastersCommand extends CompileCommand
 
     public function handle(): int
     {
-        if ($error = $this->initCommand()) {
+        if ($error = $this->initCommand($this->argument('agent'))) {
             return $error;
         }
 
