@@ -159,10 +159,16 @@ class CodexCompile implements CompileContract
                 return !!file_put_contents($file, $toml);
             }
             $content = preg_replace('/model = "(.*)"\n*/', '', $content);
-            $toml = preg_replace(
+            $tomlNew = preg_replace(
                 '/# <-- Auto-config zone -->\n(.*)\n# <-- End Auto-config zone -->/ms',
                 $toml,
-                $content);
+                $content, -1,$count);
+
+            if (! $count) {
+                $toml = $content . "\n\n" . $toml;
+            } else {
+                $toml = $tomlNew;
+            }
         }
 
         return !!file_put_contents($file, $toml);

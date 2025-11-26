@@ -18,7 +18,8 @@
     }
   },
   "bin": [
-    "bin/brain"
+    "bin/brain",
+    "bin/ai"
   ],
   "require": {
     "php": "^8.2",

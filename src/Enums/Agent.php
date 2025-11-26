@@ -8,7 +8,7 @@ enum Agent: string
 {
     case CLAUDE = 'claude';
     case CODEX = 'codex';
-    case GEMINI = 'gemini';
+//    case GEMINI = 'gemini';
 //    case QWEN = 'qwen';
 
     public function containerName(): string
@@ -21,7 +21,7 @@ enum Agent: string
         return match ($this) {
             self::CLAUDE => 'Claude Code',
             self::CODEX => 'Codex CLI',
-            self::GEMINI => 'Gemini CLI',
+//            self::GEMINI => 'Gemini CLI',
 //            self::QWEN => 'Qwen CLI',
         };
     }

@@ -13,6 +13,16 @@ class Core
         return ServiceProvider::isDebug();
     }
 
+    public function getEnv(string $name): mixed
+    {
+        return ServiceProvider::getEnv($name);
+    }
+
+    public function hasEnv(string $name): mixed
+    {
+        return ServiceProvider::hasEnv($name);
+    }
+
     public function nodeDirectory(string|array $path = '', bool $relative = false): string
     {
         $path = is_array($path) ? implode(DS, $path) : $path;

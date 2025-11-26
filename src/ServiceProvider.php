@@ -179,7 +179,43 @@ class ServiceProvider
 
     public static function isDebug(): bool
     {
-        return ($env = getenv('BRAIN_CLI_DEBUG')) === '1'
-            || $env === 'true';
+        return !! static::getEnv('BRAIN_CLI_DEBUG')
+            || !! static::getEnv('DEBUG');
+    }
+
+    public static function hasEnv(string $name): bool
+    {
+        return getenv(strtoupper($name)) !== false;
+    }
+
+    public static function getEnv(string $name): mixed
+    {
+        $name = strtoupper($name);
+        $value = getenv($name);
+        if ($value === false) {
+            return null;
+        }
+        if ($value === 'null') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            if (str_contains($value, '.')) {
+                return (float) $value;
+            }
+            return (int) $value;
+        }
+        if (in_array(strtolower($value), ['true', 'false'], true)) {
+            return filter_var($value, FILTER_VALIDATE_BOOL);
+        }
+        if (
+            (str_starts_with($value, '[') && str_ends_with($value, ']'))
+            || (str_starts_with($value, '{') && str_ends_with($value, '}'))
+        ) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return $value;
     }
 }
