@@ -1,0 +1,144 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BrainCLI\Console\AiCommands;
+
+use BrainCLI\Abstracts\CommandBridgeAbstract;
+use Bfg\Attributes\Attributes;
+use BrainCLI\Console\AiCommands\Lab\Abstracts\ScreenAbstract;
+use BrainCLI\Console\AiCommands\Lab\Dto\Context;
+use BrainCLI\Console\AiCommands\Lab\Screen;
+use BrainCLI\Console\AiCommands\Lab\WorkSpace;
+use BrainCLI\Console\Services\Ai;
+use BrainCLI\Support\Brain;
+use Illuminate\Support\Collection;
+use Symfony\Component\Process\Process;
+use BrainCLI\Dto\Person;
+use BrainCLI\Enums\Agent;
+
+use function Laravel\Prompts\search;
+
+
+class LabCommand extends CommandBridgeAbstract
+{
+    protected Ai $orbiter;
+
+    protected array $signatureParts = [
+        '{workspace? : The name of the workspace to use}',
+    ];
+
+    public Screen $screen;
+
+    public WorkSpace $workSpace;
+
+    private Collection $screens;
+
+    private string $laboratoryPath;
+
+    public function __construct() {
+        $this->signature = "lab";
+        foreach ($this->signatureParts as $part) {
+            $this->signature .= " " . $part;
+        }
+        $this->description = "Start a meeting with AI agents";
+        parent::__construct();
+    }
+
+    protected function handleBridge(): int|array
+    {
+        //dd(Agent::CLAUDE->bestModel()->fallback());
+
+        $this->laboratoryPath = Brain::projectDirectory([
+            '.laboratories', $this->getWorkspaceName(),
+        ]);
+        if (! is_dir($this->laboratoryPath)) {
+            mkdir($this->laboratoryPath, 0755, true);
+        }
+        $runtimeFile = implode(DS, [
+            $this->laboratoryPath, 'runtime.json'
+        ]);
+        if (file_exists($runtimeFile)) {
+            if ($content = file_get_contents($runtimeFile)) {
+                $response = Context::from($content);
+            }
+        }
+
+        $this->screen = new Screen($this, $this->laboratoryPath);
+        $this->workSpace = new WorkSpace($this, $this->laboratoryPath);
+
+        $response = ($response ?? Context::fromEmpty())
+            ->setMeta(['onChange' => function (Context $response) {
+                $this->saveResponse($response);
+            }]);
+
+        $this->screen->draw($response);
+
+        return OK;
+    }
+
+    public function getWorkspaceName(): string
+    {
+        $workspace = $this->argument('workspace');
+        if (! $workspace) {
+            $workspace = 'default';
+        }
+        return $workspace;
+    }
+
+    public function process(string $command, string|null $arg): array
+    {
+        $output = [
+            'body' => [],
+            'status' => 0,
+        ];
+        $cmd = $arg ? $command . " " . $arg : $command;
+        $process = Process::fromShellCommandline($cmd, null, [])
+            ->setTimeout(null);
+        $output['status'] = $process->run(function ($type, $o) use (&$output) {
+            if ($o = trim($o)) {
+                $output['body'][] = $o;
+            }
+        });
+
+        $output['body'] = [implode(PHP_EOL, $output['body'])];
+
+        return $output;
+    }
+
+    public function saveResponse(Context $response): bool
+    {
+        return !! file_put_contents(
+            implode(DS, [
+                $this->laboratoryPath, 'runtime.json'
+            ]),
+            $response->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+        );
+    }
+
+    /**
+     * Get all lab screens
+     *
+     * @return Collection<int, ScreenAbstract>
+     */
+    public function screens(): Collection
+    {
+        if (isset($this->screens)) {
+            return $this->screens;
+        }
+        $classes = Attributes::new()
+            ->wherePath(implode(DS, [__DIR__, 'Lab', 'Screens']))
+            ->classes();
+
+        return $this->screens = $classes->filter(
+            fn (\ReflectionClass $reflectionClass) => $reflectionClass->isSubclassOf(ScreenAbstract::class)
+        )->map(
+            fn (\ReflectionClass $reflectionClass) => $reflectionClass->newInstance()->setMeta([
+                'command' => $this,
+                'screen' => $this->screen,
+                'workspace' => $this->workSpace,
+            ])
+        );
+    }
+}
+

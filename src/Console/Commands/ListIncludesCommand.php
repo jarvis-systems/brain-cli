@@ -4,38 +4,34 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Console\Traits\CompilerBridgeTrait;
-use Illuminate\Console\Command;
+use BrainCLI\Abstracts\CommandBridgeAbstract;
 
-class ListIncludesCommand extends Command
+class ListIncludesCommand extends CommandBridgeAbstract
 {
-    use CompilerBridgeTrait;
-
     protected $signature = 'list:includes {agent=claude : Agent for which compilation}';
 
     protected $description = 'List all available includes with their metadata.';
 
     protected $aliases = [];
 
-    public function handle(): int
+    public function handleBridge(): int|array
     {
-        if ($error = $this->initCommand($this->argument('agent'))) {
-            return $error;
+        $this->initFor($this->argument('agent'));
+
+        $files = $this->convertFiles($this->getWorkingFiles('Includes'), 'meta');
+
+        $result = [];
+
+        foreach ($files as $file) {
+
+            $result[] = [
+                'Name' => $file['classBasename'],
+                'Class' => $file['class'],
+                'Purpose' => $file['meta']['purposeText'] ?? 'N/A',
+            ];
         }
 
-        return $this->applyComplier(function () {
-
-            $files = $this->convertFiles($this->getWorkingFiles('Includes'), 'meta');
-
-            foreach ($files as $file) {
-                $this->line("Name: {$file['classBasename']}");
-                $this->line("Class: {$file['class']}");
-                $this->line("Purpose: " . ($file['meta']['purposeText'] ?? 'N/A'));
-                $this->line('---');
-            }
-
-            return OK;
-        });
+        return $result;
     }
 }
 

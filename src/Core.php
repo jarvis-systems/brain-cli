@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
+use Bfg\Dto\Dto;
+
 class Core
 {
     protected string|null $versionCache = null;
@@ -13,9 +15,34 @@ class Core
         return ServiceProvider::isDebug();
     }
 
-    public function getEnv(string $name): mixed
+    public function getEnv(string $name, mixed $default = null): mixed
     {
-        return ServiceProvider::getEnv($name);
+        if ($this->hasEnv($name)) {
+            return ServiceProvider::getEnv($name);
+        }
+        return $default;
+    }
+
+    public function setEnv(string $name, mixed $value = null): bool
+    {
+        return ServiceProvider::setEnv($name, $value);
+    }
+
+    public function setting(string|array $name, mixed $default = null): mixed
+    {
+        $userHomeFolder = getenv('HOME') ?: getenv('USERPROFILE');
+        $settingsPath = $userHomeFolder. DS . '.brain.json';
+        $content = is_file($settingsPath) ? file_get_contents($settingsPath) : null;
+        $settings = is_string($content) && Dto::isJson($content) ? json_decode($content, true) : [];
+
+        if (is_array($name)) {
+            foreach ($name as $key => $value) {
+                data_set($settings, $key, $value);
+            }
+            return !! file_put_contents($settingsPath, json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
+
+        return data_get($settings, $name, $default);
     }
 
     public function hasEnv(string $name): mixed

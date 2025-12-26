@@ -4,34 +4,36 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
-use BrainCLI\Console\Commands\BrainCommand;
-use BrainCLI\Console\Commands\DocsCommand;
-use BrainCLI\Console\Commands\ListIncludesCommand;
-use BrainCLI\Console\Commands\MakeScriptCommand;
-use BrainCLI\Console\Commands\ListMastersCommand;
-use BrainCLI\Console\Commands\ScriptCommand;
-use BrainCLI\Console\Commands\UpdateCommand;
-use BrainCLI\Services\CodexCompile;
-use BrainCLI\Support\Brain;
-use Illuminate\Events\Dispatcher;
 use BrainCLI\Config\ConfigManager;
-use Illuminate\Console\Application;
-use Illuminate\Container\Container;
-use BrainCLI\Services\ClaudeCompile;
-use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Facade;
-use BrainCLI\Database\DatabaseManager;
-use BrainCLI\Console\Commands\InitCommand;
 use BrainCLI\Console\Commands\CompileCommand;
-use BrainCLI\Console\Commands\MakeMcpCommand;
-use BrainCLI\Console\Commands\MakeSkillCommand;
-use BrainCLI\Console\Commands\MakeMasterCommand;
+use BrainCLI\Console\Commands\DocsCommand;
+use BrainCLI\Console\Commands\InitCommand;
+use BrainCLI\Console\Commands\ListIncludesCommand;
+use BrainCLI\Console\Commands\ListMastersCommand;
 use BrainCLI\Console\Commands\MakeCommandCommand;
 use BrainCLI\Console\Commands\MakeIncludeCommand;
+use BrainCLI\Console\Commands\MakeMasterCommand;
+use BrainCLI\Console\Commands\MakeMcpCommand;
+use BrainCLI\Console\Commands\MakeScriptCommand;
+use BrainCLI\Console\Commands\MakeSkillCommand;
+use BrainCLI\Console\Commands\ScriptCommand;
+use BrainCLI\Console\Commands\StatusCommand;
+use BrainCLI\Console\Commands\UpdateCommand;
+use BrainCLI\Database\DatabaseManager;
 use BrainCLI\Foundation\Application as LaravelApplication;
+use BrainCLI\Services\Clients\ClaudeClient;
+use BrainCLI\Services\Clients\CodexClient;
+use BrainCLI\Services\Clients\GeminiClient;
+use BrainCLI\Services\Clients\QwenClient;
+use BrainCLI\Support\Brain;
 use Dotenv\Dotenv;
-use Dotenv\Repository\RepositoryBuilder;
 use Dotenv\Repository\Adapter\PutenvAdapter;
+use Dotenv\Repository\RepositoryBuilder;
+use Illuminate\Console\Application;
+use Illuminate\Container\Container;
+use Illuminate\Events\Dispatcher;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Facade;
 
 class ServiceProvider
 {
@@ -44,6 +46,7 @@ class ServiceProvider
         InitCommand::class,
         DocsCommand::class,
         //BrainCommand::class,
+        StatusCommand::class,
         ScriptCommand::class,
         UpdateCommand::class,
         CompileCommand::class,
@@ -63,8 +66,7 @@ class ServiceProvider
      * @var array<string, class-string>
      */
     protected array $singletons = [
-        'claude:compile' => ClaudeCompile::class,
-        'codex:compile' => CodexCompile::class,
+
     ];
 
     /**
@@ -89,10 +91,8 @@ class ServiceProvider
      */
     public function register(): void
     {
-        if (count($_SERVER['argv']) !== 1) {
-            foreach ($this->commands as $command) {
-                $this->app->add($this->laravel->make($command));
-            }
+        foreach ($this->commands as $command) {
+            $this->app->add($this->laravel->make($command));
         }
 
         foreach ($this->singletons as $name => $singleton) {
@@ -100,12 +100,6 @@ class ServiceProvider
         }
 
         $this->laravel->bind('files', Filesystem::class);
-
-        $callCommand = $_SERVER['argv'][1] ?? null;
-        if (! $callCommand || ! $this->app->has($callCommand)) {
-            $this->app->add($this->laravel->make(BrainCommand::class));
-            $this->app->setDefaultCommand('brain', true);
-        }
     }
 
     /**
@@ -186,6 +180,19 @@ class ServiceProvider
     public static function hasEnv(string $name): bool
     {
         return getenv(strtoupper($name)) !== false;
+    }
+
+    public static function setEnv(string $name, mixed $value = null): bool
+    {
+        $name = strtoupper($name);
+        if (is_array($value) || is_object($value)) {
+            $value = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } elseif (is_bool($value)) {
+            $value = $value ? 'true' : 'false';
+        } elseif ($value === null) {
+            $value = 'null';
+        }
+        return putenv("$name=$value");
     }
 
     public static function getEnv(string $name): mixed

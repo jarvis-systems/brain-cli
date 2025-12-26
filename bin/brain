@@ -1,6 +1,11 @@
 #!/usr/bin/env php
 <?php
 
+use BrainCLI\ServiceProvider;
+use BrainCLI\Foundation\Application as LaravelApplication;
+
+defined("OK") || define("OK", 0);
+defined("ERROR") || define("ERROR", 1);
 defined("DS") || define("DS", DIRECTORY_SEPARATOR);
 
 if (is_file(__DIR__ . DS . '..' . DS . 'vendor' . DS . 'autoload.php')) {
@@ -15,12 +20,6 @@ if (is_file(__DIR__ . DS . '..' . DS . 'vendor' . DS . 'autoload.php')) {
     fwrite(STDERR, "You must set up the project dependencies using Composer." . PHP_EOL);
     exit(1);
 }
-
-use BrainCLI\ServiceProvider;
-use BrainCLI\Foundation\Application as LaravelApplication;
-
-defined("OK") || define("OK", 0);
-defined("ERROR") || define("ERROR", 1);
 
 $laravel = LaravelApplication::create();
 $app = ServiceProvider::bootApplication($laravel);

@@ -4,32 +4,32 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
-use BrainCLI\Console\Traits\CompilerBridgeTrait;
-use BrainCLI\Services\Contracts\CompileContract;
+use BrainCLI\Abstracts\CommandBridgeAbstract;
 use BrainCLI\Support\Brain;
-use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 
 use function Illuminate\Support\php_binary;
 
-class UpdateCommand extends Command
+class UpdateCommand extends CommandBridgeAbstract
 {
-    use CompilerBridgeTrait;
-
-    protected $signature = 'update {--composer=composer : The composer binary to use}';
+    protected $signature = 'update 
+        {--composer=composer : The composer binary to use}
+        {--all : Update all cli, agents and compile after update}
+        {--cli : Update Brain CLI after update}
+        {--compile : Compile after update}
+    ';
 
     protected $description = 'Update Brain';
 
-    public function handle(): int
+    public function handleBridge(): int|array
     {
-        $php = php_binary();
         $composer = $this->option('composer');
-        $brainFolder = to_string(config('brain.dir', '.brain'));
+        $brainFolder = Brain::workingDirectory();
 
         if ($composer === 'composer') {
             $command = [$composer];
         } else {
-            $command = [$php, $composer];
+            $command = [php_binary(), $composer];
         }
 
         $commandUpdateBrain = array_merge($command, ['update']);
@@ -47,40 +47,26 @@ class UpdateCommand extends Command
             return $resultOfProjectUpdate;
         }
 
-        $localPackageName = Brain::getPackageName();
-        $commandUpdateBrainCLI = array_merge($command, ['global', 'update', $localPackageName]);
+        if ($this->option('cli') || $this->option('all')) {
+            $localPackageName = Brain::getPackageName();
+            $commandUpdateBrainCLI = array_merge($command, ['global', 'update', $localPackageName]);
 
-        $resultOfLocalUpdate = (new Process($commandUpdateBrainCLI, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
-            ->setTimeout(null)
-            ->setPty(Process::isPtySupported())
-            ->setTTY(Process::isTTYSupported())
-            ->run(function ($type, $output) {
-                $this->output->write($output);
-            });
+            $resultOfLocalUpdate = (new Process($commandUpdateBrainCLI, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
+                ->setTimeout(null)
+                ->setPty(Process::isPtySupported())
+                ->setTTY(Process::isTTYSupported())
+                ->run(function ($type, $output) {
+                    $this->output->write($output);
+                });
 
-        if ($resultOfLocalUpdate !== 0) {
-            $this->components->error("Failed to update Brain CLI dependencies.");
-            return $resultOfLocalUpdate;
+            if ($resultOfLocalUpdate !== 0) {
+                $this->components->error("Failed to update Brain CLI dependencies.");
+                return $resultOfLocalUpdate;
+            }
         }
 
-        foreach ($this->detectExistsAgents() as $agent) {
-
-            $compiler = $this->laravel->make($agent->containerName());
-            if ($compiler instanceof CompileContract) {
-                $this->compiler = $compiler;
-                $commandUpdateAgent = $compiler->update();
-
-                if ($commandUpdateAgent) {
-
-                    (new Process($commandUpdateAgent, $brainFolder, ['COMPOSER_MEMORY_LIMIT' => '-1']))
-                        ->setTimeout(null)
-                        ->setPty(Process::isPtySupported())
-                        ->setTTY(Process::isTTYSupported())
-                        ->run(function ($type, $output) {
-                            $this->output->write($output);
-                        });
-                }
-            }
+        if ($this->option('compile') || $this->option('all')) {
+            $this->call('compile');
         }
 
         $this->components->info("Brain has been updated successfully.");

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BrainCLI\Database;
 
+use BrainCLI\Core;
+use BrainCLI\Support\Brain;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Container\Container;
@@ -28,6 +30,16 @@ class DatabaseManager
             'database' => $dbPath,
             'prefix' => '',
         ]);
+
+        $brainTaskDatabase = (new Core())->projectDirectory('memory/tasks.db', true);
+
+        if (is_file($brainTaskDatabase)) {
+            $capsule->addConnection([
+                'driver' => 'sqlite',
+                'database' => $brainTaskDatabase,
+                'prefix' => '',
+            ], 'tasks');
+        }
 
         $capsule->setEventDispatcher($events);
         $capsule->setAsGlobal();

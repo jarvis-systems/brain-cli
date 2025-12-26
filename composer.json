@@ -15,7 +15,11 @@
   "autoload": {
     "psr-4": {
       "BrainCLI\\": "src/"
-    }
+    },
+    "files": [
+      "helpers.php",
+      "src/Console/AiCommands/Lab/Prompts/helpers.php"
+    ]
   },
   "bin": [
     "bin/brain",
@@ -25,7 +29,13 @@
     "php": "^8.2",
     "jarvis-brain/core": "^v0.0.1",
     "symfony/var-exporter": "^7.3",
-    "symfony/yaml": "^7.3"
+    "symfony/yaml": "^7.3",
+    "react/async": "^4.3.0",
+    "react/event-loop": "^1.5",
+    "react/promise": "^3.2",
+    "bfg/attributes": "^1.2",
+    "react/stream": "^1.4.0",
+    "react/child-process": "^0.6.6"
   },
   "scripts": {
     "post-install-cmd": [

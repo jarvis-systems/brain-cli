@@ -26,7 +26,6 @@ class InitCommand extends Command
             return ERROR;
         }
 
-        $php = php_binary();
         $composer = $this->option('composer');
         $brainFolder = to_string(config('brain.dir', '.brain'));
         $projectFolder = Brain::projectDirectory();
@@ -34,7 +33,7 @@ class InitCommand extends Command
         if ($composer === 'composer') {
             $command = [$composer];
         } else {
-            $command = [$php, $composer];
+            $command = [php_binary(), $composer];
         }
 
         $command = array_merge($command, [

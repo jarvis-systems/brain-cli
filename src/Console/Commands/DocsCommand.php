@@ -26,7 +26,10 @@ class DocsCommand extends Command
     {
         $this->checkWorkingDir();
 
-        $keywords = Str::of($this->argument('keywords'))->explode(',')->filter();
+        $keywords = Str::of($this->argument('keywords'))
+            ->replace(' ', ',')
+            ->explode(',')
+            ->filter();
         $projectDocsDirectory = Brain::projectDirectory('.docs');
 
         if (!is_dir($projectDocsDirectory)) {

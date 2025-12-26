@@ -31,6 +31,10 @@ class Hooks
             require_once $autoload;
         }
 
+        defined("OK") || define("OK", 0);
+        defined("ERROR") || define("ERROR", 1);
+        defined("DS") || define("DS", DIRECTORY_SEPARATOR);
+
         $container = new McpApplication();
         \Illuminate\Container\Container::setInstance($container);
         $container->instance('app', $container);
