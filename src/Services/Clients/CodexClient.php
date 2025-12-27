@@ -168,17 +168,9 @@ class CodexClient extends ClientAbstract
                 '--model', $model,
             ])
             ->systemBehavior(function (ProcessFactory $factory, string $systemPrompt) {
-                if (str_starts_with($systemPrompt, '@')) {
-                    $file = substr($systemPrompt, 1);
-                    $systemPrompt = file_get_contents($file);
-                }
                 $this->temporalReplaceFile($this->file(), $systemPrompt);
             })
             ->systemAppendBehavior(function (ProcessFactory $factory, string $systemPrompt) {
-                if (str_starts_with($systemPrompt, '@')) {
-                    $file = substr($systemPrompt, 1);
-                    $systemPrompt = file_get_contents($file);
-                }
                 $this->temporalAppendFile($this->file(), $systemPrompt);
             })
             ->schemaBehavior(function (ProcessFactory $factory, array $schema) {

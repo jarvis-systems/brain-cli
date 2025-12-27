@@ -117,15 +117,9 @@ TOML
                 '--model', $model,
             ])
             ->systemBehavior(function (ProcessFactory $factory, string $systemPrompt) use (&$systemFile) {
-                if (str_starts_with($systemPrompt, '@')) {
-                    $file = substr($systemPrompt, 1);
-                    $file = realpath($file);
-                }
                 return [
                     'env' => [
-                        'GEMINI_SYSTEM_MD' => $systemFile = (
-                            $file ?? $this->temporalFile($systemPrompt)
-                        )
+                        'GEMINI_SYSTEM_MD' => $systemFile = $this->temporalFile($systemPrompt)
                     ]
                 ];
             })
@@ -140,7 +134,7 @@ TOML
                 $rules = $this->generateRulesOfSchema($schema);
                 return $this->temporalAppendFile($systemFile ?: $this->file(), $rules);
             })
-            ->noMcpBehavior(['----allowed-mcp-server-names', '[]'])
+            ->noMcpBehavior(['--allowed-mcp-server-names', '[]'])
             ->settingsBehavior(function (ProcessFactory $factory, array $settings) {
                 return [
                     'env' => [

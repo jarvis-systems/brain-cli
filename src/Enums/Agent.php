@@ -11,6 +11,7 @@ use BrainCLI\Enums\Agent\Models\CodexModels;
 use BrainCLI\Enums\Agent\Models\GeminiModels;
 use BrainCLI\Enums\Agent\Models\GroqModels;
 use BrainCLI\Enums\Agent\Models\LMStudioModels;
+use BrainCLI\Enums\Agent\Models\OpenCodeModels;
 use BrainCLI\Enums\Agent\Models\OpenRouterModels;
 use BrainCLI\Enums\Agent\Models\QwenModels;
 use BrainCLI\Enums\Agent\Traits\AgentableTrait;
@@ -20,6 +21,7 @@ use BrainCLI\Services\Clients\CodexClient;
 use BrainCLI\Services\Clients\GeminiClient;
 use BrainCLI\Services\Clients\GroqClient;
 use BrainCLI\Services\Clients\LMStudioClient;
+use BrainCLI\Services\Clients\OpenCodeClient;
 use BrainCLI\Services\Clients\OpenRouterClient;
 use BrainCLI\Services\Clients\QwenClient;
 use BrainCLI\Support\Brain;
@@ -35,6 +37,7 @@ enum Agent: string
     case LM_STUDIO = 'lm-studio';
     case OPENROUTER = 'openrouter';
     case GROQ = 'groq';
+    case OPENCODE = 'opencode';
 //    case COPILOT = 'copilot';
 
     public function containerService(): string
@@ -47,6 +50,7 @@ enum Agent: string
             self::LM_STUDIO => LmStudioClient::class,
             self::OPENROUTER => OpenRouterClient::class,
             self::GROQ => GroqClient::class,
+            self::OPENCODE => OpenCodeClient::class,
             //self::COPILOT => CopilotClient::class,
         };
     }
@@ -64,13 +68,14 @@ enum Agent: string
             self::LM_STUDIO => LMStudioModels::class,
             self::OPENROUTER => OpenRouterModels::class,
             self::GROQ => GroqModels::class,
+            self::OPENCODE => OpenCodeModels::class,
         };
     }
 
     public function depended(): Agent|null
     {
         return match ($this) {
-            self::CLAUDE, self::CODEX, self::GEMINI, self::QWEN => null,
+            self::CLAUDE, self::CODEX, self::GEMINI, self::QWEN, self::OPENCODE => null,
             self::LM_STUDIO, self::OPENROUTER, self::GROQ => self::CODEX,
         };
     }
@@ -85,6 +90,7 @@ enum Agent: string
             self::LM_STUDIO => !! Brain::getEnv('LM_STUDIO_ENABLE', false),
             self::OPENROUTER => !! Brain::getEnv('OPENROUTER_API_KEY', false),
             self::GROQ => !! Brain::getEnv('GROQ_AKI_KEY', false),
+            self::OPENCODE => !! Brain::getEnv('OPENCODE_ENABLE', true),
             //self::COPILOT => to_bool(Brain::getEnv('COPILOT_ENABLE', false)),
         };
     }
@@ -99,6 +105,7 @@ enum Agent: string
             self::LM_STUDIO => 'LM Studio',
             self::OPENROUTER => 'OpenRouter CLI',
             self::GROQ => 'Groq CLI',
+            self::OPENCODE => 'OpenCode CLI',
             //self::COPILOT => 'GitHub Copilot CLI',
         };
     }
@@ -113,6 +120,7 @@ enum Agent: string
             self::LM_STUDIO => 'LM Studio CLI is a local AI agent that allows you to run language models directly from your terminal, enabling code generation, modification, and execution on your machine without relying on external APIs.',
             self::OPENROUTER => 'OpenRouter CLI is an open-source AI agent that integrates OpenRouter models directly into your terminal, providing seamless access to a variety of language models for coding and other tasks.',
             self::GROQ => 'Groq CLI is a command-line interface that allows you to interact with Groq AI models directly from your terminal, enabling efficient code generation and execution on your local machine.',
+            self::OPENCODE => 'OpenCode CLI is a command-line tool that brings the capabilities of Z.AI\'s OpenCode models to your terminal, allowing you to generate, modify, and run code seamlessly within your local development environment.',
             //self::COPILOT => 'GitHub Copilot CLI is a command-line tool that brings the power of GitHub Copilot to your terminal, allowing you to generate and modify code seamlessly while working in your local development environment.',
         };
     }
@@ -120,13 +128,14 @@ enum Agent: string
     public function share(): int
     {
         return match ($this) {
-            self::CLAUDE => Brain::getEnv('CLAUDE_SHARE', 37),
-            self::CODEX => Brain::getEnv('CODEX_SHARE', 33),
-            self::GEMINI => Brain::getEnv('GEMINI_SHARE', 18),
-            self::QWEN => Brain::getEnv('QWEN_SHARE', 10),
-            self::LM_STUDIO => Brain::getEnv('LM_STUDIO_SHARE', 2),
-            self::OPENROUTER => Brain::getEnv('OPENROUTER_SHARE', 0),
-            self::GROQ => Brain::getEnv('GROQ_SHARE', 0),
+            self::CLAUDE => Brain::getEnv('CLAUDE_SHARE', 28),
+            self::OPENCODE => Brain::getEnv('OPENCODE_SHARE', 24),
+            self::CODEX => Brain::getEnv('CODEX_SHARE', 22),
+            self::GEMINI => Brain::getEnv('GEMINI_SHARE', 14),
+            self::QWEN => Brain::getEnv('QWEN_SHARE', 9),
+            self::LM_STUDIO => Brain::getEnv('LM_STUDIO_SHARE', 1),
+            self::OPENROUTER => Brain::getEnv('OPENROUTER_SHARE', 1),
+            self::GROQ => Brain::getEnv('GROQ_SHARE', 1),
             //self::COPILOT => Brain::getEnv('COPILOT_SHARE', 0),
         };
     }

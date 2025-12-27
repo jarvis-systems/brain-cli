@@ -178,6 +178,7 @@ trait CompileTrait
                     'color' => $agent->meta['color'] ?? 'blue',
                     'name' => $agent->meta['id'] ?? $agent->id,
                     'description' => $agent->meta['description'] ?? '',
+                    'meta' => $agent->meta,
                 ]);
 
                 $content = $this->createAgentContent($agent, $brain, $info);
@@ -221,6 +222,7 @@ trait CompileTrait
                 'insidePath' => $this->insidePath($command->file, 'Commands'),
                 'name' => $command->meta['id'] ?? $command->id,
                 'description' => $command->meta['description'] ?? '',
+                'meta' => $command->meta,
             ]);
 
             $content = $this->createCommandContent($command, $brain, $info);

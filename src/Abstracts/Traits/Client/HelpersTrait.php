@@ -30,22 +30,34 @@ trait HelpersTrait
     }
 
 
-    protected function generateWithYamlHeader(array $parameters = [], string|array|null $structure = ''): string
+    protected function generateWithYamlHeader(array $parameters = [], string|array|null $structure = '', int $tab = 0): string
     {
         $parameters = array_filter($parameters, fn ($value) => !! $value);
 
         $header = "";
+        $tabs = str_repeat("  ", $tab);
 
         if (is_array($structure)) {
             $structure = json_encode($structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
         if (count($parameters) > 0) {
-            $header .= "---\n";
-            foreach ($parameters as $key => $value) {
-                $header .= "$key: $value\n";
+            if (! $tab) {
+                $header .= "---\n";
             }
-            $header .= "---\n\n\n";
+            foreach ($parameters as $key => $value) {
+                if ($value) {
+                    if (is_array($value)) {
+                        $header .= "$tabs$key:" . PHP_EOL;
+                        $header .= $this->generateWithYamlHeader($value, PHP_EOL, $tab + 1);
+                    } else {
+                        $header .= "$tabs$key: " . json_encode($value) . PHP_EOL;
+                    }
+                }
+            }
+            if (! $tab) {
+                $header .= "---\n\n";
+            }
         }
 
         return $header.$structure;
@@ -71,6 +83,15 @@ EOD;
 
     protected function temporalFile(string|array $content, string|null $prependFromFile = null, string|null $salt = null): string
     {
+        if (is_string($content) && str_starts_with($content, '@')) {
+            $file = substr($content, 1);
+            if ($file = realpath($file)) {
+                return $file;
+            } else {
+                throw new \RuntimeException("The file specified for temporalFile does not exist: $file");
+            }
+        }
+
         $prepend = '';
         $fileTemplate = sys_get_temp_dir() . DS . 'brain-' . $this->agent()->value . '-temporal-file-';
 
@@ -101,6 +122,11 @@ EOD;
 
     protected function temporalReplaceFile(string $file, string|array $content): bool
     {
+        if (is_string($content) && str_starts_with($content, '@')) {
+            $file = substr($content, 1);
+            $content = file_get_contents($file);
+        }
+
         $alreadyBackup = str_starts_with($file, sys_get_temp_dir());
         $originalFile = $alreadyBackup ? $file : Brain::projectDirectory($file);
         $backupFile = sys_get_temp_dir() . DS . 'brain-' . $this->agent()->value . '-backup-' . md5($file);
@@ -118,6 +144,11 @@ EOD;
 
     protected function temporalAppendFile(string $file, string|array $content): bool
     {
+        if (is_string($content) && str_starts_with($content, '@')) {
+            $file = substr($content, 1);
+            $content = file_get_contents($file);
+        }
+
         $alreadyBackup = str_starts_with($file, sys_get_temp_dir());
         $originalFile = $alreadyBackup ? $file : Brain::projectDirectory($file);
         $originalContent = is_file($originalFile) ? (file_get_contents($originalFile) ?? '') : '';

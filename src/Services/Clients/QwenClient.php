@@ -69,9 +69,7 @@ class QwenClient extends GeminiClient
                 }
                 return [
                     'env' => [
-                        'QWEN_SYSTEM_MD' => $systemFile = (
-                            $file ?? $this->temporalFile($systemPrompt)
-                        )
+                        'QWEN_SYSTEM_MD' => $systemFile = $this->temporalFile($systemPrompt)
                     ]
                 ];
             })
@@ -86,7 +84,7 @@ class QwenClient extends GeminiClient
                 $rules = $this->generateRulesOfSchema($schema);
                 return $this->temporalAppendFile($systemFile ?: $this->file(), $rules);
             })
-            ->noMcpBehavior(['----allowed-mcp-server-names', '[]'])
+            ->noMcpBehavior(['--allowed-mcp-server-names', '[]'])
             ->settingsBehavior(function (ProcessFactory $factory, array $settings) {
                 return [
                     'env' => [
