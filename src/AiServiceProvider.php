@@ -7,6 +7,7 @@ namespace BrainCLI;
 use BrainCLI\Console\AiCommands\CustomRunCommand;
 use BrainCLI\Console\AiCommands\InstallCommand;
 use BrainCLI\Console\AiCommands\LabCommand;
+use BrainCLI\Console\AiCommands\MakeCommand;
 use BrainCLI\Console\AiCommands\MeetingCommand;
 use BrainCLI\Console\AiCommands\RunCommand;
 use BrainCLI\Console\AiCommands\UpdateCommand;
@@ -29,6 +30,7 @@ class AiServiceProvider extends ServiceProvider
         InstallCommand::class,
         UpdateCommand::class,
         MeetingCommand::class,
+        MakeCommand::class,
         LabCommand::class,
     ];
 
@@ -53,17 +55,21 @@ class AiServiceProvider extends ServiceProvider
                 $filename = $file->getFilename();
                 if (str_ends_with($filename, '.yaml') || str_ends_with($filename, '.yml')) {
                     if ($content = $file->getContents()) {
-                        $data = Yaml::parse($content);
+                        $hash = md5($filename);
+                        $data = Yaml::parse($content, Yaml::PARSE_CUSTOM_TAGS);
+                        if (! isset($data['id'])) {
+                            $data['id'] = $hash;
+                        }
+                        if (! isset($data['args'])) {
+                            $data['args'] = [];
+                        }
                         $callName = $file->getFilenameWithoutExtension();
-                        if ($data && is_array($data) && isset($data['client'])) {
-                            $agent = Agent::tryFrom($data['client']);
-                            if ($agent) {
-                                $this->app->add(
-                                    $this->laravel->make(CustomRunCommand::class, compact(
-                                         'callName', 'agent', 'data'
-                                    ))
-                                );
-                            }
+                        if ($data && is_array($data) && isset($data['client']) && $data['client']) {
+                            $this->app->add(
+                                $this->laravel->make(CustomRunCommand::class, compact(
+                                    'callName', 'data'
+                                ))
+                            );
                         }
                     }
                 }

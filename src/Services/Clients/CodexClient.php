@@ -158,6 +158,7 @@ class CodexClient extends ClientAbstract
                 return ['resume', $sessionId];
             })
             ->continueBehavior(['resume', '--last'])
+            ->promptBehavior(fn (ProcessFactory $factory, string $prompt) => $prompt)
             ->askBehavior(fn (ProcessFactory $factory, string $prompt) => ['exec', $prompt])
             ->jsonBehavior('--json')
             ->yoloBehavior('--dangerously-bypass-approvals-and-sandbox')

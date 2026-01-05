@@ -40,6 +40,11 @@ enum Agent: string
     case OPENCODE = 'opencode';
 //    case COPILOT = 'copilot';
 
+    public static function defaultAgent(): Agent
+    {
+        return self::OPENCODE;
+    }
+
     public function containerService(): string
     {
         return match ($this) {
@@ -152,6 +157,15 @@ enum Agent: string
         $enum::validateShare();
 
         return $enum::cases();
+    }
+
+    public function modelsAssoc(): array
+    {
+        $assoc = [];
+        foreach ($this->models() as $model) {
+            $assoc[$model->name] = $model->value;
+        }
+        return $assoc;
     }
 
     /**

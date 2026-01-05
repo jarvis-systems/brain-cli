@@ -20,6 +20,8 @@ class RunCommand extends CommandBridgeAbstract
         '{--r|resume= : Resume a previous session by providing the session ID}',
         '{--c|continue : Continue the last session}',
 
+        '{--p|prompt= : Provide a custom prompt to the AI agent}',
+
         '{--a|ask= : Ask a specific question to the AI agent}',
         '{--j|json : Print all the output in JSON format (works only with --ask option)}',
         '{--serialize : Serialize the output DTOs (works only with --ask options)}',
@@ -80,6 +82,7 @@ class RunCommand extends CommandBridgeAbstract
         $process = $this->client->process($type);
         $options = $process->payload->defaultOptions([
             'ask' => $this->option('ask'),
+            'prompt' => $this->option('prompt'),
             'json' => $this->option('json') || $this->option('serialize'),
             'serialize' => $this->option('serialize'),
             'yolo' => $this->option('yolo'),
@@ -104,6 +107,7 @@ class RunCommand extends CommandBridgeAbstract
         $process
             ->program()
             ->askWhen($options['ask'], $options['ask'])
+            ->promptWhen($options['prompt'], $options['prompt'])
             ->jsonWhen($options['json'])
             ->resumeWhen($options['resume'], $options['resume'])
             ->continueWhen($options['continue'])

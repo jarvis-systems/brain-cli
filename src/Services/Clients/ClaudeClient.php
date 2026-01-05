@@ -116,6 +116,7 @@ class ClaudeClient extends ClientAbstract
             ->resumeBehavior(function (ProcessFactory $factory, string $sessionId) {
                 return ['--resume', $sessionId];
             })
+            ->promptBehavior(fn (ProcessFactory $factory, string $prompt) => $prompt)
             ->continueBehavior('--continue')
             ->askBehavior(fn (ProcessFactory $factory, string $prompt) => [$prompt, '--print'])
             ->jsonBehavior(['--output-format', 'stream-json', '--verbose'])

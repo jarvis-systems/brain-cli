@@ -14,6 +14,7 @@ use Closure;
  * @method Payload programBehavior(string|array|Closure $value)
  * @method Payload continueBehavior(string|array|Closure $value)
  * @method Payload resumeBehavior(Closure $value)
+ * @method Payload promptBehavior(Closure $value)
  * @method Payload askBehavior(Closure $value)
  * @method Payload jsonBehavior(string|array|Closure $value)
  * @method Payload schemaBehavior(Closure $value)
@@ -47,6 +48,9 @@ class Payload extends Dto
         protected Closure|null $resume = null,
         #[CommandPayloadMap(['used' => ['program']])]
         protected string|array|Closure|null $continue = null,
+
+        #[CommandPayloadMap(['used' => ['program']])]
+        protected Closure|null $prompt = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
         protected Closure|null $ask = null,

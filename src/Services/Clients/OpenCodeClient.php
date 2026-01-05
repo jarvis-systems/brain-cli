@@ -158,6 +158,7 @@ class OpenCodeClient extends ClientAbstract
                 return ['--session', $sessionId];
             })
             ->continueBehavior('--continue')
+            ->promptBehavior(fn (ProcessFactory $factory, string $prompt) => ['--prompt', $prompt])
             ->askBehavior(fn (ProcessFactory $factory, string $prompt) => ['run', $prompt])
             ->jsonBehavior(fn (ProcessFactory $factory) => ['--format', 'json'])
             ->yoloBehavior([])

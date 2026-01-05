@@ -107,6 +107,7 @@ TOML
                 return ['--resume', $sessionId];
             })
             ->continueBehavior('--resume')
+            ->promptBehavior(fn (ProcessFactory $factory, string $prompt) => ['--prompt-interactive', $prompt])
             ->askBehavior(fn (ProcessFactory $factory, string $prompt) => $prompt)
             ->jsonBehavior(fn (ProcessFactory $factory) => ['--output-format', 'stream-json'])
             ->yoloBehavior('--yolo')
