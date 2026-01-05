@@ -20,6 +20,8 @@ class CustomRunCommand extends CommandBridgeAbstract
         '{--dump : Dump the processed data before execution}',
     ];
 
+    protected string $originName;
+
     protected mixed $accumulateCallback = null;
 
     /**
@@ -60,8 +62,11 @@ class CustomRunCommand extends CommandBridgeAbstract
     public function __construct(
         protected string $callName,
         protected array $data,
+        protected string $filename,
     ) {
+        $this->originName = $this->callName;
         $this->callName = $this->variablesDetectString($this->data['name'] ?? $this->callName);
+        $this->data['_file'] = $this->filename;
         $this->data['_date'] = date('Y-m-d');
         $this->data['_datetime'] = date('Y-m-d H:i:s');
         $this->data['_time'] = date('H:i:s');
@@ -101,6 +106,11 @@ class CustomRunCommand extends CommandBridgeAbstract
         return $this;
     }
 
+    public function getData(): array
+    {
+        return $this->data;
+    }
+
     protected function handleBridge(): int|array
     {
         $this->data['client'] = $this->variablesDetectString($this->data['client']);
@@ -137,12 +147,12 @@ class CustomRunCommand extends CommandBridgeAbstract
             && count($this->data['env']);
 
         if ($compileNeeded) {
-            $this->call(new CompileCommand(), [
+            $this->callSilent(new CompileCommand($this->data['env']), [
                 'agent' => $this->agent->value,
-                '--env' => json_encode($this->data['env'], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),
-                '--silent' => true,
             ]);
         }
+
+        $this->data['env']['BRAIN_AI_AGENT_NAME'] = $this->filename;
 
         $type = Type::customDetect($this->data);
 
@@ -166,6 +176,7 @@ class CustomRunCommand extends CommandBridgeAbstract
 
         $process
             ->program()
+            ->env($this->data['env'])
             ->askWhen($options['ask'], $options['ask'])
             ->promptWhen($options['prompt'], $options['prompt'])
             ->jsonWhen($options['json'])
@@ -203,9 +214,9 @@ class CustomRunCommand extends CommandBridgeAbstract
 
         return $process->open(function () use ($compileNeeded) {
             if ($compileNeeded) {
-                $this->call(new CompileCommand(), [
+                sleep(5); // Ensure environment is ready
+                $this->callSilent(new CompileCommand(), [
                     'agent' => $this->agent->value,
-                    '--silent' => true,
                 ]);
             }
         });
@@ -1507,6 +1518,21 @@ class CustomRunCommand extends CommandBridgeAbstract
     public function __get(string $name)
     {
         return $this->data[$name] ?? null;
+    }
+
+    public function __set(string $name, $value): void
+    {
+        $this->data[$name] = $value;
+    }
+
+    public function __isset(string $name): bool
+    {
+        return isset($this->data[$name]);
+    }
+
+    public function __unset(string $name): void
+    {
+        unset($this->data[$name]);
     }
 }
 

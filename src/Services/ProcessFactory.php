@@ -130,6 +130,16 @@ class ProcessFactory implements Arrayable, Stringable
         return $this;
     }
 
+    /**
+     * @param  array<string, string>  $env
+     */
+    public function env(array $env): static
+    {
+        $this->reflection->addEnv($env);
+
+        return $this;
+    }
+
     public function __call(string $name, array $arguments)
     {
         if (str_ends_with($name, 'When')) {

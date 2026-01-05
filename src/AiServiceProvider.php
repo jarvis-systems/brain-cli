@@ -67,7 +67,7 @@ class AiServiceProvider extends ServiceProvider
                         if ($data && is_array($data) && isset($data['client']) && $data['client']) {
                             $this->app->add(
                                 $this->laravel->make(CustomRunCommand::class, compact(
-                                    'callName', 'data'
+                                    'callName', 'data', 'filename'
                                 ))
                             );
                         }

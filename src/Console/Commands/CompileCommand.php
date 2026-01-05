@@ -14,21 +14,27 @@ class CompileCommand extends CommandBridgeAbstract
     protected $signature = 'compile 
         {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
-        {--env= : Specify environment file to use during compilation}
         ';
 
     protected $description = 'Compile the Brain configurations files';
 
     protected $aliases = ['c', 'generate', 'build', 'make'];
 
+    public function __construct(
+        protected array $env = []
+    )
+    {
+        // set env data
+        foreach ($this->env as $key => $value) {
+            putenv("$key=$value");
+        }
+        parent::__construct();
+    }
+
     public function handleBridge(): int|array
     {
         $agents = $this->detectAgents();
         $this->line('');
-        $env = $this->option('env');
-        if ($env !== null && is_array($r = json_decode($env, true))) {
-            $env = $r;
-        }
 
         foreach ($agents as $agent) {
 
@@ -45,8 +51,8 @@ class CompileCommand extends CommandBridgeAbstract
 
             $result = ERROR;
 
-            $this->components->task("Compiling for [{$this->agent->value}]", function () use (&$result, $env) {
-                $result = $this->compilingProcess($env);
+            $this->components->task("Compiling for [{$this->agent->value}]", function () use (&$result) {
+                $result = $this->compilingProcess();
             });
 
             if ($result !== OK) {
@@ -58,9 +64,9 @@ class CompileCommand extends CommandBridgeAbstract
         return OK;
     }
 
-    protected function compilingProcess(array|null $env = null): int
+    protected function compilingProcess(): int
     {
-        $files = $this->convertFiles($this->getWorkingFiles());
+        $files = $this->convertFiles($this->getWorkingFiles(), env: $this->env);
         if ($files->isEmpty()) {
             $this->components->warn("No configuration files found for agent {$this->agent->value}.");
             return ERROR;
