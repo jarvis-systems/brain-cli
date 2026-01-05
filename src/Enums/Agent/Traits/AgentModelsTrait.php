@@ -10,6 +10,22 @@ trait AgentModelsTrait
 {
     use AgentableTrait;
 
+    abstract public function alias(): array|string|null;
+
+    public static function byAlias(string $alias): ?static
+    {
+        foreach (self::cases() as $case) {
+            $aliases = $case->alias();
+            if (
+                $aliases
+                && in_array($alias, (array) $aliases, true)
+            ) {
+                return $case;
+            }
+        }
+        return null;
+    }
+
     /**
      * @return static
      */
@@ -86,5 +102,33 @@ trait AgentModelsTrait
             throw new RuntimeException('No models available to determine the best model.');
         }
         return $best;
+    }
+
+    /**
+     * @return array<static>
+     */
+    public static function searchModel(string $query): array
+    {
+        $query = trim(strtolower($query));
+
+        $aliasedModel = self::byAlias($query);
+        if ($aliasedModel !== null) {
+            return [$aliasedModel];
+        }
+        $result = [];
+        foreach (self::cases() as $case) {
+            if (
+                str_contains(strtolower($case->label()), $query)
+                || str_contains(strtolower($case->description()), $query)
+                || str_contains(strtolower($case->value), $query)
+                || str_contains(strtolower($case->name), $query)
+            ) {
+                $result[] = $case;
+            }
+        }
+        if (count($result) > 0) {
+            return $result;
+        }
+        throw new RuntimeException('Model not found or multiple models matched the query.');
     }
 }

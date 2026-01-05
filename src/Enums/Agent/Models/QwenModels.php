@@ -52,4 +52,11 @@ enum QwenModels: string
             self::CODER => [GroqModels::OPENAI_GPT_OSS_120B, OpenRouterModels::GPT_OSS_120, LMStudioModels::GPT_OSS_20],
         };
     }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::CODER => ['qwen-coder-plus', 'qwen3-coder', 'qwen3-coderplus'],
+        };
+    }
 }

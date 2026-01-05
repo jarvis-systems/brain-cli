@@ -18,7 +18,7 @@ class DocsCommand extends Command
 {
     use HelpersTrait;
 
-    protected $signature = 'docs {keywords?}';
+    protected $signature = 'docs {keywords?*}';
 
     protected $description = 'Documentation index listing of .docs folder';
 
@@ -26,7 +26,10 @@ class DocsCommand extends Command
     {
         $this->checkWorkingDir();
 
-        $keywords = Str::of($this->argument('keywords'))
+        $input = $this->argument('keywords');
+        $keywords = Str::of(implode(' ', (array)$input));
+
+        $keywords = Str::of($keywords)
             ->replace(' ', ',')
             ->explode(',')
             ->filter();
@@ -85,7 +88,7 @@ class DocsCommand extends Command
     public function getFileList(string $dir, Collection $keywords): array
     {
         $files = File::allFiles($dir);
-        return collect(array_map(function (SplFileInfo $file) use ($keywords) {
+        $collect = collect(array_map(function (SplFileInfo $file) use ($keywords) {
             $path = $file->getPathname();
             $date = $file->getMTime();
             if (! str_ends_with($path, '.md')) {
@@ -111,7 +114,7 @@ class DocsCommand extends Command
                 }
             }
             $metadata = [
-                'date' => Carbon::parse($date)->toDateString(),
+
             ];
 
             if (preg_match('/^---\s*(.*?)\s*---/s', $content, $matches)) {
@@ -120,7 +123,7 @@ class DocsCommand extends Command
                     $yamlParsed = Yaml::parse($matches[1]);
                     if (is_array($yamlParsed)) {
                         foreach ($yamlParsed as $key => $value) {
-                            if ($key !== 'date') {
+                            if ($key === 'name' || $key === 'description') {
                                 $metadata[$key] = (string)$value;
                             }
                         }
@@ -138,7 +141,14 @@ class DocsCommand extends Command
                 'path' => '.docs' . DS . $file->getRelativePathname(),
                 ...$metadata
             ];
-        }, $files))->filter()->unique(fn (array $i) => $i['path'] ?? null)->values()->toArray();
+        }, $files))->filter()->unique(fn (array $i) => $i['path'] ?? null)->values();
+        if ($collect->count() > 20) {
+            $collect = $collect->map(function (array $data) {
+                unset($data['description']);
+                return $data;
+            });
+        }
+        return $collect->toArray();
     }
 }
 

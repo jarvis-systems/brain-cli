@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Enums\Process;
 
+use BrainCLI\Console\AiCommands\CustomRunCommand;
 use BrainCLI\Console\AiCommands\RunCommand;
 
 enum Type: string
@@ -56,6 +57,17 @@ enum Type: string
             !! $command->option('update') => self::UPDATE,
             !! $command->option('resume') => self::RESUME,
             !! $command->option('continue') => self::CONTINUE,
+            default => self::RUN,
+        };
+    }
+
+    public static function customDetect(array $data): Type
+    {
+        return match (true) {
+            !! ($data['install'] ?? false) => self::INSTALL,
+            !! ($data['update'] ?? false) => self::UPDATE,
+            !! ($data['resume'] ?? false) => self::RESUME,
+            !! ($data['continue'] ?? false) => self::CONTINUE,
             default => self::RUN,
         };
     }

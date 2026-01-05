@@ -59,10 +59,19 @@ enum ClaudeModels: string
         return match ($this) {
             self::SONNET => [self::OPUS],
             self::OPUS => [self::HAIKU],
-            self::HAIKU => [CodexModels::GPT_CODEX_MAX],
+            self::HAIKU => [CodexModels::GPT51_CODEX_MAX],
 //            self::SONNET => [self::OPUS, self::HAIKU, CodexModels::GPT_CODEX_MAX, GeminiModels::PRO, QwenModels::CODER],
 //            self::OPUS => [self::HAIKU, CodexModels::GPT_CODEX, GeminiModels::FLASH, QwenModels::CODER],
 //            self::HAIKU => [CodexModels::GPT_CODEX_MINI, GeminiModels::FLASH_LITE, QwenModels::CODER],
+        };
+    }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::OPUS => ['opus', 'claude-opus', 'claude-opus-4.5'],
+            self::SONNET => ['sonnet', 'claude-sonnet', 'claude-sonnet-4.5'],
+            self::HAIKU => ['haiku', 'claude-haiku', 'claude-haiku-4.5'],
         };
     }
 }

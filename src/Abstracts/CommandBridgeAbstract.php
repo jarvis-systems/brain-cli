@@ -232,9 +232,10 @@ abstract class CommandBridgeAbstract extends Command
     /**
      * @param  non-empty-string|array<non-empty-string>  $file
      * @param  'xml'|'json'|'yaml'|'toml'|'meta'|null  $format
+     * @param  array<string, scalar>|null  $env
      * @return Collection<int, Data>
      */
-    public function convertFiles(string|array $file, string|null $format = null): Collection
+    public function convertFiles(string|array $file, string|null $format = null, array|null $env = null): Collection
     {
         if (empty($file)) {
             /** @var Collection<int, Data> */
@@ -252,10 +253,12 @@ abstract class CommandBridgeAbstract extends Command
             $file,
             ($format ? '--' . $format : null),
             '--variables',
-            json_encode(
-                array_merge($vars, $this->client->compileVariables(), $this->client->compilePuzzle()->toArray()),
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            ),
+            json_encode(array_merge(
+                $vars,
+                $this->client->compileVariables(),
+                $this->client->compilePuzzle()->toArray(),
+                ($env ?: [])
+            ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
 
         $process = (new Process($command, Brain::projectDirectory()))

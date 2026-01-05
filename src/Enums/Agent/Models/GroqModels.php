@@ -72,4 +72,15 @@ enum GroqModels: string
             self::LLAMA_3_1_8B => [],
         };
     }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::LLAMA_3_1_8B => ['llama-3.1-8b-instant', 'llama-8b', 'llama8b'],
+            self::LLAMA_3_3_70B => ['llama-3.3-70b-instant', 'llama-70b', 'llama70b'],
+            self::META_LLAMA_GUARD_4_12B => ['llama-guard-4-12b', 'llama-guard-12b', 'llama-guard12b'],
+            self::OPENAI_GPT_OSS_120B => ['gpt-oss-120', 'oss-120', 'oss120'],
+            self::OPENAI_GPT_OSS_20B => ['gpt-oss-20', 'oss-20', 'oss20'],
+        };
+    }
 }

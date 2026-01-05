@@ -125,7 +125,7 @@ class OpenCodeClient extends ClientAbstract
             'content' => $this->generateWithYamlHeader([
                 //'agent' => 'plane',
                 'description' => $info->description,
-                'model' => $info->meta['model'] ?? ($brain->meta['model'] ?? null),
+                'model' => $info->meta['model'] ?? null,
             ], $command->structure),
         ];
     }

@@ -76,4 +76,16 @@ enum LMStudioModels: string
             self::DEVSTRAL_SMALL_2 => [],
         };
     }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::GPT_OSS_20 => ['gpt-oss-20b', 'openai-oss-20b'],
+            self::QWEN3_CODER_30 => ['qwen-coder-30b'],
+            self::QWEN3_NEXT_80 => ['qwen-next-80b'],
+            self::QWEN3_VL_30 => ['qwen-vl-30b'],
+            self::MINISTRAL3_14 => ['mistral-3-14b'],
+            self::DEVSTRAL_SMALL_2 => ['devstral-small-2'],
+        };
+    }
 }

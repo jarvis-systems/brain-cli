@@ -111,4 +111,20 @@ enum OpenRouterModels: string
             self::GLM_4_5_AIR => [],
         };
     }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::GPT_OSS_20 => 'gpt-oss-20b',
+            self::GPT_OSS_120 => 'gpt-oss-120b',
+            self::TONGYI_DEEPRESEARCH_30 => 'tongyi-deepresearch-30b',
+            self::KAT_CODER_PRO => 'kat-coder-pro',
+            self::DEEPSEEK_V3_1_NEX_N1 => 'deepseek-v3.1-nex-n1',
+            self::QWEN3_CODER_30 => 'qwen3-coder',
+            self::NOVA_2_LITE_V1 => 'nova-2-lite-v1',
+            self::TRINITY_MINI => 'trinity-mini',
+            self::TNG_R1T_CHIMERA => 'tng-r1t-chimera',
+            self::GLM_4_5_AIR => 'glm-4.5-air',
+        };
+    }
 }

@@ -82,12 +82,15 @@ class ProcessFactory implements Arrayable, Stringable
     /**
      * @return int Exit code
      */
-    public function open(): int
+    public function open(callable|null $openedCallback = null): int
     {
         $this->compiler->processRunCallback($this);
         $process = proc_open($this->toString(), [STDIN, STDOUT, STDERR], $pipes, $this->cwd);
         if (is_resource($process)) {
             $this->compiler->processHostedCallback($this);
+            if ($openedCallback) {
+                call_user_func($openedCallback, $this);
+            }
             $exitCode = proc_close($process);
             $this->compiler->processExitCallback($this, $exitCode);
             return $exitCode;

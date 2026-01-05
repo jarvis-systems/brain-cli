@@ -13,6 +13,7 @@ use BrainCLI\Support\Brain;
 class RunCommand extends CommandBridgeAbstract
 {
     protected array $signatureParts = [
+        '{searchModel? : The AI agent to run (overrides the command name)}',
         '{--i|install : Install required dependencies for the agent}',
         '{--u|update : Update the agent to the latest version}',
 
@@ -57,6 +58,24 @@ class RunCommand extends CommandBridgeAbstract
     {
         $this->initFor($this->agent);
 
+        if ($sm = $this->argument('searchModel')) {
+            $models = $this->agent->modelsEnum()::searchModel($sm === '-' || is_numeric($sm) ? '' : $sm);
+            if (count($models) === 1) {
+                $model = $models[0]->value;
+            } elseif (count($models) > 1) {
+                if (is_numeric($sm)) {
+                    if (isset($models[(int) $sm])) {
+                        $model = $models[(int) $sm]->value;
+                    } else {
+                        $this->components->error('The provided model index is out of range.');
+                        exit(1);
+                    }
+                } else {
+                    $model = $this->components->choice('Multiple models found. Please select one:', array_map(fn ($m) => $m->value, $models));
+                }
+            }
+        }
+
         $type = Type::detect($this);
         $process = $this->client->process($type);
         $options = $process->payload->defaultOptions([
@@ -64,7 +83,7 @@ class RunCommand extends CommandBridgeAbstract
             'json' => $this->option('json') || $this->option('serialize'),
             'serialize' => $this->option('serialize'),
             'yolo' => $this->option('yolo'),
-            'model' => $this->option('model'),
+            'model' => $model ?? $this->option('model'),
             'system' => $this->option('system'),
             'systemAppend' => $this->option('system-append'),
             'schema' => $this->option('schema'),

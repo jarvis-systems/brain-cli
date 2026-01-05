@@ -65,4 +65,13 @@ enum GeminiModels: string
 //            self::HAIKU => [CodexModels::GPT_CODEX_MINI, GeminiModels::FLASH_LITE, QwenModels::CODER],
         };
     }
+
+    public function alias(): array|string|null
+    {
+        return match ($this) {
+            self::PRO => ['gemini-pro', 'gemini-2.5-pro'],
+            self::FLASH => ['gemini-flash', 'gemini-2.5-flash'],
+            self::FLASH_LITE => ['gemini-flash-lite', 'gemini-2.5-flash-lite'],
+        };
+    }
 }
