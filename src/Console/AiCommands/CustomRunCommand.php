@@ -68,12 +68,12 @@ class CustomRunCommand extends CommandBridgeAbstract
             'yolo' => $this->data['params']['yolo'] ?? false,
             'model' => $this->data['params']['model'] ?? null,
             'system' => $this->data['params']['system'] ?? null,
-            'systemAppend' => $this->data['params']['system-append'] ?? null,
+            'systemAppend' => $this->data['params']['system-append'] ?? ($this->data['params']['systemAppend'] ?? null),
             'schema' => $this->data['params']['schema'] ?? null,
             'dump' => $this->data['params']['dump'] ?? false,
             'resume' => $this->data['params']['resume'] ?? null,
             'continue' => $this->data['params']['continue'] ?? false,
-            'no-mcp' => $this->data['params']['no-mcp'] ?? false,
+            'no-mcp' => $this->data['params']['no-mcp'] ?? ($this->data['params']['noMcp'] ?? false),
         ]);
 
         $process
