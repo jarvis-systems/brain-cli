@@ -54,6 +54,7 @@ class CustomRunCommand extends CommandBridgeAbstract
             $this->call(new CompileCommand(), [
                 'agent' => $this->agent->value,
                 '--env' => json_encode($this->data['env'], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),
+                '--silent' => true,
             ]);
         }
 
@@ -116,6 +117,7 @@ class CustomRunCommand extends CommandBridgeAbstract
             if ($compileNeeded) {
                 $this->call(new CompileCommand(), [
                     'agent' => $this->agent->value,
+                    '--silent' => true,
                 ]);
             }
         });
