@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\AiCommands;
 
-use Bfg\Dto\Dto;
 use BrainCLI\Abstracts\CommandBridgeAbstract;
 use BrainCLI\Console\Commands\CompileCommand;
 use BrainCLI\Enums\Agent;
@@ -22,6 +21,41 @@ class CustomRunCommand extends CommandBridgeAbstract
     ];
 
     protected mixed $accumulateCallback = null;
+
+    /**
+     * Current recursion depth for variable detection.
+     * Used to prevent stack overflow on circular variable references.
+     */
+    protected int $recursionDepth = 0;
+
+    /**
+     * Maximum allowed recursion depth for variable detection.
+     */
+    protected const MAX_RECURSION_DEPTH = 100;
+
+    /**
+     * Current processing path for error context.
+     * Tracks the hierarchical path through YAML structure during processing.
+     */
+    protected array $processingPath = [];
+
+    /**
+     * Format error context for improved error messages.
+     *
+     * Provides detailed context including the processing path, input preview,
+     * and the underlying error message for better debugging.
+     *
+     * @param string $type The type of operation that failed (e.g., 'PHP eval', 'Command', 'File')
+     * @param string $value The input value that caused the error
+     * @param \Throwable $e The caught exception
+     * @return string The formatted error message with context
+     */
+    protected function formatErrorContext(string $type, string $value, \Throwable $e): string
+    {
+        $path = $this->processingPath ? implode('.', $this->processingPath) : 'root';
+        $preview = strlen($value) > 80 ? substr($value, 0, 80) . '...' : $value;
+        return "{$type} failed at '{$path}':\n  Input: {$preview}\n  Error: {$e->getMessage()}";
+    }
 
     public function __construct(
         protected string $callName,
@@ -191,39 +225,60 @@ class CustomRunCommand extends CommandBridgeAbstract
             if ($path === '$schema' || $path === 'id') {
                 continue;
             }
-            if (Str::startsWith($path, '_')) {
-                $new[$path] = $value;
-                continue;
-            }
-            if (
-                preg_match('/^(.*)(\\\\$.*)$/', $path, $matches)
-                || preg_match('/^(.*)(\\\\@.*)$/', $path, $matches)
-                || preg_match('/^(.*)(\\\\!.*)$/', $path, $matches)
-            ) {
-                $firstPart = $this->variablesDetectString($matches[1]);
-                if (! is_string($firstPart)) {
-                    throw new \InvalidArgumentException("Invalid path part '{$matches[1]}' in '$path'.");
-                }
-                $mergeData = $this->variablesDetectString($matches[2]);
 
-                if (is_array($mergeData)) {
-                    $newData = Arr::dot($mergeData);
-                    foreach ($newData as $newPath => $newValue) {
-                        data_set($this->data, $firstPart . $newPath, $newValue);
-                        data_set($new, $firstPart . $newPath, $newValue);
+            // Track processing path for error context
+            $this->processingPath[] = (string) $path;
+            try {
+                // Check for conditional key pattern: key_name?{condition}
+                if (is_string($path) && preg_match('/^(.+)\?\{(.+)\}$/', $path, $conditionalMatches)) {
+                    $cleanPath = $conditionalMatches[1];
+                    $condition = $conditionalMatches[2];
+
+                    // Evaluate the condition - if false, skip this key entirely
+                    if (!$this->evaluateCondition($condition)) {
+                        continue;
                     }
-                } else {
-                    $path = $mergeData;
-                    data_set($this->data, $path, $value);
-                    data_set($new, $path, $value);
+
+                    // Condition is true - use the clean path name
+                    $path = $cleanPath;
                 }
-                continue;
+
+                if (Str::startsWith($path, '_')) {
+                    data_set($new, $path, $value);
+                    continue;
+                }
+                if (
+                    preg_match('/^(.*)(\\\\$.*)$/', $path, $matches)
+                    || preg_match('/^(.*)(\\\\@.*)$/', $path, $matches)
+                    || preg_match('/^(.*)(\\\\!.*)$/', $path, $matches)
+                ) {
+                    $firstPart = $this->variablesDetectString($matches[1]);
+                    if (! is_string($firstPart)) {
+                        throw new \InvalidArgumentException("Invalid path part '{$matches[1]}' in '$path'.");
+                    }
+                    $mergeData = $this->variablesDetectString($matches[2]);
+
+                    if (is_array($mergeData)) {
+                        $newData = Arr::dot($mergeData);
+                        foreach ($newData as $newPath => $newValue) {
+                            data_set($this->data, $firstPart . $newPath, $newValue);
+                            data_set($new, $firstPart . $newPath, $newValue);
+                        }
+                    } else {
+                        $path = $mergeData;
+                        data_set($this->data, $path, $value);
+                        data_set($new, $path, $value);
+                    }
+                    continue;
+                }
+                if (is_string($value)) {
+                    $value = $this->variablesDetectString($value);
+                }
+                data_set($this->data, $path, $value);
+                data_set($new, $path, $value);
+            } finally {
+                array_pop($this->processingPath);
             }
-            if (is_string($value)) {
-                $value = $this->variablesDetectString($value);
-            }
-            data_set($this->data, $path, $value);
-            data_set($new, $path, $value);
         }
 
         $this->data = $new;
@@ -238,30 +293,89 @@ class CustomRunCommand extends CommandBridgeAbstract
             if ($key === '$schema') {
                 continue;
             }
-            if (is_string($key)) {
-                $key = $this->variablesDetectString($key);
-                if (is_array($key)) {
-                    $newData = array_merge($newData, $this->variablesDetectArray($key));
-                    continue;
+
+            // Track processing path for error context
+            $originalKey = $key;
+            $this->processingPath[] = is_string($key) ? $key : (string) $key;
+            try {
+                // Check for conditional key pattern: key_name?{condition}
+                if (is_string($key) && preg_match('/^(.+)\?\{(.+)\}$/', $key, $conditionalMatches)) {
+                    $cleanKey = $conditionalMatches[1];
+                    $condition = $conditionalMatches[2];
+
+                    // Evaluate the condition - if false, skip this key entirely
+                    if (!$this->evaluateCondition($condition)) {
+                        continue;
+                    }
+
+                    // Condition is true - use the clean key name
+                    $key = $cleanKey;
                 }
-            }
-            if (is_string($value)) {
-                $newData[$key] = $this->variablesDetectString($value);
-            } elseif (is_array($value)) {
-                $newData[$key] = $this->variablesDetectArray($value);
-            } else {
-                $newData[$key] = $value;
+
+                if (is_string($key)) {
+                    $key = $this->variablesDetectString($key);
+                    if (is_array($key)) {
+                        $newData = array_merge($newData, $this->variablesDetectArray($key));
+                        continue;
+                    }
+                }
+                if (is_string($value)) {
+                    $newData[$key] = $this->variablesDetectString($value);
+                } elseif (is_array($value)) {
+                    $newData[$key] = $this->variablesDetectArray($value);
+                } else {
+                    $newData[$key] = $value;
+                }
+            } finally {
+                array_pop($this->processingPath);
             }
         }
         return $newData;
     }
 
-    protected function variablesDetectString(string $value): string|int|float|null|bool|array
+    protected function variablesDetectString(mixed $value): string|int|float|null|bool|array
     {
-        $variableRegexp = '\$([a-zA-Z\d_\-\.\$\{\}]+)';
-        $fileRegexp = '\@(.+)';
-        $cmdRegexp = '\!(.+)';
+        // Guard against circular variable references causing stack overflow
+        if (++$this->recursionDepth > self::MAX_RECURSION_DEPTH) {
+            $preview = is_string($value) ? substr($value, 0, 100) : gettype($value);
+            throw new \RuntimeException(
+                "Maximum recursion depth (" . self::MAX_RECURSION_DEPTH . ") exceeded. " .
+                "Possible circular variable reference. Last value: {$preview}"
+            );
+        }
 
+        try {
+            // Handle non-string values early
+            if (!is_string($value)) {
+                return $value;
+            }
+
+            $variableRegexp = '\$([a-zA-Z\d_\-\.\$\{\}]+)';
+            $fileRegexp = '\@(.+)';
+            $cmdRegexp = '\!(.+)';
+            $evalRegexp = '\>(.+)';
+
+        // Expression callback: handles ??, ?:, and ternary operators
+        // Priority: ?? (null-coalescing) → ?: (elvis) → ? : (ternary)
+        $ternaryReplace = function (string $content): mixed {
+            // 1. Check for null-coalescing (??) FIRST
+            if ($this->findNullCoalescingPosition($content) !== -1) {
+                return $this->parseNullCoalescing($content);
+            }
+
+            // 2. Check for elvis (?:) SECOND
+            if ($this->findElvisPosition($content) !== -1) {
+                return $this->parseElvis($content);
+            }
+
+            // 3. Check for standard ternary (? :) LAST
+            if (!$this->containsTernaryOperator($content)) {
+                return null; // Signal: not a conditional expression, skip
+            }
+            return $this->parseTernary($content);
+        };
+
+        // Replacement callbacks
         $variableReplace = function ($matches) use ($variableRegexp, $fileRegexp, $cmdRegexp) {
             $name = trim($matches[1]);
             $name = $this->variablesDetectString($name);
@@ -289,6 +403,8 @@ class CustomRunCommand extends CommandBridgeAbstract
 
             return $return;
         };
+
+        // File replacement callback
         $fileReplace = function ($matches, bool $full = false) {
             $file = trim($matches[1]);
             $file = $this->variablesDetectString($file);
@@ -321,14 +437,19 @@ class CustomRunCommand extends CommandBridgeAbstract
                 }
                 return $this->variablesDetectString($content);
             }
-            throw new \InvalidArgumentException("File '$file' not found.");
+            $path = $this->processingPath ? implode('.', $this->processingPath) : 'root';
+            throw new \InvalidArgumentException("File reference failed at '{$path}':\n  File: {$file}\n  Error: File not found.");
         };
+
+        // Command replacement callback
         $cmdReplace = function ($matches) use ($variableRegexp, $fileRegexp, $cmdRegexp) {
             $command = trim($matches[1]);
             $command = $this->variablesDetectString($command);
             $output = shell_exec($command);
             if ($output === null) {
-                throw new \RuntimeException("Command '$command' execution failed.");
+                $path = $this->processingPath ? implode('.', $this->processingPath) : 'root';
+                $preview = strlen($command) > 80 ? substr($command, 0, 80) . '...' : $command;
+                throw new \RuntimeException("Command execution failed at '{$path}':\n  Command: {$preview}\n  Error: Command returned null (execution failed or produced no output).");
             }
             $value = $this->variablesDetectString(trim($output));
             while (
@@ -347,28 +468,1045 @@ class CustomRunCommand extends CommandBridgeAbstract
             return $value;
         };
 
-        if (preg_match("/^\\\\".$cmdRegexp."$/", $value, $matches)) {
+        // Eval replacement
+        $evalReplace = function ($matches) use ($variableRegexp, $fileRegexp, $cmdRegexp) {
+            $code = trim($matches[1]);
+            if (! str_ends_with($code, ';')) {
+                $code .= ';';
+            }
+            // if not a return statement, add it
+            if (! preg_match('/^\s*return\s+/m', $code)) {
+                $code = 'return ' . $code;
+            }
+            $code = $this->variablesDetectString($code);
+            try {
+                // Use output buffering to capture any echoed output
+                ob_start();
+                $result = eval($code);
+                $output = ob_get_clean();
+                if ($output !== false && trim($output) !== '') {
+                    return $this->variablesDetectString(trim($output));
+                }
+                return $result ? $this->variablesDetectString((string) $result) : '';
+            } catch (\Throwable $e) {
+                throw new \RuntimeException($this->formatErrorContext('PHP eval', $matches[1], $e));
+            }
+        };
+
+        if (preg_match("/^\\\\".$evalRegexp."$/", $value, $matches)) {
+            $value = $evalReplace($matches);
+        }
+        if (is_string($value) && preg_match("/^\\\\".$cmdRegexp."$/", $value, $matches)) {
             $value = $cmdReplace($matches);
         }
-        if (preg_match("/^\\\\".$variableRegexp."$/", $value, $matches)) {
+        if (is_string($value) && preg_match("/^\\\\".$variableRegexp."$/", $value, $matches)) {
             $value = $variableReplace($matches);
         }
-        if (preg_match("/^\\\\".$fileRegexp."$/", $value, $matches)) {
+        if (is_string($value) && preg_match("/^\\\\".$fileRegexp."$/", $value, $matches)) {
             $value = $fileReplace($matches, true);
         }
 
-        $value = preg_replace_callback("/\{$cmdRegexp}/", $cmdReplace, $value) ?: $value;
+        // Process ternary expressions FIRST (before other patterns)
+        // Uses balanced brace extraction to handle nested {$var} patterns inside ternary expressions
+        // Example: {$a ? ($b ? {$c} : {$d}) : {$e}} - properly handles nested braces
+        $maxIterations = 10; // Prevent infinite loops for nested ternaries
+        $iteration = 0;
+        $previousValue = null;
+        while ($iteration < $maxIterations && is_string($value) && $value !== $previousValue) {
+            $previousValue = $value;
+            $value = $this->processBalancedTernaryExpressions($value, $ternaryReplace);
+            $iteration++;
+        }
 
-        $value = preg_replace_callback("/\{$variableRegexp}/", $variableReplace, $value) ?: $value;
+        if (is_string($value) || is_array($value)) {
+            $value = preg_replace_callback("/\{$evalRegexp}/", $evalReplace, $value) ?: $value;
+            $value = preg_replace_callback("/\{$cmdRegexp}/", $cmdReplace, $value) ?: $value;
+            $value = preg_replace_callback("/\{$variableRegexp}/", $variableReplace, $value) ?: $value;
+            $value = preg_replace_callback("/\{$fileRegexp}/", $fileReplace, $value) ?: $value;
+        }
 
-        $return = preg_replace_callback("/\{$fileRegexp}/", $fileReplace, $value) ?: $value;
+            $decodable = is_string($value) && (in_array($value, ['false', 'true', 'null'])
+                || is_numeric($value)
+                || Str::of($value)->isJson()
+                || str_starts_with($value, '"'));
 
-        $decodable = is_string($return) && (in_array($return, ['false', 'true', 'null'])
-            || is_numeric($return)
-            || Str::of($return)->isJson()
-            || str_starts_with($return, '"'));
+            return $decodable ? json_decode($value, true) : $value;
+        } finally {
+            $this->recursionDepth--;
+        }
+    }
 
-        return $decodable ? json_decode($return, true) : $return;
+    /**
+     * Evaluate a conditional expression with variable substitution.
+     *
+     * Supports:
+     * - Simple truthy check: $var
+     * - Negation: !$var
+     * - Comparisons: $a == $b, $a != $b, $a < $b, $a > $b, $a <= $b, $a >= $b
+     * - Logical AND: $a && $b
+     * - Logical OR: $a || $b
+     * - Parentheses grouping: ($a && $b) || $c
+     * - Mixed: $count > 5 && $enabled
+     *
+     * Variable resolution order:
+     * 1. Brain::hasEnv($name) -> Brain::getEnv($name)
+     * 2. array_key_exists($name, $this->data) -> $this->data[$name]
+     * 3. data_get($this->data, $name)
+     *
+     * @param string $condition The condition expression to evaluate
+     * @return bool The evaluation result
+     */
+    protected function evaluateCondition(string $condition): bool
+    {
+        $condition = trim($condition);
+
+        if ($condition === '') {
+            return false;
+        }
+
+        // Resolve all variables in the condition first
+        $resolved = $this->resolveConditionVariables($condition);
+
+        // Parse and evaluate the resolved expression
+        return $this->parseConditionExpression($resolved);
+    }
+
+    /**
+     * Resolve all $variable references in a condition string.
+     *
+     * @param string $condition The condition with variable references
+     * @return string The condition with resolved values
+     */
+    protected function resolveConditionVariables(string $condition): string
+    {
+        // Replace all $varname patterns with their resolved values
+        return preg_replace_callback(
+            '/\$([a-zA-Z_][a-zA-Z0-9_\.\-]*)/',
+            function ($matches) {
+                $name = $matches[1];
+                $value = $this->resolveVariable($name);
+
+                return $this->valueToConditionString($value);
+            },
+            $condition
+        ) ?? $condition;
+    }
+
+    /**
+     * Resolve a single variable name to its value.
+     *
+     * Resolution order:
+     * 1. Environment variable (Brain::getEnv)
+     * 2. Direct data key (flat keys with dots)
+     * 3. Nested data path (dot notation)
+     *
+     * @param string $name The variable name
+     * @return mixed The resolved value or null if not found
+     */
+    protected function resolveVariable(string $name): mixed
+    {
+        if (Brain::hasEnv($name)) {
+            return Brain::getEnv($name);
+        }
+
+        if (array_key_exists($name, $this->data)) {
+            return $this->data[$name];
+        }
+
+        return data_get($this->data, $name);
+    }
+
+    /**
+     * Check if a variable exists (not just has value).
+     * Used for null-coalescing operator (??).
+     *
+     * Resolution order:
+     * 1. Environment variable exists
+     * 2. Direct data key exists
+     * 3. Nested data path exists (using Arr::has)
+     *
+     * @param string $name The variable name
+     * @return bool True if variable exists, false otherwise
+     */
+    protected function variableExists(string $name): bool
+    {
+        if (Brain::hasEnv($name)) {
+            return true;
+        }
+
+        if (array_key_exists($name, $this->data)) {
+            return true;
+        }
+
+        return Arr::has($this->data, $name);
+    }
+
+    /**
+     * Resolve an expression value - handles bare variables ($var) and general expressions.
+     * Used by elvis and null-coalescing operators to properly resolve values.
+     *
+     * @param string $expression The expression to resolve
+     * @return mixed The resolved value
+     */
+    protected function resolveExpressionValue(string $expression): mixed
+    {
+        $expression = trim($expression);
+
+        // Check if it's a bare variable reference ($var)
+        if (preg_match('/^\$([a-zA-Z_][a-zA-Z0-9_\.\-]*)$/', $expression, $matches)) {
+            return $this->resolveVariable($matches[1]);
+        }
+
+        // Check if it's a braced variable ({$var})
+        if (preg_match('/^\{\$([a-zA-Z_][a-zA-Z0-9_\.\-]*)\}$/', $expression, $matches)) {
+            return $this->resolveVariable($matches[1]);
+        }
+
+        // Otherwise use variablesDetectString for complex expressions
+        return $this->variablesDetectString($expression);
+    }
+
+    /**
+     * Convert a PHP value to a safe string representation for condition parsing.
+     *
+     * @param mixed $value The value to convert
+     * @return string The string representation
+     */
+    protected function valueToConditionString(mixed $value): string
+    {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
+        if (is_string($value)) {
+            // Handle boolean strings
+            if (in_array(strtolower($value), ['true', 'false', 'null'], true)) {
+                return strtolower($value);
+            }
+            // Escape and quote strings
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+            return '"' . $escaped . '"';
+        }
+
+        if (is_array($value)) {
+            return empty($value) ? 'false' : 'true';
+        }
+
+        return 'false';
+    }
+
+    /**
+     * Parse and evaluate a condition expression (variables already resolved).
+     *
+     * @param string $expression The resolved expression
+     * @return bool The evaluation result
+     */
+    protected function parseConditionExpression(string $expression): bool
+    {
+        $expression = trim($expression);
+
+        if ($expression === '') {
+            return false;
+        }
+
+        // Handle parentheses recursively
+        while (preg_match('/\(([^()]+)\)/', $expression, $matches)) {
+            $innerResult = $this->parseConditionExpression($matches[1]);
+            $replacement = $innerResult ? 'true' : 'false';
+            $expression = str_replace($matches[0], $replacement, $expression);
+        }
+
+        // Handle OR (lowest precedence)
+        if (str_contains($expression, '||')) {
+            $parts = preg_split('/\s*\|\|\s*/', $expression, 2);
+            if (count($parts) === 2) {
+                return $this->parseConditionExpression($parts[0])
+                    || $this->parseConditionExpression($parts[1]);
+            }
+        }
+
+        // Handle AND (higher precedence than OR)
+        if (str_contains($expression, '&&')) {
+            $parts = preg_split('/\s*&&\s*/', $expression, 2);
+            if (count($parts) === 2) {
+                return $this->parseConditionExpression($parts[0])
+                    && $this->parseConditionExpression($parts[1]);
+            }
+        }
+
+        // Handle comparison operators
+        $comparisonPatterns = [
+            '/^(.+?)\s*===\s*(.+)$/' => 'strict_equal',
+            '/^(.+?)\s*!==\s*(.+)$/' => 'strict_not_equal',
+            '/^(.+?)\s*==\s*(.+)$/' => 'equal',
+            '/^(.+?)\s*!=\s*(.+)$/' => 'not_equal',
+            '/^(.+?)\s*<=\s*(.+)$/' => 'less_equal',
+            '/^(.+?)\s*>=\s*(.+)$/' => 'greater_equal',
+            '/^(.+?)\s*<\s*(.+)$/' => 'less',
+            '/^(.+?)\s*>\s*(.+)$/' => 'greater',
+        ];
+
+        foreach ($comparisonPatterns as $pattern => $operator) {
+            if (preg_match($pattern, $expression, $matches)) {
+                $left = $this->parseConditionValue(trim($matches[1]));
+                $right = $this->parseConditionValue(trim($matches[2]));
+
+                return $this->compareValues($left, $right, $operator);
+            }
+        }
+
+        // Handle negation
+        if (preg_match('/^!\s*(.+)$/', $expression, $matches)) {
+            return !$this->parseConditionExpression($matches[1]);
+        }
+
+        // Simple truthy check
+        $value = $this->parseConditionValue($expression);
+        return $this->isTruthy($value);
+    }
+
+    /**
+     * Parse a value token from a condition expression.
+     *
+     * @param string $token The token to parse
+     * @return mixed The parsed value
+     */
+    protected function parseConditionValue(string $token): mixed
+    {
+        $token = trim($token);
+
+        // Boolean literals
+        if ($token === 'true') {
+            return true;
+        }
+        if ($token === 'false') {
+            return false;
+        }
+
+        // Null literal
+        if ($token === 'null') {
+            return null;
+        }
+
+        // Quoted string
+        if (preg_match('/^"((?:[^"\\\\]|\\\\.)*)"$/', $token, $matches)) {
+            return stripcslashes($matches[1]);
+        }
+        if (preg_match("/^'((?:[^'\\\\]|\\\\.)*)'\$/", $token, $matches)) {
+            return stripcslashes($matches[1]);
+        }
+
+        // Numeric values
+        if (is_numeric($token)) {
+            if (str_contains($token, '.')) {
+                return (float) $token;
+            }
+            return (int) $token;
+        }
+
+        // Unquoted string (or unresolved variable reference)
+        return $token;
+    }
+
+    /**
+     * Compare two values using the specified operator.
+     *
+     * @param mixed $left Left operand
+     * @param mixed $right Right operand
+     * @param string $operator The comparison operator
+     * @return bool The comparison result
+     */
+    protected function compareValues(mixed $left, mixed $right, string $operator): bool
+    {
+        // Numeric comparison when both are numeric
+        $numericComparison = is_numeric($left) && is_numeric($right);
+
+        if ($numericComparison) {
+            $left = is_float($left) || is_float($right) ? (float) $left : (int) $left;
+            $right = is_float($left) || is_float($right) ? (float) $right : (int) $right;
+        }
+
+        return match ($operator) {
+            'strict_equal' => $left === $right,
+            'strict_not_equal' => $left !== $right,
+            'equal' => $left == $right,
+            'not_equal' => $left != $right,
+            'less' => $left < $right,
+            'greater' => $left > $right,
+            'less_equal' => $left <= $right,
+            'greater_equal' => $left >= $right,
+            default => false,
+        };
+    }
+
+    /**
+     * Check if a value is truthy.
+     *
+     * @param mixed $value The value to check
+     * @return bool Whether the value is truthy
+     */
+    protected function isTruthy(mixed $value): bool
+    {
+        if ($value === null || $value === false) {
+            return false;
+        }
+
+        if ($value === '') {
+            return false;
+        }
+
+        if ($value === 0 || $value === 0.0 || $value === '0') {
+            return false;
+        }
+
+        if (is_array($value) && empty($value)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Parse and evaluate a ternary expression with nested support.
+     *
+     * Supports:
+     * - Simple ternary: $var ? value1 : value2
+     * - Nested ternary with parentheses: $a ? ($b ? x : y) : z
+     * - Deep nesting: $a ? ($b ? ($c ? 1 : 2) : 3) : 4
+     * - Complex conditions: $count > 5 && $enabled ? many : few
+     * - Variables in values: $debug ? $verbose_output : $short_output
+     * - Nested ternaries without parentheses (right-associative): $a ? $b ? x : y : z
+     *
+     * @param string $expression The ternary expression to parse and evaluate
+     * @return mixed The evaluated result (string, int, float, bool, null, or array)
+     */
+    protected function parseTernary(string $expression): mixed
+    {
+        $expression = trim($expression);
+
+        if ($expression === '') {
+            return '';
+        }
+
+        // Find the condition part (everything before first `?` at depth 0)
+        $conditionEnd = $this->findTernaryOperatorPosition($expression, '?');
+
+        // If no ternary operator found, resolve variables and return as-is
+        if ($conditionEnd === -1) {
+            return $this->variablesDetectString($expression);
+        }
+
+        $condition = trim(substr($expression, 0, $conditionEnd));
+        $remainder = trim(substr($expression, $conditionEnd + 1));
+
+        // Find the colon that separates true/false parts at depth 0
+        $colonPosition = $this->findTernaryColonPosition($remainder);
+
+        if ($colonPosition === -1) {
+            // Malformed ternary - no colon found, treat as simple expression
+            return $this->variablesDetectString($expression);
+        }
+
+        $truePart = trim(substr($remainder, 0, $colonPosition));
+        $falsePart = trim(substr($remainder, $colonPosition + 1));
+
+        // Evaluate the condition using evaluateCondition()
+        $conditionResult = $this->evaluateCondition($condition);
+
+        // Select the appropriate branch and recursively process
+        $selectedPart = $conditionResult ? $truePart : $falsePart;
+
+        // Remove outer parentheses if present
+        $selectedPart = $this->stripOuterParentheses($selectedPart);
+
+        // Check if the selected part contains another ternary
+        if ($this->containsTernaryOperator($selectedPart)) {
+            return $this->parseTernary($selectedPart);
+        }
+
+        // Resolve variables in the result
+        return $this->variablesDetectString($selectedPart);
+    }
+
+    /**
+     * Parse and evaluate a null-coalescing expression (??) with chaining support.
+     *
+     * PHP-style semantics:
+     * - $a ?? $b - returns $a if $a EXISTS and is not null, otherwise $b
+     * - Supports chaining: $a ?? $b ?? $c
+     * - Supports nesting: $a ?? ($b ? x : y)
+     *
+     * @param string $expression The expression to parse
+     * @return mixed The evaluated result
+     */
+    protected function parseNullCoalescing(string $expression): mixed
+    {
+        $expression = trim($expression);
+
+        if ($expression === '') {
+            return '';
+        }
+
+        // Find ?? operator at depth 0
+        $operatorPos = $this->findNullCoalescingPosition($expression);
+
+        if ($operatorPos === -1) {
+            // No ?? found - this shouldn't happen if called correctly
+            return $this->variablesDetectString($expression);
+        }
+
+        $leftPart = trim(substr($expression, 0, $operatorPos));
+        $rightPart = trim(substr($expression, $operatorPos + 2)); // +2 for '??'
+
+        // Strip outer parentheses from left part
+        $leftPart = $this->stripOuterParentheses($leftPart);
+
+        // Check if left part is a variable reference
+        if (preg_match('/^\$([a-zA-Z_][a-zA-Z0-9_\.\-]*)$/', $leftPart, $matches)) {
+            $varName = $matches[1];
+
+            // Check if variable EXISTS and is not null
+            if ($this->variableExists($varName)) {
+                $value = $this->resolveVariable($varName);
+                if ($value !== null) {
+                    return $value;
+                }
+            }
+        } else {
+            // Left part is an expression - evaluate it
+            $leftValue = $this->variablesDetectString($leftPart);
+            if ($leftValue !== null && $leftValue !== '') {
+                return $leftValue;
+            }
+        }
+
+        // Left is null/undefined - process right part
+        // Strip outer parentheses from right part
+        $rightPart = $this->stripOuterParentheses($rightPart);
+
+        // Check if right part contains another ?? (chaining)
+        if ($this->findNullCoalescingPosition($rightPart) !== -1) {
+            return $this->parseNullCoalescing($rightPart);
+        }
+
+        // Check if right part contains ternary
+        if ($this->containsTernaryOperator($rightPart)) {
+            return $this->parseTernary($rightPart);
+        }
+
+        // Check if right part contains elvis
+        if ($this->findElvisPosition($rightPart) !== -1) {
+            return $this->parseElvis($rightPart);
+        }
+
+        // Resolve variables in right part
+        return $this->variablesDetectString($rightPart);
+    }
+
+    /**
+     * Find the position of ?? operator at depth 0.
+     * Respects parentheses nesting and quoted strings.
+     *
+     * @param string $expression The expression to search
+     * @return int The position, or -1 if not found
+     */
+    protected function findNullCoalescingPosition(string $expression): int
+    {
+        $depth = 0;
+        $length = strlen($expression);
+        $inSingleQuote = false;
+        $inDoubleQuote = false;
+
+        for ($i = 0; $i < $length - 1; $i++) {
+            $char = $expression[$i];
+            $nextChar = $expression[$i + 1];
+            $prevChar = $i > 0 ? $expression[$i - 1] : '';
+
+            // Handle escape sequences
+            if ($prevChar === '\\') {
+                continue;
+            }
+
+            // Handle quotes
+            if ($char === '"' && !$inSingleQuote) {
+                $inDoubleQuote = !$inDoubleQuote;
+                continue;
+            }
+            if ($char === "'" && !$inDoubleQuote) {
+                $inSingleQuote = !$inSingleQuote;
+                continue;
+            }
+
+            // Skip if inside quotes
+            if ($inSingleQuote || $inDoubleQuote) {
+                continue;
+            }
+
+            // Handle parentheses
+            if ($char === '(') {
+                $depth++;
+                continue;
+            }
+            if ($char === ')') {
+                $depth--;
+                continue;
+            }
+
+            // Found ?? at depth 0
+            if ($char === '?' && $nextChar === '?' && $depth === 0) {
+                return $i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Parse and evaluate an elvis expression (?:).
+     *
+     * PHP-style semantics:
+     * - $a ?: $b - returns $a if $a is truthy, otherwise $b
+     * - Supports nesting: $a ?: ($b ?? c)
+     *
+     * @param string $expression The expression to parse
+     * @return mixed The evaluated result
+     */
+    protected function parseElvis(string $expression): mixed
+    {
+        $expression = trim($expression);
+
+        if ($expression === '') {
+            return '';
+        }
+
+        // Find ?: operator at depth 0
+        $operatorPos = $this->findElvisPosition($expression);
+
+        if ($operatorPos === -1) {
+            // No ?: found
+            return $this->variablesDetectString($expression);
+        }
+
+        $leftPart = trim(substr($expression, 0, $operatorPos));
+        $rightPart = trim(substr($expression, $operatorPos + 2)); // +2 for '?:'
+
+        // Strip outer parentheses
+        $leftPart = $this->stripOuterParentheses($leftPart);
+        $rightPart = $this->stripOuterParentheses($rightPart);
+
+        // Evaluate left part - resolve bare variable ($var) if needed
+        $leftValue = $this->resolveExpressionValue($leftPart);
+
+        // If left is truthy, return it
+        if ($this->isTruthy($leftValue)) {
+            return $leftValue;
+        }
+
+        // Left is falsy - process right part
+        // Check if right part contains ?? (null-coalescing)
+        if ($this->findNullCoalescingPosition($rightPart) !== -1) {
+            return $this->parseNullCoalescing($rightPart);
+        }
+
+        // Check if right part contains another ?: (chaining)
+        if ($this->findElvisPosition($rightPart) !== -1) {
+            return $this->parseElvis($rightPart);
+        }
+
+        // Check if right part contains ternary
+        if ($this->containsTernaryOperator($rightPart)) {
+            return $this->parseTernary($rightPart);
+        }
+
+        // Resolve right part
+        return $this->resolveExpressionValue($rightPart);
+    }
+
+    /**
+     * Find the position of ?: (elvis) operator at depth 0.
+     * Distinguishes ?: from ? : (ternary with content).
+     *
+     * @param string $expression The expression to search
+     * @return int The position, or -1 if not found
+     */
+    protected function findElvisPosition(string $expression): int
+    {
+        $depth = 0;
+        $length = strlen($expression);
+        $inSingleQuote = false;
+        $inDoubleQuote = false;
+
+        for ($i = 0; $i < $length - 1; $i++) {
+            $char = $expression[$i];
+            $nextChar = $expression[$i + 1];
+            $prevChar = $i > 0 ? $expression[$i - 1] : '';
+
+            // Handle escape sequences
+            if ($prevChar === '\\') {
+                continue;
+            }
+
+            // Handle quotes
+            if ($char === '"' && !$inSingleQuote) {
+                $inDoubleQuote = !$inDoubleQuote;
+                continue;
+            }
+            if ($char === "'" && !$inDoubleQuote) {
+                $inSingleQuote = !$inSingleQuote;
+                continue;
+            }
+
+            // Skip if inside quotes
+            if ($inSingleQuote || $inDoubleQuote) {
+                continue;
+            }
+
+            // Handle parentheses
+            if ($char === '(') {
+                $depth++;
+                continue;
+            }
+            if ($char === ')') {
+                $depth--;
+                continue;
+            }
+
+            // Found ?: at depth 0 (but NOT ??)
+            if ($char === '?' && $nextChar === ':' && $depth === 0) {
+                // Make sure it's not followed by another : (which would be weird but check anyway)
+                return $i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Find the position of a ternary operator (? or :) at depth 0.
+     * Respects parentheses nesting and quoted strings.
+     *
+     * @param string $expression The expression to search
+     * @param string $operator The operator to find ('?' or ':')
+     * @return int The position, or -1 if not found
+     */
+    protected function findTernaryOperatorPosition(string $expression, string $operator): int
+    {
+        $depth = 0;
+        $length = strlen($expression);
+        $inSingleQuote = false;
+        $inDoubleQuote = false;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $expression[$i];
+            $prevChar = $i > 0 ? $expression[$i - 1] : '';
+
+            // Handle escape sequences
+            if ($prevChar === '\\') {
+                continue;
+            }
+
+            // Handle quotes
+            if ($char === '"' && !$inSingleQuote) {
+                $inDoubleQuote = !$inDoubleQuote;
+                continue;
+            }
+            if ($char === "'" && !$inDoubleQuote) {
+                $inSingleQuote = !$inSingleQuote;
+                continue;
+            }
+
+            // Skip if inside quotes
+            if ($inSingleQuote || $inDoubleQuote) {
+                continue;
+            }
+
+            // Handle parentheses
+            if ($char === '(') {
+                $depth++;
+                continue;
+            }
+            if ($char === ')') {
+                $depth--;
+                continue;
+            }
+
+            // Found operator at depth 0
+            if ($char === $operator && $depth === 0) {
+                return $i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Find the position of the colon that separates true/false parts in a ternary.
+     * Handles nested ternaries by tracking question mark depth.
+     *
+     * @param string $expression The expression after the first '?'
+     * @return int The position of the matching colon, or -1 if not found
+     */
+    protected function findTernaryColonPosition(string $expression): int
+    {
+        $parenDepth = 0;
+        $ternaryDepth = 0;
+        $length = strlen($expression);
+        $inSingleQuote = false;
+        $inDoubleQuote = false;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $expression[$i];
+            $prevChar = $i > 0 ? $expression[$i - 1] : '';
+
+            // Handle escape sequences
+            if ($prevChar === '\\') {
+                continue;
+            }
+
+            // Handle quotes
+            if ($char === '"' && !$inSingleQuote) {
+                $inDoubleQuote = !$inDoubleQuote;
+                continue;
+            }
+            if ($char === "'" && !$inDoubleQuote) {
+                $inSingleQuote = !$inSingleQuote;
+                continue;
+            }
+
+            // Skip if inside quotes
+            if ($inSingleQuote || $inDoubleQuote) {
+                continue;
+            }
+
+            // Handle parentheses
+            if ($char === '(') {
+                $parenDepth++;
+                continue;
+            }
+            if ($char === ')') {
+                $parenDepth--;
+                continue;
+            }
+
+            // Skip if inside parentheses
+            if ($parenDepth > 0) {
+                continue;
+            }
+
+            // Track nested ternary operators (for right-associativity)
+            if ($char === '?') {
+                $ternaryDepth++;
+                continue;
+            }
+
+            // Found colon - check if it's our matching colon
+            if ($char === ':') {
+                if ($ternaryDepth === 0) {
+                    return $i;
+                }
+                $ternaryDepth--;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Strip outer parentheses from an expression if present.
+     *
+     * @param string $expression The expression to process
+     * @return string The expression without outer parentheses
+     */
+    protected function stripOuterParentheses(string $expression): string
+    {
+        $expression = trim($expression);
+
+        if (!str_starts_with($expression, '(') || !str_ends_with($expression, ')')) {
+            return $expression;
+        }
+
+        // Verify the parentheses are matching (not separate groups)
+        $depth = 0;
+        $length = strlen($expression);
+
+        for ($i = 0; $i < $length - 1; $i++) {
+            $char = $expression[$i];
+
+            if ($char === '(') {
+                $depth++;
+            } elseif ($char === ')') {
+                $depth--;
+            }
+
+            // If depth reaches 0 before the end, parentheses are separate groups
+            if ($depth === 0) {
+                return $expression;
+            }
+        }
+
+        // Parentheses wrap the entire expression - strip them
+        return trim(substr($expression, 1, -1));
+    }
+
+    /**
+     * Check if an expression contains a ternary operator at depth 0.
+     *
+     * @param string $expression The expression to check
+     * @return bool True if a ternary operator exists at depth 0
+     */
+    protected function containsTernaryOperator(string $expression): bool
+    {
+        return $this->findTernaryOperatorPosition($expression, '?') !== -1;
+    }
+
+    /**
+     * Extract all balanced brace expressions from a string.
+     *
+     * Finds all {content} patterns with properly balanced nested braces.
+     * Returns array of [start_position, end_position, content] tuples.
+     *
+     * @param string $value The string to search
+     * @return array<array{0: int, 1: int, 2: string}> Array of [start, end, content] tuples
+     */
+    protected function extractBalancedBraceExpressions(string $value): array
+    {
+        $expressions = [];
+        $length = strlen($value);
+        $i = 0;
+
+        while ($i < $length) {
+            // Find next opening brace
+            $openPos = strpos($value, '{', $i);
+            if ($openPos === false) {
+                break;
+            }
+
+            // Track depth to find matching close brace
+            $depth = 1;
+            $pos = $openPos + 1;
+            $inSingleQuote = false;
+            $inDoubleQuote = false;
+
+            while ($pos < $length && $depth > 0) {
+                $char = $value[$pos];
+                $prevChar = $pos > 0 ? $value[$pos - 1] : '';
+
+                // Handle escape sequences (but not escaped backslash)
+                if ($prevChar === '\\' && ($pos < 2 || $value[$pos - 2] !== '\\')) {
+                    $pos++;
+                    continue;
+                }
+
+                // Handle quotes
+                if ($char === '"' && !$inSingleQuote) {
+                    $inDoubleQuote = !$inDoubleQuote;
+                    $pos++;
+                    continue;
+                }
+                if ($char === "'" && !$inDoubleQuote) {
+                    $inSingleQuote = !$inSingleQuote;
+                    $pos++;
+                    continue;
+                }
+
+                // Skip if inside quotes
+                if ($inSingleQuote || $inDoubleQuote) {
+                    $pos++;
+                    continue;
+                }
+
+                // Track brace depth
+                if ($char === '{') {
+                    $depth++;
+                } elseif ($char === '}') {
+                    $depth--;
+                }
+
+                $pos++;
+            }
+
+            if ($depth === 0) {
+                // Found a complete balanced expression
+                $content = substr($value, $openPos + 1, $pos - $openPos - 2);
+                $expressions[] = [$openPos, $pos - 1, $content];
+            }
+
+            $i = $pos;
+        }
+
+        return $expressions;
+    }
+
+    /**
+     * Process a string replacing balanced brace ternary expressions.
+     *
+     * This method properly handles nested {$var} patterns inside ternary expressions
+     * by using brace depth tracking instead of simple regex.
+     *
+     * @param string $value The string to process
+     * @param callable $ternaryReplace The ternary replacement callback
+     * @return string The processed string
+     */
+    protected function processBalancedTernaryExpressions(string $value, callable $ternaryReplace): string
+    {
+        // Process from right to left to preserve positions during replacement
+        $expressions = $this->extractBalancedBraceExpressions($value);
+
+        // Sort by start position descending (process from end to start)
+        usort($expressions, fn($a, $b) => $b[0] <=> $a[0]);
+
+        foreach ($expressions as [$start, $end, $content]) {
+            // Check if this content is a conditional expression (??, ?:, or ternary)
+            $hasNullCoalescing = str_contains($content, '??');
+            $hasElvis = str_contains($content, '?:');
+            $hasTernary = str_contains($content, '?') && str_contains($content, ':');
+
+            if (!$hasNullCoalescing && !$hasElvis && !$hasTernary) {
+                continue;
+            }
+
+            // Verify it has operators at depth 0
+            $hasValidOperator = $this->findNullCoalescingPosition($content) !== -1
+                || $this->findElvisPosition($content) !== -1
+                || $this->containsTernaryOperator($content);
+
+            if (!$hasValidOperator) {
+                continue;
+            }
+
+            $result = $ternaryReplace($content);
+
+            // If null returned, it wasn't a valid ternary - skip
+            if ($result === null) {
+                continue;
+            }
+
+            // Convert result to string for substitution
+            $replacement = match (true) {
+                is_bool($result) => $result ? 'true' : 'false',
+                $result === null => 'null',
+                is_array($result) => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                default => (string) $result,
+            };
+
+            // Replace the expression in the value
+            $value = substr($value, 0, $start) . $replacement . substr($value, $end + 1);
+        }
+
+        return $value;
+    }
+
+    public function __get(string $name)
+    {
+        return $this->data[$name] ?? null;
     }
 }
 

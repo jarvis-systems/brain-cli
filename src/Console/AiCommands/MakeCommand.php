@@ -41,7 +41,7 @@ class MakeCommand extends CommandBridgeAbstract
             $this->components->error("Client file '{$filename}' already exists. Use --force to overwrite.");
             return ERROR;
         }
-        $client = $agentInput ? Agent::from($agentInput)->value : '$_default_client';
+        $client = $agentInput ? Agent::from($agentInput)->value : '\$_default_client';
         $content = [
             '$schema' => '../vendor/jarvis-brain/core/agent-schema.json',
             'client' => $client
