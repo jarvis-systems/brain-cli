@@ -48,7 +48,7 @@ class AiServiceProvider extends ServiceProvider
             );
         }
 
-        $agentsFolder = Brain::workingDirectory('agents');
+        $agentsFolder = Brain::projectDirectory('.ai');
         if (is_dir($agentsFolder)) {
             $files = File::files($agentsFolder);
             foreach ($files as $file) {

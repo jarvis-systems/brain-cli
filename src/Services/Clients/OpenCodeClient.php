@@ -101,10 +101,6 @@ class OpenCodeClient extends ClientAbstract
      */
     protected function createAgentContent(Data $agent, Data $brain, AgentInfo $info): string|array|false
     {
-        if ($agent->classBasename === 'ExploreMaster') {
-            return false;
-        }
-
         return $this->generateWithYamlHeader([
             'description' => $info->description,
             'mode' => 'subagent',
@@ -149,7 +145,7 @@ class OpenCodeClient extends ClientAbstract
             ->installBehavior($install)
             ->updateBehavior($install)
             ->programBehavior([
-                'command' => Brain::getEnv('OPENCODE_PROGRAM_PATH', 'opencode'),
+                'command' => [Brain::getEnv('OPENCODE_PROGRAM_PATH', 'opencode')],
                 'env' => [
                     'OPENCODE_CONFIG' => Brain::projectDirectory($this->settingsFile())
                 ],

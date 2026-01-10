@@ -45,7 +45,7 @@ class ClaudeClient extends ClientAbstract
 
     protected function getMcpFileParts(): string|array
     {
-        return [$this->folder(), '.mcp.json'];
+        return '.mcp.json';
     }
 
     /**

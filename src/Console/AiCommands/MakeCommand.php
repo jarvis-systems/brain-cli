@@ -29,7 +29,7 @@ class MakeCommand extends CommandBridgeAbstract
 
     protected function handleBridge(): int|array
     {
-        $folder = Brain::workingDirectory('agents');
+        $folder = Brain::projectDirectory('.ai');
         if (!is_dir($folder)) {
             mkdir($folder, 0755, true);
         }

@@ -206,14 +206,18 @@ class ProcessFactory implements Arrayable, Stringable
         $body = $this->toArray();
         $command = $body['command'];
         foreach ($command as $key => $item) {
-            if (str_contains($item, ' ')) {
-                $command[$key] = "'" . $item . "'";
+            if (!empty($item)) {
+                $command[$key] = $key > 0 && !str_starts_with($item, '-')
+                    ? escapeshellarg((string) $item)
+                    : (string) $item;
             } elseif ($item === '') {
                 $command[$key] = "''";
             }
         }
         $command = implode(' ', $command);
         foreach ($body['env'] as $key => $value) {
+            $value = (string) $value;
+            $value = is_numeric($value) ? $value : escapeshellarg($value);
             $command = "{$key}={$value} {$command}";
         }
         return $command;

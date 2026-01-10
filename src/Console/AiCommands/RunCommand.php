@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\AiCommands;
 
 use BrainCLI\Abstracts\CommandBridgeAbstract;
+use BrainCLI\Console\Commands\CompileCommand;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Enums\Process\Type;
 use BrainCLI\Services\ProcessFactory;
@@ -78,6 +79,10 @@ class RunCommand extends CommandBridgeAbstract
             }
         }
 
+        $this->callSilent(new CompileCommand(), [
+            'agent' => $this->agent->value,
+        ]);
+
         $type = Type::detect($this);
         $process = $this->client->process($type);
         $options = $process->payload->defaultOptions([
@@ -103,6 +108,10 @@ class RunCommand extends CommandBridgeAbstract
         } elseif ($options['update']) {
             return $process->update()->open();
         }
+
+        $this->callSilent(new CompileCommand(), [
+            'agent' => $this->agent->value,
+        ]);
 
         $process
             ->program()

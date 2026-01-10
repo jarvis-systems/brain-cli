@@ -17,6 +17,8 @@ class CustomRunCommand extends CommandBridgeAbstract
 {
     protected array $signatureParts = [
         '{args?* : Arguments for the custom AI command}',
+        '{--r|resume= : Resume a previous session by providing the session ID}',
+        '{--c|continue : Continue the last session}',
         '{--dump : Dump the processed data before execution}',
     ];
 
@@ -139,14 +141,14 @@ class CustomRunCommand extends CommandBridgeAbstract
         $this->variablesDetectArrayData();
 
         if ($this->option('dump')) {
-            dd($this->data);
+            dump($this->data);
         }
 
         $compileNeeded = isset($this->data['env'])
             && is_array($this->data['env'])
             && count($this->data['env']);
 
-        if ($compileNeeded) {
+        if ($compileNeeded && ! $this->option('dump')) {
             $this->callSilent(new CompileCommand($this->data['env']), [
                 'agent' => $this->agent->value,
             ]);
@@ -157,6 +159,9 @@ class CustomRunCommand extends CommandBridgeAbstract
         $type = Type::customDetect($this->data);
 
         $process = $this->client->process($type);
+        $resume = $this->option('resume') ?: ($this->data['resume'] ?? null);
+        $continue = $this->option('continue') || ($this->data['continue'] ?? false);
+        $dump = $this->option('dump') || ($this->data['dump'] ?? false);
 
         $options = $process->payload->defaultOptions([
             'ask' => $this->data['params']['ask'] ?? null,
@@ -168,9 +173,9 @@ class CustomRunCommand extends CommandBridgeAbstract
             'system' => $this->data['params']['system'] ?? null,
             'systemAppend' => $this->data['params']['system-append'] ?? ($this->data['params']['systemAppend'] ?? null),
             'schema' => $this->data['params']['schema'] ?? null,
-            'dump' => $this->data['params']['dump'] ?? false,
-            'resume' => $this->data['params']['resume'] ?? null,
-            'continue' => $this->data['params']['continue'] ?? false,
+            'dump' => $dump,
+            'resume' => $resume,
+            'continue' => $continue,
             'no-mcp' => $this->data['params']['no-mcp'] ?? ($this->data['params']['noMcp'] ?? false),
         ]);
 
@@ -212,14 +217,12 @@ class CustomRunCommand extends CommandBridgeAbstract
             });
         }
 
-        return $process->open(function () use ($compileNeeded) {
-            if ($compileNeeded) {
-                sleep(5); // Ensure environment is ready
-                $this->callSilent(new CompileCommand(), [
-                    'agent' => $this->agent->value,
-                ]);
-            }
-        });
+        if ($this->option('dump')) {
+            dump($process->toString());
+            return OK;
+        }
+
+        return $process->open();
     }
 
     protected function variablesDetectArrayData(): void
@@ -230,7 +233,7 @@ class CustomRunCommand extends CommandBridgeAbstract
             'args' => $this->data['args'] ?? [],
         ];
         $oldCwd = getcwd();
-        chdir(Brain::workingDirectory('agents'));
+        chdir(Brain::projectDirectory('.ai'));
 
         foreach ($data as $path => $value) {
             if ($path === '$schema' || $path === 'id') {
@@ -401,9 +404,9 @@ class CustomRunCommand extends CommandBridgeAbstract
             while (
                 is_string($return)
                 && (
-                    preg_match("/\\{$variableRegexp}/", $return)
-                    || preg_match("/\\{$fileRegexp}/", $return)
-                    || preg_match("/\\{$cmdRegexp}/", $return)
+                    preg_match("/\\\\{$variableRegexp}/", $return)
+                    || preg_match("/\\\\{$fileRegexp}/", $return)
+                    || preg_match("/\\\\{$cmdRegexp}/", $return)
                     || preg_match("/^$variableRegexp$/", $return)
                     || preg_match("/^$fileRegexp$/", $return)
                     || preg_match("/^$cmdRegexp$/", $return)
