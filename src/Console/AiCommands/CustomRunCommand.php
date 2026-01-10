@@ -19,7 +19,8 @@ class CustomRunCommand extends CommandBridgeAbstract
         '{args?* : Arguments for the custom AI command}',
         '{--r|resume= : Resume a previous session by providing the session ID}',
         '{--c|continue : Continue the last session}',
-        '{--dump : Dump the processed data before execution}',
+        '{--w|working-dir= : Set the working directory for file references}',
+        '{--d|dump : Dump the processed data before execution}',
     ];
 
     protected string $originName;
@@ -115,6 +116,10 @@ class CustomRunCommand extends CommandBridgeAbstract
 
     protected function handleBridge(): int|array
     {
+        if ($wd = $this->option('working-dir')) {
+            chdir($wd);
+        }
+
         $this->data['client'] = $this->variablesDetectString($this->data['client']);
 
         $agent = Agent::tryFrom($this->data['client']);
@@ -474,9 +479,11 @@ class CustomRunCommand extends CommandBridgeAbstract
             }
 
             $variableRegexp = '\$([a-zA-Z\d_\-\.\$\{\}]+)';
-            $fileRegexp = '\@(.+)';
+            $fileRegexp = '\@(?!agent-)(.+)'; // Negative lookahead excludes @agent- prefix
             $cmdRegexp = '\!(.+)';
             $evalRegexp = '\>(.+)';
+            $brainCommandRegexp = '\/([a-zA-Z\d_\-\:]+)';
+            $agentRegexp = '@agent-([a-zA-Z\d_\-]+)';
 
         // Expression callback: handles ??, ?:, and ternary operators
         // Priority: ?? (null-coalescing) → ?: (elvis) → ? : (ternary)
@@ -531,9 +538,20 @@ class CustomRunCommand extends CommandBridgeAbstract
         $fileReplace = function ($matches, bool $full = false) {
             $file = trim($matches[1]);
             $file = $this->variablesDetectString($file);
-            getcwd();
+
+            $fileArguments = null;
+            if (str_contains($file, '<')) {
+                [$file, $fileArguments] = explode('<', $file, 2);
+                $file = trim($file);
+                $fileArguments = $this->variablesDetectString(trim($fileArguments));
+            }
+
             if (is_file($file)) {
                 $content = file_get_contents($file) ?: $matches[0];
+
+                if ($fileArguments !== null) {
+                    $content = str_replace('$ARGUMENTS', (string) $fileArguments, $content);
+                }
                 if ($full) {
                     $ext = pathinfo($file, PATHINFO_EXTENSION);
                     if (in_array($ext, ['json', 'jsonl'])) {
@@ -616,6 +634,144 @@ class CustomRunCommand extends CommandBridgeAbstract
             }
         };
 
+        // Brain command replacement callback - compiles Brain commands at RUNTIME via CLI
+        // Syntax: /path:command args → compiles .brain/node/Commands/{Path}/{Command}Command.php with current env vars
+        $brainCommandReplace = function ($matches) {
+            $fullMatch = $matches[0];
+            $commandPath = trim($matches[1]);
+            $commandArgs = isset($matches[2]) ? trim($matches[2]) : null;
+
+            // Interpolate command path (may contain variables)
+            $commandPath = $this->variablesDetectString($commandPath);
+
+            // Interpolate args if present
+            if ($commandArgs !== null) {
+                $commandArgs = $this->variablesDetectString($commandArgs);
+            }
+
+            // Parse command path: "task:validate" → "Task", "Validate"
+            $segments = explode(':', $commandPath, 2);
+            if (count($segments) !== 2) {
+                return $fullMatch; // Invalid format
+            }
+
+            [$category, $command] = $segments;
+
+            // Build file path: Commands/Task/ValidateCommand.php (relative to node/)
+            $relativePath = 'Commands/'
+                . Str::studly($category) . '/'
+                . Str::studly($command) . 'Command.php';
+
+            // IMPORTANT: Temporarily restore project root directory for getWorkingFile()
+            // because variablesDetectArrayData() changes CWD to .ai/ and
+            // Brain::projectDirectory() relies on getcwd()
+            $currentCwd = getcwd();
+
+            // Detect if we're in .ai subdirectory and need to go up
+            // Cannot use Brain::projectDirectory() here as it also uses getcwd()
+            if (str_ends_with($currentCwd, DIRECTORY_SEPARATOR . '.ai') || str_ends_with($currentCwd, '/.ai')) {
+                chdir(dirname($currentCwd));
+            }
+
+            try {
+                // Use getWorkingFile to get proper path with format suffix
+                $commandFile = $this->getWorkingFile($relativePath);
+
+                if ($commandFile === null) {
+                    return $fullMatch; // File not found
+                }
+
+                // Use parent's convertFiles method - it handles ALL variables properly
+                $result = $this->convertFiles($commandFile, null, $this->data['env'] ?? []);
+
+                if ($result->isEmpty()) {
+                    return $fullMatch; // File not found or conversion failed
+                }
+
+                $data = $result->first();
+                $content = $data->structure ?? null;
+
+                if ($content === null) {
+                    return $fullMatch; // No structure in result
+                }
+
+                // Replace $ARGUMENTS placeholder with interpolated args
+                if ($commandArgs !== null) {
+                    $content = str_replace('$ARGUMENTS', (string) $commandArgs, $content);
+                }
+
+                return $content;
+            } catch (\Throwable $e) {
+                return $fullMatch; // Conversion failed
+            } finally {
+                // Restore original CWD
+                chdir($currentCwd);
+            }
+        };
+
+        // Agent replacement callback - compiles Agent files at RUNTIME via CLI
+        // Syntax: @agent-{name} → compiles .brain/node/Agents/{Name}Master.php with current env vars
+        // STRICT: Throws RuntimeException if agent not found (unlike commands which silently fail)
+        $agentReplace = function ($matches) {
+            $fullMatch = $matches[0];
+            $agentName = trim($matches[1]);
+
+            // Interpolate agent name (may contain variables)
+            $agentName = $this->variablesDetectString($agentName);
+
+            // Build file name based on naming convention:
+            // - If name ends with '-master': just Str::studly() (e.g., 'commit-master' → 'CommitMaster')
+            // - Otherwise: Str::studly() + 'Master' (e.g., 'explore' → 'ExploreMaster')
+            if (str_ends_with(strtolower($agentName), '-master')) {
+                $fileName = Str::studly($agentName) . '.php';
+            } else {
+                $fileName = Str::studly($agentName) . 'Master.php';
+            }
+
+            // Build file path: Agents/{Name}Master.php (relative to node/)
+            $relativePath = 'Agents/' . $fileName;
+
+            // IMPORTANT: Temporarily restore project root directory for getWorkingFile()
+            // because variablesDetectArrayData() changes CWD to .ai/ and
+            // Brain::projectDirectory() relies on getcwd()
+            $currentCwd = getcwd();
+
+            // Detect if we're in .ai subdirectory and need to go up
+            // Cannot use Brain::projectDirectory() here as it also uses getcwd()
+            if (str_ends_with($currentCwd, DIRECTORY_SEPARATOR . '.ai') || str_ends_with($currentCwd, '/.ai')) {
+                chdir(dirname($currentCwd));
+            }
+
+            try {
+                // Use getWorkingFile to get proper path with format suffix
+                $agentFile = $this->getWorkingFile($relativePath);
+
+                if ($agentFile === null) {
+                    throw new \RuntimeException("Agent not found: {$agentName} (expected file: {$relativePath})");
+                }
+
+                // Use parent's convertFiles method - it handles ALL variables properly
+                $result = $this->convertFiles($agentFile, null, $this->data['env'] ?? []);
+
+                if ($result->isEmpty()) {
+                    throw new \RuntimeException("Agent conversion failed: {$agentName} (file: {$relativePath})");
+                }
+
+                $data = $result->first();
+                $content = $data->structure ?? null;
+
+                if ($content === null) {
+                    throw new \RuntimeException("Agent has no structure: {$agentName} (file: {$relativePath})");
+                }
+
+                // NOTE: Agents do NOT use $ARGUMENTS substitution (unlike commands)
+                return $content;
+            } finally {
+                // Restore original CWD
+                chdir($currentCwd);
+            }
+        };
+
         if (preg_match("/^\\\\".$evalRegexp."$/", $value, $matches)) {
             $value = $evalReplace($matches);
         }
@@ -627,6 +783,14 @@ class CustomRunCommand extends CommandBridgeAbstract
         }
         if (is_string($value) && preg_match("/^\\\\".$fileRegexp."$/", $value, $matches)) {
             $value = $fileReplace($matches, true);
+        }
+        // Brain command full-value pattern: \/{category}:{command} args
+        if (is_string($value) && preg_match("/^\\\\".$brainCommandRegexp."(?:\\s+(.+))?$/", $value, $matches)) {
+            $value = $brainCommandReplace($matches);
+        }
+        // Agent full-value pattern: \@agent-{name} (backslash escapes @ for YAML compatibility)
+        if (is_string($value) && preg_match("/^\\\\".$agentRegexp."$/", $value, $matches)) {
+            $value = $agentReplace($matches);
         }
 
         // Process ternary expressions FIRST (before other patterns)
@@ -646,6 +810,10 @@ class CustomRunCommand extends CommandBridgeAbstract
             $value = preg_replace_callback("/\{$cmdRegexp}/", $cmdReplace, $value) ?: $value;
             $value = preg_replace_callback("/\{$variableRegexp}/", $variableReplace, $value) ?: $value;
             $value = preg_replace_callback("/\{$fileRegexp}/", $fileReplace, $value) ?: $value;
+            // Brain command inline pattern (processed LAST): {/{category}:{command} args}
+            $value = preg_replace_callback("/\{\\\\".$brainCommandRegexp."(?:\\s+(.+))?\}/", $brainCommandReplace, $value) ?: $value;
+            // Agent inline pattern: {@agent-{name}}
+            $value = preg_replace_callback("/\{".$agentRegexp."\}/", $agentReplace, $value) ?: $value;
         }
 
             $decodable = is_string($value) && (in_array($value, ['false', 'true', 'null'])

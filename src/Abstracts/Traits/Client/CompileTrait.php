@@ -10,6 +10,7 @@ use BrainCLI\Dto\Compile\Collect;
 use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Dto\Compile\Puzzle;
+use BrainCLI\Services\SchemaGenerator;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -37,6 +38,9 @@ trait CompileTrait
     public function compile(Collection $files): bool
     {
         $collectedFiles = $this->collectCompileFiles($files);
+
+        // Generate dynamic schema for .brain/ (non-blocking)
+        $this->generateProjectSchema($collectedFiles);
 
         return $this->generateBrainFolder($this->folder(), $collectedFiles->brain)
             && $this->generateBrainAssets($this->folder(), $collectedFiles->brain)
@@ -255,6 +259,24 @@ trait CompileTrait
     protected function generateSkillsFiles(string $folder, Collection $skills, Data $brain): bool
     {
         return true;
+    }
+
+    /**
+     * Generate project schema for .brain/ directory.
+     *
+     * Schema generation is non-critical - if it fails, compilation continues.
+     */
+    protected function generateProjectSchema(Collect $files): bool
+    {
+        try {
+            $generator = SchemaGenerator::createDefault();
+            $outputPath = Brain::workingDirectory('agent-schema.json');
+
+            return $generator->generateAndSave($files, $this->agent(), $outputPath);
+        } catch (\Throwable $e) {
+            // Schema generation is non-critical, log but don't fail compilation
+            return false;
+        }
     }
 
     /**

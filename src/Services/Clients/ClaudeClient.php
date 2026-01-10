@@ -71,9 +71,9 @@ class ClaudeClient extends ClientAbstract
      */
     protected function createAgentContent(Data $agent, Data $brain, AgentInfo $info): string|array|false
     {
-        if ($agent->classBasename === 'ExploreMaster') {
-            return false;
-        }
+//        if ($agent->classBasename === 'ExploreMaster') {
+//            return false;
+//        }
 
         return $this->generateWithYamlHeader([
             'name' => $info->name,

@@ -1,4 +1,4 @@
-$schema: ../vendor/jarvis-brain/core/agent-schema.json
+$schema: ../.brain/agent-schema.json
 client: opencode
 description: The almost free agent for validating of tasks.
 args:
