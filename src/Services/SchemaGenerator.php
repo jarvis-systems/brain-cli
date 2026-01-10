@@ -10,6 +10,7 @@ use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Generates project-specific JSON Schema with dynamic autocomplete values.
@@ -78,6 +79,7 @@ class SchemaGenerator
         $schema = $this->addCommandReferenceDef($schema, $files->commands);
         $schema = $this->addAvailableModelsDef($schema, $agent);
         $schema = $this->addBuiltInVariablesDef($schema, $agent);
+        $schema = $this->addEnvVariablesDef($schema, $files);
 
         return $schema;
     }
@@ -277,6 +279,145 @@ class SchemaGenerator
         ];
 
         return $schema;
+    }
+
+    /**
+     * Add $defs.envVariables with ENV configuration patterns for all archetypes.
+     *
+     * Generates patterns for:
+     * - {CLASS_NAME}_RULE_{N} - Custom rules injection
+     * - {CLASS_NAME}_GUIDELINE_{N} - Custom guidelines injection
+     * - {CLASS_NAME}_MODEL - Model override per class
+     * - MASTER_MODEL - Global master model
+     * - {AGENT}_MASTER_MODEL - Per-agent type model (CLAUDE_MASTER_MODEL, etc.)
+     * - {NAMESPACE}_{CLASS_NAME}_DISABLE - Disable archetype compilation
+     *
+     * @param array $schema Current schema
+     * @param Collect $files Compiled files collection
+     * @return array Enhanced schema
+     */
+    protected function addEnvVariablesDef(array $schema, Collect $files): array
+    {
+        if (!isset($schema['$defs'])) {
+            $schema['$defs'] = [];
+        }
+
+        $envVars = [];
+
+        // Global model variables
+        $envVars['MASTER_MODEL'] = 'Global model override for all masters/agents';
+        foreach (Agent::cases() as $agent) {
+            $agentUpper = strtoupper($agent->value);
+            $envVars["{$agentUpper}_MASTER_MODEL"] = "Default model for {$agent->label()} agents";
+        }
+
+        // Process all archetype types
+        $archetypes = [
+            'AGENTS' => $files->agents,
+            'COMMANDS' => $files->commands,
+            'SKILLS' => $files->skills,
+            'MCP' => $files->mcp,
+        ];
+
+        foreach ($archetypes as $namespace => $collection) {
+            foreach ($collection as $file) {
+                $className = $this->getEnvClassName($file->classBasename);
+
+                // Disable flag
+                $envVars["{$namespace}_{$className}_DISABLE"] = "Disable {$file->classBasename} from compilation (true/false)";
+
+                // Model override
+                $envVars["{$className}_MODEL"] = "Model override for {$file->classBasename}";
+
+                // Rules (indexed 0-9 as examples)
+                for ($i = 0; $i < 3; $i++) {
+                    $envVars["{$className}_RULE_{$i}"] = "Custom CRITICAL rule #{$i} for {$file->classBasename}";
+                }
+
+                // Guidelines (indexed 0-9 as examples)
+                for ($i = 0; $i < 3; $i++) {
+                    $envVars["{$className}_GUIDELINE_{$i}"] = "Custom guideline #{$i} for {$file->classBasename}";
+                }
+            }
+        }
+
+        // Add Brain-specific variables
+        $envVars['BRAIN_DISABLE'] = 'Disable Brain compilation (true/false)';
+        $envVars['BRAIN_MODEL'] = 'Model override for Brain';
+        for ($i = 0; $i < 3; $i++) {
+            $envVars["BRAIN_RULE_{$i}"] = "Custom CRITICAL rule #{$i} for Brain";
+            $envVars["BRAIN_GUIDELINE_{$i}"] = "Custom guideline #{$i} for Brain";
+        }
+
+        // Sort for consistent output
+        ksort($envVars);
+
+        $schema['$defs']['envVariables'] = [
+            'type' => 'object',
+            'description' => 'Environment variables for .brain/.env file. Configure rules, guidelines, models, and disable flags per archetype.',
+            'properties' => array_map(
+                static fn(string $desc): array => [
+                    'type' => 'string',
+                    'description' => $desc,
+                ],
+                $envVars
+            ),
+            'examples' => array_slice(array_keys($envVars), 0, 20),
+        ];
+
+        // Also add patterns for autocomplete
+        $schema['$defs']['envVariablePatterns'] = [
+            'type' => 'object',
+            'description' => 'ENV variable naming patterns',
+            'properties' => [
+                'rule' => [
+                    'type' => 'string',
+                    'description' => 'Pattern: {CLASS_NAME}_RULE_{N} where N is 0-based index',
+                    'pattern' => '^[A-Z_]+_RULE_\\d+$',
+                ],
+                'guideline' => [
+                    'type' => 'string',
+                    'description' => 'Pattern: {CLASS_NAME}_GUIDELINE_{N} where N is 0-based index',
+                    'pattern' => '^[A-Z_]+_GUIDELINE_\\d+$',
+                ],
+                'model' => [
+                    'type' => 'string',
+                    'description' => 'Pattern: {CLASS_NAME}_MODEL for per-class model override',
+                    'pattern' => '^[A-Z_]+_MODEL$',
+                ],
+                'disable' => [
+                    'type' => 'string',
+                    'description' => 'Pattern: {NAMESPACE}_{CLASS_NAME}_DISABLE (true/false)',
+                    'pattern' => '^(AGENTS|COMMANDS|SKILLS|MCP|INCLUDES)_[A-Z_]+_DISABLE$',
+                ],
+            ],
+        ];
+
+        return $schema;
+    }
+
+    /**
+     * Convert class basename to ENV variable format.
+     *
+     * Follows the same logic as ArchetypeArchitecture::loadEnvInstructions():
+     * - Remove namespace
+     * - Replace \ with _
+     * - Snake case
+     * - Replace __ with _
+     * - Uppercase
+     * - Trim underscores
+     *
+     * @param string $classBasename Class basename (e.g., 'ExploreMaster')
+     * @return string ENV format (e.g., 'EXPLORE_MASTER')
+     */
+    protected function getEnvClassName(string $classBasename): string
+    {
+        return Str::of($classBasename)
+            ->snake()
+            ->replace('__', '_')
+            ->upper()
+            ->trim('_')
+            ->toString();
     }
 
     /**

@@ -5,9 +5,6 @@ args:
   - null
 args_names:
   - task_id
-params:
-  model: \$_model.GLM47
-  "prompt?{$args.task_id}": "/task-validate {$args.task_id} -y"
 env:
   AGENT_MASTER_DISABLE: true
   PROMPT_MASTER_DISABLE: true
@@ -24,3 +21,7 @@ env:
   TEST_MASTER_MODEL: \$_model.GLM47
   VECTOR_MASTER_MODEL: \$_model.GLM47
   WEB_RESEARCH_MASTER_MODEL: \$_model.GLM47
+
+params:
+  model: \$_model.GLM47
+  "prompt?{$args.task_id}": \/task:validate {$args.task_id} -y
