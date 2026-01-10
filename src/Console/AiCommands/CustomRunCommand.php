@@ -138,7 +138,18 @@ class CustomRunCommand extends CommandBridgeAbstract
             );
             $this->data['args'][$index] = $decodable ? json_decode($arg, true) : $arg;
         }
+
+        // Map args_names to args for named access (e.g., $args.task_id alongside $args.0)
+        if (isset($this->data['args_names']) && is_array($this->data['args_names'])) {
+            foreach ($this->data['args_names'] as $index => $name) {
+                if (is_string($name) && $name !== '' && isset($this->data['args'][$index])) {
+                    $this->data['args'][$name] = $this->data['args'][$index];
+                }
+            }
+        }
+
         $this->variablesDetectArrayData();
+        $this->processCommandsInstructions();
 
         if ($this->option('dump')) {
             dump($this->data);
@@ -223,6 +234,104 @@ class CustomRunCommand extends CommandBridgeAbstract
         }
 
         return $process->open();
+    }
+
+     /**
+     * Process archetype instructions from YAML configuration.
+     *
+     * Supports all archetype types:
+     *   - brain (BrainArchetype)
+     *   - agents (AgentArchetype)
+     *   - commands (CommandArchetype)
+     *   - skills (SkillArchetype)
+     *   - includes (IncludeArchetype)
+     *
+     * YAML structure examples:
+     *   brain:
+     *     rule:
+     *       - "Brain rule text"
+     *     guideline:
+     *       - "Brain guideline text"
+     *
+     *   agents:
+     *     explore_master:
+     *       rule:
+     *         - "Agent rule text"
+     *       guideline:
+     *         - "Agent guideline text"
+     *
+     *   commands:
+     *     task_validate_command:
+     *       rule:
+     *         - "Command rule text"
+     *
+     * Converts to environment variables:
+     *   BRAIN_RULE_0 = "Brain rule text"
+     *   EXPLORE_MASTER_RULE_0 = "Agent rule text"
+     *   TASK_VALIDATE_COMMAND_RULE_0 = "Command rule text"
+     *
+     * This integrates with ArchetypeArchitecture::loadEnvInstructions() which reads
+     * {CLASS}_RULE_N and {CLASS}_GUIDELINE_N environment variables.
+     *
+     * @return void
+     */
+    protected function processCommandsInstructions(): void
+    {
+        $this->data['env'] ??= [];
+
+        // Process brain archetype (special case - no nested ID)
+        if (isset($this->data['brain']) && is_array($this->data['brain'])) {
+            $this->injectArchetypeInstructions('BRAIN', $this->data['brain']);
+        }
+
+        // Process nested archetypes: agents, commands, skills, includes
+        $archetypeKeys = ['agents', 'commands', 'skills', 'includes'];
+
+        foreach ($archetypeKeys as $archetypeKey) {
+            if (!isset($this->data[$archetypeKey]) || !is_array($this->data[$archetypeKey])) {
+                continue;
+            }
+
+            foreach ($this->data[$archetypeKey] as $archetypeId => $config) {
+                if (!is_array($config)) {
+                    continue;
+                }
+
+                // Convert archetype ID to UPPER_SNAKE_CASE prefix
+                // explore_master → EXPLORE_MASTER
+                // task_validate_command → TASK_VALIDATE_COMMAND
+                $prefix = Str::of($archetypeId)
+                    ->snake()
+                    ->upper()
+                    ->toString();
+
+                $this->injectArchetypeInstructions($prefix, $config);
+            }
+        }
+    }
+
+    /**
+     * Inject rules and guidelines as environment variables for an archetype.
+     *
+     * @param string $prefix The UPPER_SNAKE_CASE prefix for env var names
+     * @param array $config The archetype config containing 'rule' and/or 'guideline' arrays
+     * @return void
+     */
+    protected function injectArchetypeInstructions(string $prefix, array $config): void
+    {
+        // Process rules
+        if (isset($config['rule']) && is_array($config['rule'])) {
+            foreach (array_values($config['rule']) as $index => $rule) {
+                $this->data['env']["{$prefix}_RULE_{$index}"] = (string) $rule;
+            }
+        }
+
+        // Process guidelines
+        if (isset($config['guideline']) && is_array($config['guideline'])) {
+            foreach (array_values($config['guideline']) as $index => $guideline) {
+                $this->data['env']["{$prefix}_GUIDELINE_{$index}"] = (string) $guideline;
+            }
+        }
     }
 
     protected function variablesDetectArrayData(): void

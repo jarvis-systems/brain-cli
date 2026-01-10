@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\AiCommands;
 
 use BrainCLI\Abstracts\CommandBridgeAbstract;
+use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Enums\Process\Type;
 use BrainCLI\Support\Brain;
@@ -12,6 +13,8 @@ use Symfony\Component\Yaml\Yaml;
 
 class MakeCommand extends CommandBridgeAbstract
 {
+    use StubGeneratorTrait;
+
     protected array $signatureParts = [
         '{name : The name of the AI client to make}',
         '{agent? : The AI agent for which to install the client}',
@@ -37,24 +40,23 @@ class MakeCommand extends CommandBridgeAbstract
         $agentInput = $this->argument('agent');
         $filename = strtolower($name) . '.yaml';
         $file = $folder . DS . $filename;
-        if (file_exists($file) && !$this->option('force')) {
-            $this->components->error("Client file '{$filename}' already exists. Use --force to overwrite.");
-            return ERROR;
-        }
         $client = $agentInput ? Agent::from($agentInput)->value : '\$_default_client';
-        $content = [
-            '$schema' => '../vendor/jarvis-brain/core/agent-schema.json',
-            'client' => $client
-        ];
-        $result = file_put_contents(
+
+        if ($name == 'executor') {
+            $stubNameAdd = '.executor';
+        } elseif ($name == 'validator') {
+            $stubNameAdd = '.validator';
+        }
+
+        $result = $this->generateFile(
             $file,
-            Yaml::dump($content)
+            'ai' . ($stubNameAdd ?? ''),
+            ['client' => $client]
         );
+
         if ($result) {
-            $this->components->info("Client file '{$filename}' has been created for agent '{$agent->value}'.");
             return OK;
         }
-        $this->components->error("Failed to create client file '{$filename}'.");
         return ERROR;
     }
 }

@@ -1,0 +1,27 @@
+$schema: ../vendor/jarvis-brain/core/agent-schema.json
+client: opencode
+description: The almost free agent for validating of tasks.
+args:
+  - null
+args_names:
+  - task_id
+params:
+  model: \$_model.OPUS
+  "prompt?{$args.task_id}": "/task-async {$args.task_id} -y"
+env:
+  AGENT_MASTER_DISABLE: true
+  PROMPT_MASTER_DISABLE: true
+  SCRIPT_MASTER_DISABLE: true
+
+  CHART_MASTER_MODEL: \$_model.OPUS
+  COMMIT_MASTER_MODEL: \$_model.GLM47
+  DATABASE_MASTER_MODEL: \$_model.OPUS
+  DOCUMENTATION_MASTER_MODEL: \$_model.GLM47
+  EXPLORE_MASTER_MODEL: \$_model.GLM47
+  LIVEWIRE_MASTER_MODEL: \$_model.OPUS
+  REVIEW_MASTER_MODEL: \$_model.OPUS
+  SERVICE_MASTER_MODEL: \$_model.OPUS
+  TEST_MASTER_MODEL: \$_model.OPUS
+  VECTOR_MASTER_MODEL: \$_model.OPUS
+  WEB_RESEARCH_MASTER_MODEL: \$_model.GLM47
+

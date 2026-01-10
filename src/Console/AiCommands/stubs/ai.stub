@@ -1,0 +1,3 @@
+$schema: ../vendor/jarvis-brain/core/agent-schema.json
+client: {{ client }}
+description: AI description for {{ client }}
