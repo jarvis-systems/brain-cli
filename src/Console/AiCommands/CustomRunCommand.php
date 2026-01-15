@@ -234,7 +234,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         }
 
         if ($this->option('dump')) {
-            dump($process->toString());
+            dump($process->toArray());
             return OK;
         }
 
@@ -698,6 +698,9 @@ class CustomRunCommand extends CommandBridgeAbstract
                 // Replace $ARGUMENTS placeholder with interpolated args
                 if ($commandArgs !== null) {
                     $content = str_replace('$ARGUMENTS', (string) $commandArgs, $content);
+                    //dd($content);
+                    //$content = str_replace("'", "`", $content); // Prevent shell issues
+                    //dd(escapeshellcmd($content));
                 }
 
                 return $content;

@@ -16,7 +16,7 @@ enum OpenCodeModels: string
     case GLM47_FREE = 'opencode/glm-4.7-free';
     case BIG_PICKLE_FREE = 'opencode/big-pickle';
     case GROK_CODE_FREE = 'opencode/grok-code';
-    case GPT52_CODEX = 'openai/gpt-5.2-codex-medium';
+    case GPT52_CODEX = 'openai/gpt-5.2-codex';
     case GPT52 = 'openai/gpt-5.2-medium';
     case OPUS = 'anthropic/claude-opus-4-5';
     case SONNET = 'anthropic/claude-sonnet-4-5';

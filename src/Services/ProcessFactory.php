@@ -49,7 +49,7 @@ use Symfony\Component\Process\Process;
  * @method ProcessFactory schema(array $schema)
  * @method ProcessFactory schemaWhen(mixed $condition, array|callable $schema)
  */
-class ProcessFactory implements Arrayable, Stringable
+class ProcessFactory implements Arrayable
 {
     use Conditionable;
 
@@ -87,7 +87,10 @@ class ProcessFactory implements Arrayable, Stringable
     public function open(callable|null $openedCallback = null): int
     {
         $this->compiler->processRunCallback($this);
-        $process = proc_open($this->toString(), [STDIN, STDOUT, STDERR], $pipes, $this->cwd);
+        $data = $this->toArray();
+        $baseEnv = getenv();
+        $env = array_merge($baseEnv, $data['env']);
+        $process = proc_open($data['command'], [STDIN, STDOUT, STDERR], $pipes, $this->cwd, $env);
         if (is_resource($process)) {
             $this->compiler->processHostedCallback($this);
             if ($openedCallback) {
@@ -199,32 +202,5 @@ class ProcessFactory implements Arrayable, Stringable
         }
 
         return $body;
-    }
-
-    public function toString(): string
-    {
-        $body = $this->toArray();
-        $command = $body['command'];
-        foreach ($command as $key => $item) {
-            if (!empty($item)) {
-                $command[$key] = $key > 0 && !str_starts_with($item, '-')
-                    ? escapeshellarg((string) $item)
-                    : (string) $item;
-            } elseif ($item === '') {
-                $command[$key] = "''";
-            }
-        }
-        $command = implode(' ', $command);
-        foreach ($body['env'] as $key => $value) {
-            $value = (string) $value;
-            $value = is_numeric($value) ? $value : escapeshellarg($value);
-            $command = "{$key}={$value} {$command}";
-        }
-        return $command;
-    }
-
-    public function __toString(): string
-    {
-        return $this->toString();
     }
 }
