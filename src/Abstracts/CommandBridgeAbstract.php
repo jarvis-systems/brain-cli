@@ -288,10 +288,14 @@ abstract class CommandBridgeAbstract extends Command
                 $reference = $data['packages']['jarvis-brain/core'][0]['source']['reference'];
                 if (is_string($reference) && ! empty($reference)) {
 
-                    $composerLockFile = Brain::workingDirectory('composer.lock');
+                    $composerLockFile = Brain::workingDirectory(['vendor', 'composer', 'installed.json']);
+                    $composerLockFile2 = Brain::workingDirectory('composer.lock');
+
                     $lockJson = is_file($composerLockFile) ?
                         json_decode((string) file_get_contents($composerLockFile), true)
-                        : null;
+                        : (is_file($composerLockFile2) ?
+                            json_decode((string) file_get_contents($composerLockFile2), true)
+                            : null);
 
                     if (
                         $lockJson
