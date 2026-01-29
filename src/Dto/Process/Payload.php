@@ -101,12 +101,25 @@ class Payload extends Dto
     }
 
     /**
-     * @return array{command: list<string>, env: array<string, string>}
+     * @return array{
+     *     command: list<string>,
+     *     env: array<string, string>,
+     *     commands: array{
+     *         before: list<string>,
+     *         after: list<string>,
+     *         exit: list<string>
+     *     }
+     * }
      */
     public function parameter(string $name, ...$arguments): array
     {
         $value = $this->{$name} ?? null;
         $command = [];
+        $commands = [
+            'before' => [],
+            'after' => [],
+            'exit' => [],
+        ];
         $env = [];
         if ($value instanceof Closure) {
             $value = call_user_func($value, $this->processReflection()->factory(), ...$arguments);
@@ -115,7 +128,12 @@ class Payload extends Dto
         }
 
         if (is_array($value)) {
-            if (isset($value['command']) || isset($value['env'])) {
+            if (
+                isset($value['command'])
+                || isset($value['env'])
+                || isset($value['commands']['before'])
+                || isset($value['commands']['after'])
+            ) {
                 if (isset($value['command']) && is_array($value['command'])) {
                     $command = array_merge($command, $value['command']);
                 } elseif (isset($value['command']) && is_string($value['command'])) {
@@ -123,6 +141,39 @@ class Payload extends Dto
                 }
                 if (isset($value['env']) && is_array($value['env'])) {
                     $env = array_merge($env, $value['env']);
+                }
+                if (
+                    isset($value['commands']['before'])
+                    && (is_scalar($value['commands']['before']) || is_array($value['commands']['before']))
+                ) {
+                    $commands['before'] = [
+                        ...$commands['before'],
+                        ...((array) $value['commands']['before'])
+                    ];
+                    $commands['before'] = array_map(trim(...), $commands['before']);
+                    $commands['before'] = array_values(array_filter(array_unique($commands['before'])));
+                }
+                if (
+                    isset($value['commands']['after'])
+                    && (is_scalar($value['commands']['after']) || is_array($value['commands']['after']))
+                ) {
+                    $commands['after'] = [
+                        ...$commands['after'],
+                        ...((array) $value['commands']['after'])
+                    ];
+                    $commands['after'] = array_map(trim(...), $commands['after']);
+                    $commands['after'] = array_values(array_filter(array_unique($commands['after'])));
+                }
+                if (
+                    isset($value['commands']['exit'])
+                    && (is_scalar($value['commands']['exit']) || is_array($value['commands']['exit']))
+                ) {
+                    $commands['exit'] = [
+                        ...$commands['exit'],
+                        ...((array) $value['commands']['exit'])
+                    ];
+                    $commands['exit'] = array_map(trim(...), $commands['exit']);
+                    $commands['exit'] = array_values(array_filter(array_unique($commands['exit'])));
                 }
             } else {
                 $command = array_merge($command, $value);
@@ -135,7 +186,7 @@ class Payload extends Dto
 
         $this->processReflection()->use($name, $arguments);
 
-        return compact('command', 'env');
+        return compact('command', 'env', 'commands');
     }
 
     public function getMapData(string $name): array|null

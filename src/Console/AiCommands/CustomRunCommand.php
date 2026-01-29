@@ -21,6 +21,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         '{--c|continue : Continue the last session}',
         '{--w|working-dir= : Set the working directory for file references}',
         '{--d|dump : Dump the processed data before execution}',
+        '{--no-update : Do not check for brain updates before running the command}',
     ];
 
     protected string $originName;
@@ -550,7 +551,7 @@ class CustomRunCommand extends CommandBridgeAbstract
                 $content = file_get_contents($file) ?: $matches[0];
 
                 if ($fileArguments !== null) {
-                    $content = str_replace('$ARGUMENTS', (string) $fileArguments, $content);
+                    $content = str_replace('$ARGUMENTS', "`$fileArguments`", $content);
                 }
                 if ($full) {
                     $ext = pathinfo($file, PATHINFO_EXTENSION);
@@ -697,7 +698,7 @@ class CustomRunCommand extends CommandBridgeAbstract
 
                 // Replace $ARGUMENTS placeholder with interpolated args
                 if ($commandArgs !== null) {
-                    $content = str_replace('$ARGUMENTS', (string) $commandArgs, $content);
+                    $content = str_replace('$ARGUMENTS', "`$commandArgs`", $content);
                     //dd($content);
                     //$content = str_replace("'", "`", $content); // Prevent shell issues
                     //dd(escapeshellcmd($content));

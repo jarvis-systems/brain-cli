@@ -14,11 +14,14 @@ class CompileCommand extends CommandBridgeAbstract
     protected $signature = 'compile 
         {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
+        {--json : Output in JSON format}
         ';
 
     protected $description = 'Compile the Brain configurations files';
 
     protected $aliases = ['c', 'generate', 'build', 'make'];
+
+    protected array $compiledFilesAndDirectories = [];
 
     public function __construct(
         protected array $env = []
@@ -45,19 +48,29 @@ class CompileCommand extends CommandBridgeAbstract
                 continue;
             }
 
-            if ($this->argument('agent') === 'exists' && $this->agent->depended()) {
+            if ($this->argument('agent') === 'exists' && $agent->depended()) {
                 continue;
             }
 
             $result = ERROR;
 
-            $this->components->task("Compiling for [{$this->agent->value}]", function () use (&$result) {
-                $result = $this->compilingProcess();
-            });
+            if ($this->option('json')) {
 
-            if ($result !== OK) {
-                $this->line('');
-                return $result;
+                echo json_encode([
+                    'agent' => $agent->value,
+                    'result' => $this->compilingProcess() === OK ? 'success' : 'error',
+                    'filesAndDirectories' => $this->compiledFilesAndDirectories,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+            } else {
+
+                $this->components->task("Compiling for [{$agent->value}]", function () use (&$result) {
+                    $result = $this->compilingProcess();
+                });
+
+                if ($result !== OK) {
+                    $this->line('');
+                    return $result;
+                }
             }
         }
         $this->line('');
@@ -73,6 +86,10 @@ class CompileCommand extends CommandBridgeAbstract
         }
 
         if ($this->client->compile($files)) {
+            $this->compiledFilesAndDirectories = array_merge(
+                $this->compiledFilesAndDirectories,
+                $this->client->getCompiledFilesAndDirectories()
+            );
             $this->client->compileDone();
             return OK;
         }

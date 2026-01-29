@@ -138,11 +138,10 @@ class DocsCommand extends Command
             }
 
             return [
-                'path' => '.docs' . DS . $file->getRelativePathname(),
-                ...$metadata
+                '.docs' . DS . $file->getRelativePathname() => $metadata,
             ];
-        }, $files))->filter()->unique(fn (array $i) => $i['path'] ?? null)->values();
-        if ($collect->count() > 20) {
+        }, $files))->filter()->unique(fn (array $i, string $k) => $k)->values();
+        if ($collect->count() > 50) {
             $collect = $collect->map(function (array $data) {
                 unset($data['description']);
                 return $data;

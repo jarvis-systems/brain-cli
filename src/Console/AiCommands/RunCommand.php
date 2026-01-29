@@ -35,6 +35,8 @@ class RunCommand extends CommandBridgeAbstract
 
         '{--y|yolo : Allow all permissions for the AI agent (use with caution)}',
         '{--d|dump : Dump the process details (for debugging purposes)}',
+
+        '{--no-update : Do not check for brain updates before running the command}',
     ];
 
     protected mixed $accumulateCallback = null;

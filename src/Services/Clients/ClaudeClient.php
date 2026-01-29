@@ -109,10 +109,23 @@ class ClaudeClient extends ClientAbstract
             'install', '-g', '@anthropic-ai/claude-code'
         ];
 
+        $userHomeDirectory = rtrim(Brain::getEnv('HOME', ''), '/\\');
+
         return $payload
             ->installBehavior($install)
             ->updateBehavior($install)
-            ->programBehavior(Brain::getEnv('CLAUDE_PROGRAM_PATH', 'claude'))
+            ->programBehavior([
+                'env' => array_merge([
+                    'ENABLE_TOOL_SEARCH' => 1,
+                ], (Brain::isDebug() ? [
+                    'NODE_EXTRA_CA_CERTS' => $userHomeDirectory . DS . ".cc-wiretap".DS."ca.pem",
+                    'HTTPS_PROXY' => 'http://localhost:8080'
+                ] : [])),
+                'commands' => [
+                    //'before' => Brain::isDebug() ? 'eval "$(curl -s http://localhost:8082/setup)"' : ''
+                ],
+                'command' => Brain::getEnv('CLAUDE_PROGRAM_PATH', 'claude')
+            ])
             ->resumeBehavior(function (ProcessFactory $factory, string $sessionId) {
                 return ['--resume', $sessionId];
             })

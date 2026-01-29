@@ -90,13 +90,52 @@ class ProcessFactory implements Arrayable
         $data = $this->toArray();
         $baseEnv = getenv();
         $env = array_merge($baseEnv, $data['env']);
+
+        if ($data['commands']['before']) {
+            foreach ($data['commands']['before'] as $beforeCommand) {
+                if (empty($beforeCommand)) {
+                    continue;
+                }
+                $beforeProcess = proc_open($beforeCommand, [STDIN, STDOUT, STDERR], $beforePipes, $this->cwd, $env);
+                if (is_resource($beforeProcess)) {
+                    proc_close($beforeProcess);
+                }
+            }
+        }
+
         $process = proc_open($data['command'], [STDIN, STDOUT, STDERR], $pipes, $this->cwd, $env);
         if (is_resource($process)) {
+
+            if ($data['commands']['after']) {
+                foreach ($data['commands']['after'] as $afterCommand) {
+                    if (empty($afterCommand)) {
+                        continue;
+                    }
+                    $afterProcess = proc_open($afterCommand, [STDIN, STDOUT, STDERR], $afterPipes, $this->cwd, $env);
+                    if (is_resource($afterProcess)) {
+                        proc_close($afterProcess);
+                    }
+                }
+            }
+
             $this->compiler->processHostedCallback($this);
             if ($openedCallback) {
                 call_user_func($openedCallback, $this);
             }
             $exitCode = proc_close($process);
+
+            if ($data['commands']['exit']) {
+                foreach ($data['commands']['exit'] as $exitCommand) {
+                    if (empty($exitCommand)) {
+                        continue;
+                    }
+                    $exitProcess = proc_open($exitCommand, [STDIN, STDOUT, STDERR], $exitPipes, $this->cwd, $env);
+                    if (is_resource($exitProcess)) {
+                        proc_close($exitProcess);
+                    }
+                }
+            }
+
             $this->compiler->processExitCallback($this, $exitCode);
             return $exitCode;
         }
@@ -180,7 +219,7 @@ class ProcessFactory implements Arrayable
     }
 
     /**
-     * @return array{command: list<string>, env: array<string, string>}
+     * @return array{command: list<string>, env: array<string, string>, commands: array{before: list<string>, after: list<string>, exit: list<string>}}
      */
     public function toArray(): array
     {

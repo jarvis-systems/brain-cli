@@ -51,6 +51,21 @@ class InitCommand extends Command
                 $this->output->write($output);
             });
 
+        $this->components->task('Creating .env file', function () {
+            return copy(
+                Brain::workingDirectory('.env.example'),
+                Brain::workingDirectory('.env')
+            );
+        });
+
+        $this->components->task('Creating .ai folder', function () {
+            return rename(
+                Brain::workingDirectory('.ai'),
+                Brain::projectDirectory('.ai')
+            );
+        });
+
+
         if (! $result) {
             foreach (to_array(config('brain.mcp.default', [])) as $name) {
                 $this->call('make:mcp', compact('name'));

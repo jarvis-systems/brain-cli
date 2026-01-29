@@ -10,7 +10,7 @@ use BrainCLI\Services\ProcessFactory;
 class Reflection extends Dto
 {
     /**
-     * @param  array{command: list<string>, env: array<string, string>}  $body
+     * @param  array{command: list<string>, env: array<string, string>, commands: array{before: list<string>, after: list<string>, exit: list<string>}}  $body
      * @param  array<string, list<mixed>>  $usedState
      */
     public function __construct(
@@ -54,11 +54,12 @@ class Reflection extends Dto
     }
 
     /**
-     * @param $data array{command: list<string>, env: array<string, string>}
+     * @param $data array{command: list<string>, env: array<string, string>, commands: array{before: list<string>, after: list<string>, exit: list<string>}}
      */
     public function fillBody(array $data): static
     {
         $this->addCommand($data['command']);
+        $this->addCommands($data['commands']);
         $this->addEnv($data['env']);
 
         return $this;
@@ -68,6 +69,21 @@ class Reflection extends Dto
     {
         $command = is_array($command) ? $command : [$command];
         $this->body['command'] = [...($this->body['command'] ?? []), ...$command];
+
+        return $this;
+    }
+
+    public function addCommands(array $commands): static
+    {
+        foreach ($commands as $when => $cmds) {
+            if (! isset($this->body['commands'][$when])) {
+                $this->body['commands'][$when] = [];
+            }
+            $this->body['commands'][$when] = [
+                ...$this->body['commands'][$when],
+                ...$cmds,
+            ];
+        }
 
         return $this;
     }

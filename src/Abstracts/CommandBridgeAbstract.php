@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace BrainCLI\Abstracts;
 
+use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\LockFileFactory;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -38,6 +41,10 @@ abstract class CommandBridgeAbstract extends Command
     public function handle(): int
     {
         $this->checkWorkingDir();
+
+        if (($updateResult = $this->autoupdate()) !== OK) {
+            return $updateResult;
+        }
 
         try {
             $result = $this->handleBridge();
@@ -89,75 +96,6 @@ abstract class CommandBridgeAbstract extends Command
         }
     }
 
-
-
-    /**
-     * Detect agents from argument or prompt
-     *
-     * @return array<Agent>
-     */
-    protected function detectAgents(bool $exists = false): array
-    {
-        $selectAgent = $this->hasArgument('agent') ? $this->argument('agent') : null;
-        $agents = [];
-        if ($selectAgent === 'exists') {
-            $agents = $this->detectExistsAgents();
-        } else {
-            foreach (explode(',', $selectAgent) as $item) {
-                try {
-                    $agents[] = Agent::fromEnabled($item);
-                } catch (Throwable $t) {
-                    throw new InvalidArgumentException("Unsupported agent: {$item}", $t->getCode(), $t);
-                }
-            }
-        }
-
-        if (! count($agents)) {
-            try {
-                if ($exists) {
-                    $existsAgents = $this->detectExistsAgents();
-                    if ($existsAgents) {
-                        $agents[] = Agent::fromEnabled(
-                            $this->components->choice('Select agent for compilation', $existsAgents, $existsAgents[0]->value)
-                        );
-                    }
-                } else {
-                    $agents[] = Agent::fromEnabled(
-                        $this->components->choice('Select agent for compilation', Agent::list(), Agent::list()[0]->value)
-                    );
-                }
-            } catch (Throwable $t) {
-                throw new InvalidArgumentException("Before, you need to compile some agent configurations.", $t->getCode(), $t);
-            }
-        }
-        if (! count($agents)) {
-            throw new InvalidArgumentException("Before, you need to compile some agent configurations.");
-        }
-        return $agents;
-    }
-
-    /**
-     * @return array<Agent>
-     */
-    protected function detectExistsAgents(): array
-    {
-        $agents = Agent::enabledCases();
-        $existsAgents = [];
-        foreach ($agents as $agent) {
-            try {
-                $client = $this->initFor($agent);
-                if (is_dir($client->folder())) {
-                    $existsAgents[] = $agent;
-                }
-            } catch (Throwable $e) {
-                if (Brain::isDebug()) {
-                    dd($e);
-                }
-            }
-        }
-        return $existsAgents;
-    }
-
     /**
      * @param  string  $path
      * @param  bool  $vendor
@@ -184,6 +122,11 @@ abstract class CommandBridgeAbstract extends Command
         }, $files));
     }
 
+    /**
+     * @param  string  $file
+     * @param  bool  $vendor
+     * @return string|null
+     */
     public function getWorkingFile(string $file, bool $vendor = false): string|null
     {
         $resultFormat = 'xml';
@@ -278,6 +221,8 @@ abstract class CommandBridgeAbstract extends Command
 
                 $result = str_replace(["\\\\{\\\\{", "\\\\}\\\\}"], ["{{", "}}"], $result);
 
+                //$result = str_replace('$ARGUMENTS', '`$ARGUMENTS`', $result);
+
                 $fileCollection = $result
                     ? json_decode($result, true, flags: JSON_THROW_ON_ERROR)
                     : throw new \JsonException("Empty JSON output");
@@ -311,6 +256,138 @@ abstract class CommandBridgeAbstract extends Command
         }
     }
 
+    protected function autoupdate(): int
+    {
+        if ($this->hasOption('no-update') && ! $this->option('no-update')) {
+
+            $detailUrl = "https://repo.packagist.org/p2/jarvis-brain/core.json";
+
+            try {
+                $data = Http::timeout(5)
+                    ->connectTimeout(5)
+                    ->get($detailUrl)
+                    ->throw()
+                    ->json();
+            } catch (RequestException $e) {
+                if (Brain::isDebug()) {
+                    dd($e);
+                }
+                return OK;
+            } catch (Throwable $e) {
+                if (Brain::isDebug()) {
+                    dd($e);
+                }
+                $this->components->warn("Failed to check for updates: " . $e->getMessage());
+                return ERROR;
+            }
+
+            if (
+                is_array($data)
+                && isset($data['packages']['jarvis-brain/core'][0]['source']['reference'])
+            ) {
+                $reference = $data['packages']['jarvis-brain/core'][0]['source']['reference'];
+                if (is_string($reference) && ! empty($reference)) {
+
+                    $composerLockFile = Brain::workingDirectory('composer.lock');
+                    $lockJson = is_file($composerLockFile) ?
+                        json_decode((string) file_get_contents($composerLockFile), true)
+                        : null;
+
+                    if (
+                        $lockJson
+                        && is_array($lockJson)
+                        && isset($lockJson['packages'])
+                    ) {
+                        $core = collect($lockJson['packages'])
+                            ->firstWhere('name', 'jarvis-brain/core');
+                        $currentReference = $core['source']['reference'] ?? null;
+
+                        if (
+                            $currentReference
+                            && is_string($currentReference)
+                            && $currentReference !== $reference
+                        ) {
+                            $this->call(UpdateCommand::class, [
+                                '--cli' => true,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+        return OK;
+    }
+
+    /**
+     * Detect agents from argument or prompt
+     *
+     * @return array<Agent>
+     */
+    protected function detectAgents(bool $exists = false): array
+    {
+        $selectAgent = $this->hasArgument('agent') ? $this->argument('agent') : null;
+        $agents = [];
+        if ($selectAgent === 'exists') {
+            $agents = $this->detectExistsAgents();
+        } else {
+            foreach (explode(',', $selectAgent) as $item) {
+                try {
+                    $agents[] = Agent::fromEnabled($item);
+                } catch (Throwable $t) {
+                    throw new InvalidArgumentException("Unsupported agent: {$item}", $t->getCode(), $t);
+                }
+            }
+        }
+
+        if (! count($agents)) {
+            try {
+                if ($exists) {
+                    $existsAgents = $this->detectExistsAgents();
+                    if ($existsAgents) {
+                        $agents[] = Agent::fromEnabled(
+                            $this->components->choice('Select agent for compilation', $existsAgents, $existsAgents[0]->value)
+                        );
+                    }
+                } else {
+                    $agents[] = Agent::fromEnabled(
+                        $this->components->choice('Select agent for compilation', Agent::list(), Agent::list()[0]->value)
+                    );
+                }
+            } catch (Throwable $t) {
+                throw new InvalidArgumentException("Before, you need to compile some agent configurations.", $t->getCode(), $t);
+            }
+        }
+        if (! count($agents)) {
+            throw new InvalidArgumentException("Before, you need to compile some agent configurations.");
+        }
+        return $agents;
+    }
+
+    /**
+     * @return array<Agent>
+     */
+    protected function detectExistsAgents(): array
+    {
+        $agents = Agent::enabledCases();
+        $existsAgents = [];
+        foreach ($agents as $agent) {
+            try {
+                $client = $this->initFor($agent);
+                if (is_dir($client->folder())) {
+                    $existsAgents[] = $agent;
+                }
+            } catch (Throwable $e) {
+                if (Brain::isDebug()) {
+                    dd($e);
+                }
+            }
+        }
+        return $existsAgents;
+    }
+
+    /**
+     * @return array<string, scalar>
+     */
     protected function getDefaultVariables(): array
     {
         return array_merge([

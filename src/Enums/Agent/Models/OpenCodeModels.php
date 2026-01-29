@@ -22,6 +22,8 @@ enum OpenCodeModels: string
     case SONNET = 'anthropic/claude-sonnet-4-5';
     case HAIKU = 'anthropic/claude-haiku-4-5';
     case Q3CP = 'lmstudio/qwen/qwen3-coder-30b';
+    case DSCV2LI = 'lmstudio/deepseek-coder-v2-lite-instruct';
+    case QWEN3_CODER = 'alibaba/qwen3-coder-480b-a35b-instruct';
 
     case GH_SONNET = 'github-copilot/claude-sonnet-4.5';
     case GH_OPUS = 'github-copilot/claude-opus-4.5';
@@ -59,6 +61,8 @@ enum OpenCodeModels: string
             self::GH_GPT52 => 'Github GPT-5.2',
             self::GH_GROK => 'Github Grok-Code-Fast-1',
             self::Q3CP => 'Qwen3 Coder Plus',
+            self::DSCV2LI => 'DeepSeek Coder V2 Lite Instruct',
+            self::QWEN3_CODER => 'Qwen3 Coder',
         };
     }
 
@@ -86,6 +90,8 @@ enum OpenCodeModels: string
             self::GH_GPT52 => 'GitHub Copilot GPT-5.2 is a specialized version of GPT-5.2 for coding tasks.',
             self::GH_GROK => 'GitHub Copilot Grok-Code-Fast-1 is a fast and efficient model for coding tasks.',
             self::Q3CP => 'Qwen3 Coder Plus is Alibaba\'s advanced model designed for coding and programming assistance.',
+            self::DSCV2LI => 'DeepSeek Coder V2 Lite Instruct is a model optimized for coding tasks with instruction-following capabilities.',
+            self::QWEN3_CODER => 'Qwen3 Coder is Alibaba\'s model focused on code generation and understanding tasks.',
         };
     }
 
@@ -102,6 +108,8 @@ enum OpenCodeModels: string
             self::GH_GEMINI3_FLASH, self::GH_GEMINI3_PRO, self::GH_GPT51_CODEX, self::GH_GPT51_CODEX_MAX, self::GH_GPT51_CODEX_MINI,
             self::GH_GPT51, self::GH_GPT52, self::GH_GROK => Brain::getEnv('OPENCODE_OTHER_SHARE', 0),
             self::Q3CP => Brain::getEnv('OPENCODE_Q3CP_SHARE', 0),
+            self::DSCV2LI => Brain::getEnv('OPENCODE_DSCV2LI_SHARE', 0),
+            self::QWEN3_CODER => Brain::getEnv('OPENCODE_QWEN3_CODER_SHARE', 0),
         };
     }
 
@@ -129,6 +137,8 @@ enum OpenCodeModels: string
             self::GH_SONNET, self::GH_OPUS, self::GH_HAIKU, self::GH_GEMINI3_FLASH, self::GH_GEMINI3_PRO, self::GH_GPT51, self::GH_GPT52 => [self::GH_SONNET],
             self::GH_GPT51_CODEX, self::GH_GPT51_CODEX_MAX, self::GH_GPT51_CODEX_MINI => [self::GH_GPT51],
             self::Q3CP => [self::GPT52],
+            self::DSCV2LI => [self::GH_GROK],
+            self::QWEN3_CODER => [self::Q3CP],
         };
     }
 
@@ -155,7 +165,9 @@ enum OpenCodeModels: string
             self::GH_GPT51 => ['gh-gpt-5.1', 'github-gpt-5.1'],
             self::GH_GPT52 => ['gh-gpt-5.2', 'github-gpt-5.2'],
             self::GH_GROK => ['gh-grok-code', 'github-grok-code'],
-            self::Q3CP => ['qwen3-coder-plus', 'qwen-coder-plus', 'qwen']
+            self::Q3CP => ['qwen3-coder-plus', 'qwen-coder-plus', 'qwen'],
+            self::DSCV2LI => ['deepseek-coder-v2-lite-instruct', 'deepseek-coder-v2-lite'],
+            self::QWEN3_CODER => ['qwen3-coder', 'qwen-coder'],
         };
     }
 }

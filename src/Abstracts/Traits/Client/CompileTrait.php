@@ -30,6 +30,8 @@ trait CompileTrait
      */
     protected array $compilePuzzle = [];
 
+    protected array $compiledFilesAndDirectories = [];
+
     /**
      * Compile files into brain structure.
      *
@@ -94,6 +96,7 @@ trait CompileTrait
     protected function generateBrainFolder(string $folder, Data $brain): bool
     {
         $path = Brain::projectDirectory($folder);
+        $this->compiledFilesAndDirectories[] = $path;
         if (!is_dir($path)) {
             return mkdir($path, 0755, true);
         }
@@ -107,6 +110,10 @@ trait CompileTrait
     {
         $assets = __DIR__ . '/../../../../assets/' . $this->agent()->value . '/';
         if (is_dir($assets)) {
+            foreach (File::allFiles($assets) as $allFile) {
+                $this->compiledFilesAndDirectories[] =
+                    $allFile->getRelativePathname();
+            }
             return File::copyDirectory($assets, Brain::projectDirectory($folder));
         }
         return true;
@@ -118,6 +125,7 @@ trait CompileTrait
     protected function generateBrainFile(string $filePath, Data $brain): bool
     {
         $filePath = Brain::projectDirectory($filePath);
+        $this->compiledFilesAndDirectories[] = $filePath;
         return !! file_put_contents(
             $filePath,
             $this->createBrainContent(
@@ -134,6 +142,7 @@ trait CompileTrait
     protected function generateMcpFile(string $filePath, Collection $mcp, Data $brain): bool
     {
         $filePath = Brain::projectDirectory($filePath);
+        $this->compiledFilesAndDirectories[] = $filePath;
         $old = is_file($filePath) ? file_get_contents($filePath) : null;
         $old = $old && Dto::isJson($old) ? json_decode($old, true) : $old;
         $content = $this->createMcpContent($mcp, $brain, $old);
@@ -152,6 +161,7 @@ trait CompileTrait
     {
         if (method_exists($this, 'createSettingsContent')) {
             $filePath = Brain::projectDirectory($filePath);
+            $this->compiledFilesAndDirectories[] = $filePath;
             $old = is_file($filePath) ? file_get_contents($filePath) : null;
             $old = $old && Dto::isJson($old) ? json_decode($old, true) : $old;
             $content = $this->createSettingsContent($brain, $mcp, $old);
@@ -202,6 +212,8 @@ trait CompileTrait
                     return false;
                 }
 
+                $this->compiledFilesAndDirectories[] = $file;
+
                 if (! file_put_contents($file, $content)) {
                     return false;
                 }
@@ -246,6 +258,8 @@ trait CompileTrait
                 return false;
             }
 
+            $this->compiledFilesAndDirectories[] = $file;
+
             if (! file_put_contents($file, $content)) {
                 return false;
             }
@@ -271,6 +285,8 @@ trait CompileTrait
         try {
             $generator = SchemaGenerator::createDefault();
             $outputPath = Brain::workingDirectory('agent-schema.json');
+
+            $this->compiledFilesAndDirectories[] = $outputPath;
 
             return $generator->generateAndSave($files, $this->agent(), $outputPath);
         } catch (\Throwable $e) {
@@ -358,5 +374,10 @@ trait CompileTrait
         return Collect::fromAssoc(
             compact('agents', 'commands', 'mcp', 'skills', 'brain')
         );
+    }
+
+    public function getCompiledFilesAndDirectories(): array
+    {
+        return $this->compiledFilesAndDirectories;
     }
 }
