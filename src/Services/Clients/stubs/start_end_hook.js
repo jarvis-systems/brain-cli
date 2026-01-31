@@ -1,3 +1,7 @@
+
+const hookUrlStart = "{{ START_HOOK_URL }}";
+const hookUrlStop = "{{ STOP_HOOK_URL }}";
+
 const isValidUrl = (value) => {
     if (typeof value !== 'string' || value.trim() === '') return false;
     try {
@@ -40,27 +44,13 @@ async function isChildSession(client, sessionID) {
     }
 }
 
-async function handleEventStart($, sessionID) {
-    const hookUrl = "{{ START_HOOK_URL }}";
-    if (!isValidUrl(hookUrl)) {
-        return;
-    }
-    try {
-        await $`curl -s "${hookUrl}&sessionId=${sessionID}"`;
-    } catch (e) {
+async function handleEvent($, hookUrl, sessionID) {
+    if (isValidUrl(hookUrl)) {
+        try {
+            await $`curl -s "${hookUrl}&sessionId=${sessionID}"`;
+        } catch (e) {
 
-    }
-}
-
-async function handleEventStop($) {
-    const hookUrl = "{{ STOP_HOOK_URL }}";
-    if (!isValidUrl(hookUrl)) {
-        return;
-    }
-    try {
-        await $`curl -s "${hookUrl}"`;
-    } catch (e) {
-
+        }
     }
 }
 
@@ -73,7 +63,7 @@ export const StartEndHookPlugin = async ({ project, client, $, directory, worktr
                 if (sessionID) {
                     const isChild = !!info.parentID;
                     if (!isChild) {
-                        await handleEventStart($, sessionID)
+                        await handleEvent($, hookUrlStart, sessionID);
                     }
                 }
             }
@@ -82,10 +72,8 @@ export const StartEndHookPlugin = async ({ project, client, $, directory, worktr
                 if (sessionID) {
                     const isChild = await isChildSession(client, sessionID)
                     if (!isChild) {
-                        await handleEventStop($)
+                        await handleEvent($, hookUrlStop, sessionID);
                     }
-                } else {
-                    await handleEventStop($)
                 }
             }
         },

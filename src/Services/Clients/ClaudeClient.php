@@ -82,7 +82,7 @@ class ClaudeClient extends ClientAbstract
                 'hooks' => [
                     [
                         'type' => 'command',
-                        'command' => "curl -s \"$stopUrl\""
+                        'command' => "SESSION_ID=$(cat | jq -r '.session_id') && curl -s \"$stopUrl&sessionId=\$SESSION_ID\""
                     ]
                 ]
             ];
