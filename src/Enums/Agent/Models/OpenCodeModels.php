@@ -25,6 +25,10 @@ enum OpenCodeModels: string
     case DSCV2LI = 'lmstudio/deepseek-coder-v2-lite-instruct';
     case QWEN3_CODER = 'alibaba/qwen3-coder-480b-a35b-instruct';
 
+    case GO_GEMINI3_PRO = 'google/gemini-3-pro-preview';
+    case GO_GEMINI3_FLASH = 'google/gemini-3-flash-preview';
+
+
     case GH_SONNET = 'github-copilot/claude-sonnet-4.5';
     case GH_OPUS = 'github-copilot/claude-opus-4.5';
     case GH_HAIKU = 'github-copilot/claude-haiku-4.5';
@@ -63,6 +67,8 @@ enum OpenCodeModels: string
             self::Q3CP => 'Qwen3 Coder Plus',
             self::DSCV2LI => 'DeepSeek Coder V2 Lite Instruct',
             self::QWEN3_CODER => 'Qwen3 Coder',
+            self::GO_GEMINI3_PRO => 'Google Gemini-3-Pro',
+            self::GO_GEMINI3_FLASH => 'Google Gemini-3-Flash',
         };
     }
 
@@ -92,6 +98,8 @@ enum OpenCodeModels: string
             self::Q3CP => 'Qwen3 Coder Plus is Alibaba\'s advanced model designed for coding and programming assistance.',
             self::DSCV2LI => 'DeepSeek Coder V2 Lite Instruct is a model optimized for coding tasks with instruction-following capabilities.',
             self::QWEN3_CODER => 'Qwen3 Coder is Alibaba\'s model focused on code generation and understanding tasks.',
+            self::GO_GEMINI3_PRO => 'Google Gemini-3-Pro is Google\'s professional-grade model for advanced coding and reasoning tasks.',
+            self::GO_GEMINI3_FLASH => 'Google Gemini-3-Flash is Google\'s fast-access model for coding and reasoning tasks.',
         };
     }
 
@@ -110,6 +118,7 @@ enum OpenCodeModels: string
             self::Q3CP => Brain::getEnv('OPENCODE_Q3CP_SHARE', 0),
             self::DSCV2LI => Brain::getEnv('OPENCODE_DSCV2LI_SHARE', 0),
             self::QWEN3_CODER => Brain::getEnv('OPENCODE_QWEN3_CODER_SHARE', 0),
+            self::GO_GEMINI3_PRO, self::GO_GEMINI3_FLASH => Brain::getEnv('OPENCODE_GOOGLE_SHARE', 0),
         };
     }
 
@@ -139,6 +148,7 @@ enum OpenCodeModels: string
             self::Q3CP => [self::GPT52],
             self::DSCV2LI => [self::GH_GROK],
             self::QWEN3_CODER => [self::Q3CP],
+            self::GO_GEMINI3_PRO, self::GO_GEMINI3_FLASH => [self::OPUS],
         };
     }
 
@@ -168,6 +178,8 @@ enum OpenCodeModels: string
             self::Q3CP => ['qwen3-coder-plus', 'qwen-coder-plus', 'qwen'],
             self::DSCV2LI => ['deepseek-coder-v2-lite-instruct', 'deepseek-coder-v2-lite'],
             self::QWEN3_CODER => ['qwen3-coder', 'qwen-coder'],
+            self::GO_GEMINI3_PRO => ['google-gemini-3-pro', 'google-gemini-pro'],
+            self::GO_GEMINI3_FLASH => ['google-gemini-3-flash', 'google-gemini-flash'],
         };
     }
 }

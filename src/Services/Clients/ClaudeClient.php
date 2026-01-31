@@ -63,6 +63,31 @@ class ClaudeClient extends ClientAbstract
         if (isset($brain->meta['model'])) {
             $settings['model'] = $brain->meta['model'];
         }
+
+        if ($startUrl = $this->getHookUrl()) {
+            $settings['hooks']['SessionStart'][] = [
+                'matcher' => '',
+                'hooks' => [
+                    [
+                        'type' => 'command',
+                        'command' => "SESSION_ID=$(cat | jq -r '.session_id') && curl -s \"$startUrl&sessionId=\$SESSION_ID\""
+                    ]
+                ]
+            ];
+        }
+
+        if ($stopUrl = $this->getHookUrl(true)) {
+            $settings['hooks']['Stop'][] = [
+                'matcher' => '',
+                'hooks' => [
+                    [
+                        'type' => 'command',
+                        'command' => "curl -s \"$stopUrl\""
+                    ]
+                ]
+            ];
+        }
+
         return $settings;
     }
 
@@ -71,10 +96,6 @@ class ClaudeClient extends ClientAbstract
      */
     protected function createAgentContent(Data $agent, Data $brain, AgentInfo $info): string|array|false
     {
-//        if ($agent->classBasename === 'ExploreMaster') {
-//            return false;
-//        }
-
         return $this->generateWithYamlHeader([
             'name' => $info->name,
             'description' => $info->description,

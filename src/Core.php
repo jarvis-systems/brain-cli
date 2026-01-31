@@ -23,6 +23,11 @@ class Core
         return $default;
     }
 
+    public function allEnv(string|null $findName = null): array
+    {
+        return ServiceProvider::allEnv($findName);
+    }
+
     public function setEnv(string $name, mixed $value = null): bool
     {
         return ServiceProvider::setEnv($name, $value);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Abstracts\Traits\Client;
 
 use Bfg\Dto\Dto;
+use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Support\Brain;
 
 trait HelpersTrait
@@ -12,6 +13,26 @@ trait HelpersTrait
     protected array $backups = [];
 
     protected bool $temporalSystemAppend = true;
+
+    protected function getHookUrl(bool $stop = false): string|null
+    {
+        $case = $stop ? 'STOP' : 'START';
+        $haystack = Brain::getEnv($this->agent()->name . '_WEB_HOOK_'.$case.'_URL', Brain::getEnv('WEB_HOOK_'.$case.'_URL'));
+
+        if ($haystack) {
+            $agentId = $this->agent()->value;
+            if (str_contains($haystack, '?')) {
+                $haystack .= "&brainAgentId=$agentId";
+            } else {
+                $haystack .= "?brainAgentId=$agentId";
+            }
+            $haystack .= "&brainStartTime=" . time();
+            $haystack .= "&projectDirectory=" . urlencode(Brain::projectDirectory());
+            $haystack .= "&event=" . ($stop ? 'stop' : 'start');
+        }
+
+        return $haystack;
+    }
 
     protected function extractJson(string $value): array
     {

@@ -18,6 +18,7 @@ class CustomRunCommand extends CommandBridgeAbstract
     protected array $signatureParts = [
         '{args?* : Arguments for the custom AI command}',
         '{--r|resume= : Resume a previous session by providing the session ID}',
+//        '{--x|ctx= : Set the context data for the command in JSON format}',
         '{--c|continue : Continue the last session}',
         '{--w|working-dir= : Set the working directory for file references}',
         '{--d|dump : Dump the processed data before execution}',
@@ -70,6 +71,10 @@ class CustomRunCommand extends CommandBridgeAbstract
     ) {
         $this->originName = $this->callName;
         $this->callName = $this->variablesDetectString($this->data['name'] ?? $this->callName);
+        $this->data['env'] = array_merge(
+            Brain::allEnv(),
+            (isset($this->data['env']) && is_array($this->data['env']) ? $this->data['env'] : [])
+        );
         $this->data['_file'] = $this->filename;
         $this->data['_date'] = date('Y-m-d');
         $this->data['_datetime'] = date('Y-m-d H:i:s');
@@ -119,6 +124,24 @@ class CustomRunCommand extends CommandBridgeAbstract
     {
         if ($wd = $this->option('working-dir')) {
             chdir($wd);
+        }
+
+        if ($ctx = Brain::getEnv('BRAIN_AI_COMMAND_CTX')) {
+            try {
+                $ctxData = json_decode($ctx, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($ctxData)) {
+                    $this->data = array_merge_recursive($this->data, $ctxData);
+                } else {
+                    $this->components->error("The provided context data is not a valid JSON.");
+                    return ERROR;
+                }
+            } catch (\JsonException $e) {
+                if (Brain::isDebug()) {
+                    dd($e);
+                }
+                $this->components->error("Failed to parse context JSON: " . $e->getMessage());
+                return ERROR;
+            }
         }
 
         $this->data['client'] = $this->variablesDetectString($this->data['client']);

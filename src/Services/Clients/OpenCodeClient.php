@@ -68,6 +68,31 @@ class OpenCodeClient extends ClientAbstract
         if (isset($brain->meta['model'])) {
             $settings['model'] = $brain->meta['model'];
         }
+
+        $pluginDir = Brain::projectDirectory([$this->folder(), 'plugins']);
+        $hookEndFile = Brain::projectDirectory([$this->folder(), 'plugins', 'start_end_hook.js']);
+        if (is_dir($pluginDir)) {
+            if (is_file($hookEndFile)) {
+                unlink($hookEndFile);
+            }
+        } else {
+            mkdir($pluginDir, 0755, true);
+        }
+
+        $startUrl = $this->getHookUrl();
+        $stopUrl = $this->getHookUrl(true);
+
+        if ($startUrl || $stopUrl) {
+            $js = file_get_contents(__DIR__ . '/stubs/start_end_hook.js');
+            if ($startUrl) {
+                $js = str_replace('{{ START_HOOK_URL }}', $startUrl, $js);
+            }
+            if ($stopUrl) {
+                $js = str_replace('{{ STOP_HOOK_URL }}', $stopUrl, $js);
+            }
+            file_put_contents($hookEndFile, $js);
+        }
+
         return $settings;
     }
 

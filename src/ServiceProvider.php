@@ -195,6 +195,18 @@ class ServiceProvider
         return putenv("$name=$value");
     }
 
+    public static function allEnv(string|null $findName = null): array
+    {
+        $envs = [];
+        foreach (getenv() as $key => $value) {
+            if ($findName !== null && ! str_starts_with($key, $findName)) {
+                continue;
+            }
+            $envs[$key] = static::getEnv($key);
+        }
+        return $envs;
+    }
+
     public static function getEnv(string $name): mixed
     {
         $name = strtoupper($name);

@@ -117,6 +117,7 @@ class RunCommand extends CommandBridgeAbstract
 
         $process
             ->program()
+            ->env(Brain::allEnv())
             ->askWhen($options['ask'], $options['ask'])
             ->promptWhen($options['prompt'], $options['prompt'])
             ->jsonWhen($options['json'])
