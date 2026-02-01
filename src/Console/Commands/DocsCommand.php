@@ -31,6 +31,7 @@ class DocsCommand extends Command
 
         $keywords = Str::of($keywords)
             ->replace(' ', ',')
+            ->replace(',,', ',')
             ->explode(',')
             ->filter();
         $projectDocsDirectory = Brain::projectDirectory('.docs');
