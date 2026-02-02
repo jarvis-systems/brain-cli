@@ -72,5 +72,9 @@
     "setup": [
       ["<input.COMPOSER(select:<const.COMPOSER>|composer|./vendor/bin/sail composer)>", "require", "bfg/laravel-boost-reflector", "--dev"]
     ]
+  },
+  "chrome-devtools": {
+    "command": "npx",
+    "args": ["chrome-devtools-mcp@latest"]
   }
 }
