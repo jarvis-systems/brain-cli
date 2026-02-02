@@ -73,8 +73,15 @@
       ["<input.COMPOSER(select:<const.COMPOSER>|composer|./vendor/bin/sail composer)>", "require", "bfg/laravel-boost-reflector", "--dev"]
     ]
   },
-  "chrome-devtools": {
+  "chrome": {
+    "type": "stdio",
     "command": "npx",
-    "args": ["chrome-devtools-mcp@latest"]
+    "args": [
+      "-y",
+      "chrome-devtools-mcp@latest",
+      "--autoConnect",
+      "--userDataDir",
+      "<input.CHROME_USER_DATA_DIR>"
+    ]
   }
 }
