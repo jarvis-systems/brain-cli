@@ -204,7 +204,7 @@ abstract class CommandBridgeAbstract extends Command
             ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
 
-        $process = (new Process($command, Brain::projectDirectory()))
+        $process = (new Process($command, Brain::projectDirectory(), Brain::allEnv()))
             ->setTimeout(null)
             ->mustRun();
 
