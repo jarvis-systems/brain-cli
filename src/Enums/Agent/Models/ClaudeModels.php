@@ -12,7 +12,7 @@ enum ClaudeModels: string
 {
     use AgentModelsTrait;
 
-    case OPUS = 'claude-opus-4-5';
+    case OPUS = 'claude-opus-4-6';
     case SONNET = 'claude-sonnet-4-5';
     case HAIKU = 'claude-haiku-4-5';
 

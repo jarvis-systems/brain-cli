@@ -35,7 +35,8 @@
     "react/promise": "^3.2",
     "bfg/attributes": "^1.2",
     "react/stream": "^1.4.0",
-    "react/child-process": "^0.6.6"
+    "react/child-process": "^0.6.6",
+    "teamtnt/tntsearch": "^5.0"
   },
   "scripts": {
     "post-install-cmd": [

@@ -1,6 +1,11 @@
 
-const hookUrlStart = "{{ START_HOOK_URL }}";
-const hookUrlStop = "{{ STOP_HOOK_URL }}";
+const options = {
+    hookUrlStart: "{{ START_HOOK_URL }}",
+    hookUrlStop: "{{ STOP_HOOK_URL }}",
+    sessionId: null,
+    idleTimeout: null,
+    idleDelay: 500,
+};
 
 const isValidUrl = (value) => {
     if (typeof value !== 'string' || value.trim() === '') return false;
@@ -29,19 +34,9 @@ function sessionToUUID(sessionId) {
 function getSessionIDFromEvent(event) {
     const sessionID = event.properties.sessionID
     if (typeof sessionID === "string" && sessionID.length > 0) {
-        return sessionID
+        return sessionToUUID(sessionID)
     }
     return null
-}
-
-async function isChildSession(client, sessionID) {
-    try {
-        const response = await client.session.get({ path: { id: sessionID } })
-        const parentID = response.data.parentID
-        return !!parentID
-    } catch {
-        return false
-    }
 }
 
 async function handleEvent($, hookUrl, sessionID) {
@@ -57,22 +52,42 @@ async function handleEvent($, hookUrl, sessionID) {
 export const StartEndHookPlugin = async ({ project, client, $, directory, worktree }) => {
     return {
         event: async ({ event }) => {
-            if (event.type === "session.created") {
+            // Start: перша головна сесія
+            if (event.type === "session.created" && !options.sessionId) {
                 const info = event.properties.info;
                 const sessionID = sessionToUUID(info.id);
                 if (sessionID) {
                     const isChild = !!info.parentID;
                     if (!isChild) {
-                        await handleEvent($, hookUrlStart, sessionID);
+                        options.sessionId = sessionID;
+                        await handleEvent($, options.hookUrlStart, sessionID);
                     }
                 }
             }
-            if (event.type === "session.idle") {
-                const sessionID = getSessionIDFromEvent(event)
-                if (sessionID) {
-                    const isChild = await isChildSession(client, sessionID)
-                    if (!isChild) {
-                        await handleEvent($, hookUrlStop, sessionID);
+
+            // session.status - надійніший сигнал стану
+            if (event.type === "session.status" && options.sessionId) {
+                const sessionID = getSessionIDFromEvent(event);
+                if (sessionID && options.sessionId === sessionID) {
+                    const status = event.properties.status;
+
+                    // busy = агент працює (включаючи thinking) - скасувати timeout
+                    if (status?.type === "busy") {
+                        if (options.idleTimeout) {
+                            clearTimeout(options.idleTimeout);
+                            options.idleTimeout = null;
+                        }
+                    }
+
+                    // idle = агент дійсно чекає на input - debounce
+                    if (status?.type === "idle") {
+                        if (options.idleTimeout) {
+                            clearTimeout(options.idleTimeout);
+                        }
+                        options.idleTimeout = setTimeout(async () => {
+                            await handleEvent($, options.hookUrlStop, sessionID);
+                            options.idleTimeout = null;
+                        }, options.idleDelay);
                     }
                 }
             }

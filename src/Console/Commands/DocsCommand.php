@@ -6,7 +6,6 @@ namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Support\Brain;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -51,61 +50,33 @@ class DocsCommand extends Command
             json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         );
 
-//        foreach ($files as $file) {
-//            $this->line("Path: {$file['path']}");
-//            if (isset($file['name'])) {
-//                $this->line("Name: {$file['name']}");
-//            }
-//            if (isset($file['description'])) {
-//                $this->line("Description: {$file['description']}");
-//            }
-//            if (isset($file['part'])) {
-//                $this->line("Part: {$file['part']}");
-//            }
-//            if (isset($file['type'])) {
-//                $this->line("Type: {$file['type']}");
-//            }
-//            $this->line("---");
-//        }
-
         return 0;
     }
 
     /**
      * @param  string  $dir
-     * @param  \Illuminate\Support\Collection  $keywords
-     * @return array<array<string, string>>
-     *
-     * Structure in file:
-     * ---
-     * name: "Document Title"
-     * description: "Brief description"
-     * part: 1
-     * type: "guide"
-     * date: "2025-11-12"
-     * version: "1.0.0"
-     * ---
+     * @param  Collection<int, string>  $keywords
+     * @return array<int, array{path: string, name?: string, description?: string, score?: int}>
      */
     public function getFileList(string $dir, Collection $keywords): array
     {
         $files = File::allFiles($dir);
         $collect = collect(array_map(function (SplFileInfo $file) use ($keywords) {
-            $path = $file->getPathname();
-            $date = $file->getMTime();
-            if (! str_ends_with($path, '.md')) {
+            if (! str_ends_with($file->getPathname(), '.md')) {
                 return null;
             }
-            $content = file_get_contents($path);
+            $content = file_get_contents($file->getPathname());
             if (! $content) {
                 return null;
             }
 
+            $score = 0;
+            $contentLower = Str::lower($content);
+
             if ($keywords->isNotEmpty()) {
                 $found = false;
                 foreach ($keywords as $keyword) {
-                    if (
-                        Str::contains(Str::lower($content), Str::lower($keyword))
-                    ) {
+                    if (Str::contains($contentLower, Str::lower($keyword))) {
                         $found = true;
                         break;
                     }
@@ -114,40 +85,61 @@ class DocsCommand extends Command
                     return null;
                 }
             }
-            $metadata = [
 
+            $result = [
+                'path' => '.docs' . DS . $file->getRelativePathname(),
             ];
 
             if (preg_match('/^---\s*(.*?)\s*---/s', $content, $matches)) {
-
                 try {
                     $yamlParsed = Yaml::parse($matches[1]);
                     if (is_array($yamlParsed)) {
-                        foreach ($yamlParsed as $key => $value) {
-                            if ($key === 'name' || $key === 'description') {
-                                $metadata[$key] = (string)$value;
-                            }
+                        if (isset($yamlParsed['name'])) {
+                            $result['name'] = (string) $yamlParsed['name'];
+                        }
+                        if (isset($yamlParsed['description'])) {
+                            $result['description'] = (string) $yamlParsed['description'];
                         }
                     }
                 } catch (\Exception $e) {
                     if (Brain::isDebug()) {
                         dd($e);
                     }
-                    $this->components->error("Failed to parse {$matches[1]}");
+                    $this->components->error("Failed to parse YAML in {$file->getRelativePathname()}");
                     exit(ERROR);
                 }
             }
 
-            return [
-                '.docs' . DS . $file->getRelativePathname() => $metadata,
-            ];
-        }, $files))->filter()->unique(fn (array $i, string $k) => $k)->values();
+            if ($keywords->isNotEmpty()) {
+                foreach ($keywords as $keyword) {
+                    $kw = Str::lower($keyword);
+                    if (isset($result['name']) && Str::contains(Str::lower($result['name']), $kw)) {
+                        $score += 10;
+                    }
+                    if (isset($result['description']) && Str::contains(Str::lower($result['description']), $kw)) {
+                        $score += 5;
+                    }
+                    if (Str::contains($contentLower, $kw)) {
+                        $score += 1;
+                    }
+                }
+                $result['score'] = $score;
+            }
+
+            return $result;
+        }, $files))
+            ->filter()
+            ->unique('path')
+            ->when($keywords->isNotEmpty(), fn ($c) => $c->sortByDesc('score'))
+            ->values();
+
         if ($collect->count() > 50) {
-            $collect = $collect->map(function (array $data) {
-                unset($data['description']);
-                return $data;
+            $collect = $collect->map(function (array $item) {
+                unset($item['description']);
+                return $item;
             });
         }
+
         return $collect->toArray();
     }
 }
