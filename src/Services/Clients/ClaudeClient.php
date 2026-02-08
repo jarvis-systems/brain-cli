@@ -134,7 +134,7 @@ class ClaudeClient extends ClientAbstract
 
         return $payload
             ->installBehavior($install)
-            ->updateBehavior($install)
+            ->updateBehavior(['claude', 'update'])
             ->programBehavior([
                 'env' => array_merge([
                     'ENABLE_TOOL_SEARCH' => 1,

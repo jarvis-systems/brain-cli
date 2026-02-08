@@ -82,6 +82,18 @@ class ProcessFactory implements Arrayable
     }
 
     /**
+     * Child process PID for signal forwarding.
+     */
+    protected ?int $childPid = null;
+
+    /**
+     * Main process resource for cleanup.
+     *
+     * @var resource|null
+     */
+    protected mixed $mainProcess = null;
+
+    /**
      * @return int Exit code
      */
     public function open(callable|null $openedCallback = null): int
@@ -90,6 +102,9 @@ class ProcessFactory implements Arrayable
         $data = $this->toArray();
         $baseEnv = getenv();
         $env = array_merge($baseEnv, $data['env']);
+
+        // Register signal handlers for graceful child process termination
+        $this->registerSignalHandlers();
 
         if ($data['commands']['before']) {
             foreach ($data['commands']['before'] as $beforeCommand) {
@@ -105,6 +120,10 @@ class ProcessFactory implements Arrayable
 
         $process = proc_open($data['command'], [STDIN, STDOUT, STDERR], $pipes, $this->cwd, $env);
         if (is_resource($process)) {
+            // Store process info for signal handler
+            $this->mainProcess = $process;
+            $status = proc_get_status($process);
+            $this->childPid = $status['pid'] ?? null;
 
             if ($data['commands']['after']) {
                 foreach ($data['commands']['after'] as $afterCommand) {
@@ -124,6 +143,11 @@ class ProcessFactory implements Arrayable
             }
             $exitCode = proc_close($process);
 
+            // Clear state after normal exit
+            $this->childPid = null;
+            $this->mainProcess = null;
+            $this->restoreSignalHandlers();
+
             if ($data['commands']['exit']) {
                 foreach ($data['commands']['exit'] as $exitCommand) {
                     if (empty($exitCommand)) {
@@ -141,6 +165,82 @@ class ProcessFactory implements Arrayable
         }
 
         return ERROR;
+    }
+
+    /**
+     * Register signal handlers for graceful child process termination.
+     *
+     * Prevents orphan/zombie processes when parent is killed externally
+     * (e.g., by tmux session termination or manual SIGTERM).
+     */
+    protected function registerSignalHandlers(): void
+    {
+        if (! function_exists('pcntl_signal') || ! function_exists('posix_kill')) {
+            return;
+        }
+
+        // Enable async signal handling
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+        }
+
+        $signalHandler = function (int $signal): never {
+            $this->terminateChildProcess($signal);
+            exit(128 + $signal);
+        };
+
+        pcntl_signal(SIGTERM, $signalHandler);
+        pcntl_signal(SIGINT, $signalHandler);
+        pcntl_signal(SIGHUP, $signalHandler);
+    }
+
+    /**
+     * Restore default signal handlers.
+     */
+    protected function restoreSignalHandlers(): void
+    {
+        if (! function_exists('pcntl_signal')) {
+            return;
+        }
+
+        pcntl_signal(SIGTERM, SIG_DFL);
+        pcntl_signal(SIGINT, SIG_DFL);
+        pcntl_signal(SIGHUP, SIG_DFL);
+    }
+
+    /**
+     * Terminate child process gracefully, then forcefully if needed.
+     */
+    protected function terminateChildProcess(int $signal): void
+    {
+        if ($this->childPid === null) {
+            return;
+        }
+
+        // Check if child process is still running
+        if (! posix_kill($this->childPid, 0)) {
+            return;
+        }
+
+        // Forward the signal to child process
+        posix_kill($this->childPid, $signal);
+
+        // Give it time to terminate gracefully (500ms)
+        usleep(500000);
+
+        // Force kill if still running
+        if (posix_kill($this->childPid, 0)) {
+            posix_kill($this->childPid, SIGKILL);
+            usleep(100000);
+        }
+
+        // Close process resource
+        if (is_resource($this->mainProcess)) {
+            proc_close($this->mainProcess);
+        }
+
+        $this->childPid = null;
+        $this->mainProcess = null;
     }
 
     public function run(callable|null $callback = null): int
