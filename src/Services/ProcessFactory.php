@@ -118,7 +118,11 @@ class ProcessFactory implements Arrayable
             }
         }
 
-        $process = proc_open($data['command'], [STDIN, STDOUT, STDERR], $pipes, $this->cwd, $env);
+        // Use 'exec' prefix to replace shell with command, ensuring signal delivery to actual process
+        // Without exec: bash receives signal but may not forward to child
+        // With exec: command runs directly, receives signals properly
+        $command = $this->wrapCommandForSignalDelivery($data['command']);
+        $process = proc_open($command, [STDIN, STDOUT, STDERR], $pipes, $this->cwd, $env);
         if (is_resource($process)) {
             // Store process info for signal handler
             $this->mainProcess = $process;
@@ -209,6 +213,36 @@ class ProcessFactory implements Arrayable
     }
 
     /**
+     * Wrap command for proper signal delivery to child process.
+     *
+     * Problem: proc_open spawns a shell (sh -c "command"), and when parent
+     * receives SIGTERM/SIGINT, the shell may die but leave the actual command
+     * running as an orphan zombie.
+     *
+     * Solution: Use 'exec' to replace the shell with the command, so signals
+     * go directly to the command process.
+     *
+     * @param string|array $command The command to wrap
+     * @return string|array The wrapped command
+     */
+    protected function wrapCommandForSignalDelivery(string|array $command): string|array
+    {
+        // Array commands are passed directly to proc_open without shell
+        if (is_array($command)) {
+            return $command;
+        }
+
+        // Already has exec prefix
+        if (str_starts_with(ltrim($command), 'exec ')) {
+            return $command;
+        }
+
+        // Wrap with exec to replace shell with actual command
+        // This ensures SIGTERM/SIGINT reach the command directly
+        return 'exec ' . $command;
+    }
+
+    /**
      * Terminate child process gracefully, then forcefully if needed.
      */
     protected function terminateChildProcess(int $signal): void
@@ -243,14 +277,33 @@ class ProcessFactory implements Arrayable
         $this->mainProcess = null;
     }
 
+    /**
+     * Symfony Process instance for signal handling in run() method.
+     */
+    protected ?Process $symfonyProcess = null;
+
     public function run(callable|null $callback = null): int
     {
         $hosted = false;
         $data = $this->toArray();
         $this->compiler->processRunCallback($this);
-        $exitCode = (new Process($data['command'], $this->cwd, $data['env']))
-            ->setTimeout(null)
-            ->run(function ($type, $output) use ($callback, &$hosted) {
+
+        // Wrap command for signal delivery
+        $command = $this->wrapCommandForSignalDelivery($data['command']);
+
+        // Symfony Process accepts array (command + args) or uses fromShellCommandline for strings
+        if (is_array($command)) {
+            $this->symfonyProcess = new Process($command, $this->cwd, $data['env']);
+        } else {
+            $this->symfonyProcess = Process::fromShellCommandline($command, $this->cwd, $data['env']);
+        }
+        $this->symfonyProcess->setTimeout(null);
+
+        // Register signal handlers for Symfony Process
+        $this->registerSymfonySignalHandlers();
+
+        try {
+            $exitCode = $this->symfonyProcess->run(function ($type, $output) use ($callback, &$hosted) {
                 $output = trim($output);
                 if (! $hosted) {
                     $this->compiler->processHostedCallback($this);
@@ -261,8 +314,38 @@ class ProcessFactory implements Arrayable
                 }
                 $this->output[] = $output;
             });
+        } finally {
+            $this->symfonyProcess = null;
+            $this->restoreSignalHandlers();
+        }
+
         $this->compiler->processExitCallback($this, $exitCode);
         return $exitCode;
+    }
+
+    /**
+     * Register signal handlers for Symfony Process termination.
+     */
+    protected function registerSymfonySignalHandlers(): void
+    {
+        if (! function_exists('pcntl_signal')) {
+            return;
+        }
+
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+        }
+
+        $signalHandler = function (int $signal): never {
+            if ($this->symfonyProcess !== null && $this->symfonyProcess->isRunning()) {
+                $this->symfonyProcess->stop(0.5, $signal);
+            }
+            exit(128 + $signal);
+        };
+
+        pcntl_signal(SIGTERM, $signalHandler);
+        pcntl_signal(SIGINT, $signalHandler);
+        pcntl_signal(SIGHUP, $signalHandler);
     }
 
     public function apply(callable $callback): static
