@@ -18,10 +18,11 @@ class CustomRunCommand extends CommandBridgeAbstract
     protected array $signatureParts = [
         '{args?* : Arguments for the custom AI command}',
         '{--r|resume= : Resume a previous session by providing the session ID}',
-//        '{--x|ctx= : Set the context data for the command in JSON format}',
+        '{--x|ctx= : Set the context data for the command in JSON format}',
         '{--c|continue : Continue the last session}',
         '{--w|working-dir= : Set the working directory for file references}',
         '{--d|dump : Dump the processed data before execution}',
+        '{--j|json : Get output as JSON}',
         '{--no-update : Do not check for brain updates before running the command}',
     ];
 
@@ -126,9 +127,9 @@ class CustomRunCommand extends CommandBridgeAbstract
             chdir($wd);
         }
 
-        if ($ctx = Brain::getEnv('BRAIN_AI_COMMAND_CTX')) {
+        if ($ctx = ($this->option('ctx') || Brain::getEnv('BRAIN_AI_COMMAND_CTX'))) {
             try {
-                $ctxData = json_decode($ctx, true, 512, JSON_THROW_ON_ERROR);
+                $ctxData = json_decode((string) $ctx, true, 512, JSON_THROW_ON_ERROR);
                 if (is_array($ctxData)) {
                     $this->data = array_merge_recursive($this->data, $ctxData);
                 } else {
@@ -206,7 +207,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         $options = $process->payload->defaultOptions([
             'ask' => $this->data['params']['ask'] ?? null,
             'prompt' => $this->data['params']['prompt'] ?? null,
-            'json' => $this->data['params']['json'] ?? ($this->data['params']['serialize'] ?? false),
+            'json' => $this->option('json') || ($this->data['params']['json'] ?? ($this->data['params']['serialize'] ?? false)),
             'serialize' => $this->data['params']['serialize'] ?? false,
             'yolo' => $this->data['params']['yolo'] ?? false,
             'model' => $this->data['params']['model'] ?? null,
