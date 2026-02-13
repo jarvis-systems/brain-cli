@@ -45,9 +45,21 @@ class CommandLinePromptRenderer extends Renderer implements Scrolling
      */
     protected function renderSubmit(CommandLinePrompt $prompt, int $maxWidth): self
     {
+        $value = $prompt->value();
+
+        // For multiline values, show first line + line count indicator
+        if (str_contains($value, "\n")) {
+            $lines = explode("\n", $value);
+            $first = $this->truncate($lines[0], $maxWidth - 12);
+            $body = $this->formatCommandValue($prompt, $first)
+                . $this->dim(' (' . count($lines) . ' lines)');
+        } else {
+            $body = $this->formatCommandValue($prompt, $this->truncate($value, $maxWidth));
+        }
+
         return $this->box(
             $this->dim($this->truncate($prompt->label, $maxWidth)),
-            $this->formatCommandValue($prompt, $this->truncate($prompt->value(), $maxWidth)),
+            $body,
         );
     }
 
@@ -216,6 +228,7 @@ class CommandLinePromptRenderer extends Renderer implements Scrolling
             }
         }
 
+        $hints[] = '⌥Enter newline';
         $hints[] = 'Enter submit';
 
         $customHint = $prompt->hint ? $prompt->hint.' | ' : '';

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI;
 
+use BrainCLI\Console\AiCommands\BoardCommand;
 use BrainCLI\Console\AiCommands\CustomRunCommand;
 use BrainCLI\Console\AiCommands\InstallCommand;
 use BrainCLI\Console\AiCommands\LabCommand;
@@ -29,9 +30,10 @@ class AiServiceProvider extends ServiceProvider
     protected array $commands = [
         InstallCommand::class,
         UpdateCommand::class,
-        MeetingCommand::class,
+        // MeetingCommand::class, // Old test command, now we use the BoardCommand
         MakeCommand::class,
-        LabCommand::class,
+        // LabCommand::class, // Old lab command, now we use the BoardCommand
+        BoardCommand::class,
     ];
 
     /**

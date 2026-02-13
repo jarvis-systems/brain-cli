@@ -163,6 +163,7 @@ class CommandLinePrompt extends Prompt
             Key::SHIFT_TAB => $this->handleTabSwitchPrevious(),
             Key::oneOf([Key::HOME, Key::CTRL_A], $key) => $this->highlighted !== null ? $this->highlight(0) : null,
             Key::oneOf([Key::END, Key::CTRL_E], $key) => $this->highlighted !== null ? $this->highlight(count($this->matches()) - 1) : null,
+            "\x1b\n" => $this->insertNewline(),
             Key::ENTER => $this->handleEnter(),
             Key::ESCAPE => $this->cancelDropdown(),
             Key::CTRL_C => $this->state = 'cancel',
@@ -464,6 +465,21 @@ class CommandLinePrompt extends Prompt
     }
 
     /**
+     * Insert a newline at the current cursor position (Option+Enter / Alt+Enter).
+     */
+    protected function insertNewline(): void
+    {
+        $this->typedValue = mb_substr($this->typedValue, 0, $this->cursorPosition)
+            . "\n"
+            . mb_substr($this->typedValue, $this->cursorPosition);
+        $this->cursorPosition++;
+        $this->closeAutocomplete();
+        $this->closeHistoryMenu();
+        $this->matches = null;
+        $this->inlineSuggestion = null;
+    }
+
+    /**
      * Cancel all menus (Escape).
      */
     protected function cancelDropdown(): void
@@ -547,7 +563,7 @@ class CommandLinePrompt extends Prompt
         $key = $keys[$this->highlighted];
         $match = $matches[$key];
 
-        $this->typedValue = is_array($match) ? ($match['value'] ?? $match[0] ?? (string) $key) : (string) $key;
+        $this->typedValue = is_array($match) ? ($match['value'] ?? $match[0] ?? (string) $key) : (string) $match;
         $this->cursorPosition = mb_strlen($this->typedValue);
     }
 
@@ -599,16 +615,57 @@ class CommandLinePrompt extends Prompt
         // If navigating in any menu - don't show cursor in input
         if (($this->showAutocomplete && $this->highlighted !== null)
             || ($this->showHistoryMenu && $this->historyHighlighted !== null)) {
-            return $this->typedValue === ''
-                ? $this->dim($this->truncate($this->placeholder, $maxWidth))
-                : $this->truncate($this->typedValue, $maxWidth);
+            if ($this->typedValue === '') {
+                return $this->dim($this->truncate($this->placeholder, $maxWidth));
+            }
+            return $this->renderMultilineValue($maxWidth, showCursor: false);
         }
 
         if ($this->typedValue === '') {
             return $this->dim($this->addCursor($this->placeholder, 0, $maxWidth));
         }
 
-        return $this->addCursor($this->typedValue, $this->cursorPosition, $maxWidth);
+        return $this->renderMultilineValue($maxWidth, showCursor: true);
+    }
+
+    /**
+     * Render typed value, handling multiline if newlines are present.
+     */
+    protected function renderMultilineValue(int $maxWidth, bool $showCursor): string
+    {
+        // Single line - use standard rendering
+        if (! str_contains($this->typedValue, "\n")) {
+            return $showCursor
+                ? $this->addCursor($this->typedValue, $this->cursorPosition, $maxWidth)
+                : $this->truncate($this->typedValue, $maxWidth);
+        }
+
+        // Multiline - find cursor line and render each line
+        $lines = explode("\n", $this->typedValue);
+        $remaining = $this->cursorPosition;
+        $cursorLine = count($lines) - 1;
+        $cursorCol = mb_strlen($lines[$cursorLine]);
+
+        foreach ($lines as $i => $line) {
+            $lineLen = mb_strlen($line);
+            if ($remaining <= $lineLen) {
+                $cursorLine = $i;
+                $cursorCol = $remaining;
+                break;
+            }
+            $remaining -= $lineLen + 1; // +1 for \n
+        }
+
+        $rendered = [];
+        foreach ($lines as $i => $line) {
+            if ($showCursor && $i === $cursorLine) {
+                $rendered[] = $this->addCursor($line, $cursorCol, $maxWidth);
+            } else {
+                $rendered[] = $line === '' ? ' ' : $this->truncate($line, $maxWidth);
+            }
+        }
+
+        return implode(PHP_EOL, $rendered);
     }
 
     /**
