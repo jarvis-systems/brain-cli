@@ -706,8 +706,10 @@ class CustomRunCommand extends CommandBridgeAbstract
                     return $fullMatch; // File not found
                 }
 
+                Brain::setEnv('BRAIN_COMPILE_WITHOUT_META', 1);
                 // Use parent's convertFiles method - it handles ALL variables properly
                 $result = $this->convertFiles($commandFile, null, $this->data['env'] ?? []);
+                Brain::setEnv('BRAIN_COMPILE_WITHOUT_META', 0);
 
                 if ($result->isEmpty()) {
                     return $fullMatch; // File not found or conversion failed
@@ -778,8 +780,10 @@ class CustomRunCommand extends CommandBridgeAbstract
                     throw new \RuntimeException("Agent not found: {$agentName} (expected file: {$relativePath})");
                 }
 
+                Brain::setEnv('BRAIN_COMPILE_WITHOUT_META', 1);
                 // Use parent's convertFiles method - it handles ALL variables properly
                 $result = $this->convertFiles($agentFile, null, $this->data['env'] ?? []);
+                Brain::setEnv('BRAIN_COMPILE_WITHOUT_META', 0);
 
                 if ($result->isEmpty()) {
                     throw new \RuntimeException("Agent conversion failed: {$agentName} (file: {$relativePath})");
