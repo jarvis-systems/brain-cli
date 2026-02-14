@@ -23,6 +23,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         '{--w|working-dir= : Set the working directory for file references}',
         '{--d|dump : Dump the processed data before execution}',
         '{--j|json : Get output as JSON}',
+        '{--health : Check the health of the specified client agent and its configuration}',
         '{--no-update : Do not check for brain updates before running the command}',
     ];
 
@@ -241,6 +242,19 @@ class CustomRunCommand extends CommandBridgeAbstract
                 exit(1);
             })->dump($options['dump']);
 
+        if ($this->option('dump') || $this->option('health')) {
+            $data = $process->toArray();
+            if ($this->option('health')) {
+
+                $data['client-health'] = $this->checkProcessHealth($data) ? 'healthy' : 'unhealthy';
+
+                echo json_encode($data, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) . PHP_EOL;
+            } else {
+                dump($data);
+            }
+            return OK;
+        }
+
         if ($process->reflection->isUsed('json')) {
             return $process->run(function (string $output) use ($process, $options) {
                 $result = $this->client->processParseOutput($process, $output);
@@ -258,12 +272,26 @@ class CustomRunCommand extends CommandBridgeAbstract
             });
         }
 
-        if ($this->option('dump')) {
-            dump($process->toArray());
-            return OK;
+        return $process->open();
+    }
+
+    protected function checkProcessHealth(array $processData): bool
+    {
+        $command = is_array($processData['command']) ? $processData['command'][0] : $processData['command'];
+        if (is_file($command)) {
+            return is_executable($command);
+        }
+        $checkCommand = (str_starts_with(strtolower(PHP_OS_FAMILY), 'win') ? 'where' : 'which') . " $command";
+        exec($checkCommand, $output, $returnVar);
+        if ($returnVar === 0) {
+            //return true; // Command exists and is executable
+            if (is_array($output) && count($output) > 0) {
+                $executablePath = $output[0];
+                return is_executable($executablePath);
+            }
         }
 
-        return $process->open();
+        return false;
     }
 
      /**

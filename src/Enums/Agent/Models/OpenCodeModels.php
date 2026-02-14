@@ -13,6 +13,7 @@ enum OpenCodeModels: string
     use AgentModelsTrait;
 
     case GLM47 = 'zai-coding-plan/glm-4.7';
+    case GLM50 = 'zai-coding-plan/glm-5.0';
     case GLM47_FREE = 'opencode/glm-4.7-free';
     case BIG_PICKLE_FREE = 'opencode/big-pickle';
     case GROK_CODE_FREE = 'opencode/grok-code';
@@ -45,6 +46,7 @@ enum OpenCodeModels: string
     {
         return match ($this) {
             self::GLM47 => 'Z.AI GLM-4.7',
+            self::GLM50 => 'Z.AI GLM-5.0',
             self::GLM47_FREE => 'Z.AI GLM-4.7 Free',
             self::BIG_PICKLE_FREE => 'Big Pickle Free',
             self::GROK_CODE_FREE => 'Grok Code Free',
@@ -76,6 +78,7 @@ enum OpenCodeModels: string
     {
         return match ($this) {
             self::GLM47 => 'GLM-4.7 is the latest open-source SOTA model for advanced reasoning, coding, and agentic tasks.',
+            self::GLM50 => 'GLM-5.0 is the upcoming open-source SOTA model with enhanced capabilities for reasoning, coding, and agentic tasks.',
             self::GLM47_FREE => 'GLM-4.7 Free is a cost-free version of the GLM-4.7 model with limited capabilities.',
             self::BIG_PICKLE_FREE => 'Big Pickle Free is an open-source model optimized for code generation and understanding tasks.',
             self::GROK_CODE_FREE => 'Grok Code Free is a lightweight model designed for efficient coding assistance and code-related tasks.',
@@ -107,8 +110,9 @@ enum OpenCodeModels: string
     {
         return match ($this) {
             self::GPT52_CODEX => Brain::getEnv('OPENCODE_GPT52_CODEX_SHARE', 35),
-            self::GLM47 => Brain::getEnv('OPENCODE_GLM47_SHARE', 20),
-            self::GLM47_FREE => Brain::getEnv('OPENCODE_GLM47_FREE_SHARE', 20),
+            self::GLM47 => Brain::getEnv('OPENCODE_GLM47_SHARE', 10),
+            self::GLM50 => Brain::getEnv('OPENCODE_GLM50_SHARE', 20),
+            self::GLM47_FREE => Brain::getEnv('OPENCODE_GLM47_FREE_SHARE', 10),
             self::GROK_CODE_FREE => Brain::getEnv('OPENCODE_GROK_CODE_FREE_SHARE', 10),
             self::BIG_PICKLE_FREE => Brain::getEnv('OPENCODE_BIG_PICKLE_FREE_SHARE', 5),
             self::GPT52 => Brain::getEnv('OPENCODE_GPT52_SHARE', 10),
@@ -137,10 +141,10 @@ enum OpenCodeModels: string
     {
         return match ($this) {
             self::GLM47 => [ClaudeModels::OPUS],
+            self::GLM50, self::GPT52_CODEX, self::GPT52, self::HAIKU => [self::GLM47],
             self::GLM47_FREE, self::GH_GROK => [self::GROK_CODE_FREE],
             self::GROK_CODE_FREE => [self::BIG_PICKLE_FREE],
             self::BIG_PICKLE_FREE => [QwenModels::CODER],
-            self::GPT52_CODEX, self::GPT52, self::HAIKU => [self::GLM47],
             self::OPUS => [self::SONNET],
             self::SONNET => [self::HAIKU],
             self::GH_SONNET, self::GH_OPUS, self::GH_HAIKU, self::GH_GEMINI3_FLASH, self::GH_GEMINI3_PRO, self::GH_GPT51, self::GH_GPT52 => [self::GH_SONNET],
@@ -156,6 +160,7 @@ enum OpenCodeModels: string
     {
         return match ($this) {
             self::GLM47 => ['glm-4.7', 'zai-glm-4.7'],
+            self::GLM50 => ['glm-5.0', 'zai-glm-5.0'],
             self::GLM47_FREE => ['glm-4.7-free', 'zai-glm-4.7-free'],
             self::BIG_PICKLE_FREE => ['big-pickle', 'big-pickle-free'],
             self::GROK_CODE_FREE => ['grok-code', 'grok-code-free'],
