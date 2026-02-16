@@ -73,8 +73,18 @@ class CustomRunCommand extends CommandBridgeAbstract
     ) {
         $this->originName = $this->callName;
         $this->callName = $this->variablesDetectString($this->data['name'] ?? $this->callName);
+        $excludeEnvList = Brain::projectDirectory('.env');
+        list($excludeEnvList, $excludeEnvListExists) = file_exists($excludeEnvList) ? [file($excludeEnvList, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), true] : [[], false];
+//        dd($excludeEnvList, $excludeEnvListExists);
+//        dd(Brain::allEnv());
         $this->data['env'] = array_merge(
-            Brain::allEnv(),
+            //Brain::allEnv(),
+            array_filter(Brain::allEnv(), function ($key) use ($excludeEnvList, $excludeEnvListExists) {
+                if (! $excludeEnvListExists) {
+                    return true;
+                }
+                return ! in_array($key, $excludeEnvList);
+            }),
             (isset($this->data['env']) && is_array($this->data['env']) ? $this->data['env'] : [])
         );
         $this->data['_file'] = $this->filename;
