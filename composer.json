@@ -36,7 +36,8 @@
     "bfg/attributes": "^1.2",
     "react/stream": "^1.4.0",
     "react/child-process": "^0.6.6",
-    "teamtnt/tntsearch": "^5.0"
+    "teamtnt/tntsearch": "^5.0",
+    "fakerphp/faker": "^1.24"
   },
   "scripts": {
     "post-install-cmd": [

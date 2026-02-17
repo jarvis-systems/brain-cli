@@ -31,7 +31,7 @@ enum OpenCodeModels: string
 
 
     case GH_SONNET = 'github-copilot/claude-sonnet-4.5';
-    case GH_OPUS = 'github-copilot/claude-opus-4.5';
+    case GH_OPUS = 'github-copilot/claude-opus-4.6';
     case GH_HAIKU = 'github-copilot/claude-haiku-4.5';
     case GH_GEMINI3_FLASH = 'github-copilot/gemini-3-flash-preview';
     case GH_GEMINI3_PRO = 'github-copilot/gemini-3-pro-preview';
