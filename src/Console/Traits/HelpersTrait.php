@@ -42,5 +42,9 @@ trait HelpersTrait
             $this->components->error("The Brain.php file does not exist in the working directory: {$brainFile}");
             exit(ERROR);
         }
+
+        if (Brain::isDebug()) {
+            $this->outputComponents()->info('Debug mode is ON. Outputting additional debug information.');
+        }
     }
 }

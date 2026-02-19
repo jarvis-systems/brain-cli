@@ -26,6 +26,9 @@
       "<const.PROJECT_DIRECTORY>",
       "--memory-limit",
       "<input.VECTOR_MEMORY_LIMIT(select:1000|10000|100000|500000|1000000|2000000|5000000|10000000)>"
+    ],
+    "setup": [
+      ["brain", "docs", "--download", "https://raw.githubusercontent.com/Xsaven/vector-memory-mcp/refs/heads/master/README_AGENTS.md", "--save-as", "vector-memory-mcp-agents-docs.md"]
     ]
   },
   "vector-task": {
@@ -37,6 +40,9 @@
       "<const.PROJECT_DIRECTORY>",
       "--timezone",
       "<input.TIMEZONE(select:UTC|Europe/Kyiv|Europe/Berlin|America/New_York)>"
+    ],
+    "setup": [
+      ["brain", "docs", "--download", "https://raw.githubusercontent.com/Xsaven/vector-task-mcp/refs/heads/master/README_AGENTS.md", "--save-as", "vector-task-mcp-agents-docs.md"]
     ]
   },
   "sequential-thinking": {
