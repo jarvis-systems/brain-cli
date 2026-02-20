@@ -14,8 +14,3 @@ if (! function_exists('base_path')) {
         return \BrainCLI\Support\Brain::projectDirectory($path);
     }
 }
-
-
-function fake() {
-    return \Faker\Factory::create();
-}
