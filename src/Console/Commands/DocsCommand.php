@@ -19,6 +19,8 @@ class DocsCommand extends Command
 
     protected $signature = 'docs {keywords?* : Search keywords (OR logic, case-insensitive)}
         {--limit=5 : Max results (0 = unlimited)}
+        {--exact= : Exact phrase search (case-insensitive, use --strict for case-sensitive)}
+        {--strict : Make --exact case-sensitive}
         {--headers=0 : Extract headers with line ranges (1=H1, 2=H1+H2, 3=H1+H2+H3)}
         {--stats : Include file stats (lines, words, size, hash)}
         {--code : Extract code blocks with detected language and line ranges}
@@ -71,6 +73,8 @@ class DocsCommand extends Command
 Quick: brain docs [keywords] [--options]
   brain docs api              Search for "api"
   brain docs api --headers=1  Search with headers
+  brain docs --exact="class not found"  Exact phrase search
+  brain docs --exact="Error" --strict   Case-sensitive exact
   brain docs --update         Refresh downloaded docs
   brain docs --undocumented   Find classes without docs
   brain docs --validate       Validate docs quality
@@ -102,13 +106,20 @@ Output:
   JSON array with: path, name, description, score
   Optional: headers[], stats, code_blocks[], links, keywords[], matches[]
 
+Search Modes:
+  Keywords (default):    brain docs api auth        → OR logic, case-insensitive
+  Exact phrase:          brain docs --exact="class not found"
+  Case-sensitive exact:  brain docs --exact="Error" --strict
+
 Validation (--validate):
   Critical errors: missing YAML, missing name
   Warnings: missing description, short description, empty content, no H1, duplicate names
+  Output: only documents with errors/warnings (valid docs omitted for token efficiency)
 
 Examples:
   brain docs api --headers=2 --stats    Full metadata
   brain docs api --matches              Find where "api" appears
+  brain docs --exact="Class Not Found"  Find exact phrase
   brain docs --download=https://...     Download external doc
   brain docs --validate                 Check docs quality
 
@@ -242,6 +253,18 @@ Output:
   - keywords[] (if --keywords): top 10 frequent terms
   - matches[] (if --matches): keyword, line, context (50 chars around match)
 
+Search Modes:
+  Keywords (default):
+    - OR logic: brain docs api auth → matches "api" OR "auth"
+    - Case-insensitive: API = api = Api
+    - Scoring: name=+10, description=+5, content=+1 per keyword
+  
+  Exact phrase (--exact):
+    - Matches entire phrase as-is: brain docs --exact="class not found"
+    - Case-insensitive by default
+    - Use --strict for case-sensitive: brain docs --exact="Error" --strict
+    - Can combine with keywords for refinement
+
 Validation (--validate):
   Returns JSON with validation results for all .md files in .docs/
   
@@ -291,10 +314,13 @@ Common Patterns:
   Find matches:     brain docs query --matches --limit=1
   Structure only:   brain docs --headers=2 --limit=10
   Validate docs:    brain docs --validate
+  Exact phrase:     brain docs --exact="class not found"
 
 Examples:
   brain docs api                      Search for "api" (limit 5)
   brain docs api auth --limit=10      Search "api" OR "auth", max 10 results
+  brain docs --exact="Class Not Found"              Find exact phrase (case-insensitive)
+  brain docs --exact="Error" --strict               Find "Error" with exact case
   brain docs --headers=2 --stats      List all docs with H1+H2 and stats
   brain docs api --headers=1 --code   Find "api" with headers and code blocks
   brain docs api --matches            Find "api" and show match locations
@@ -319,6 +345,9 @@ Search Logic:
   - Keywords parsed: space/comma separated, empty values filtered
   - Score: name=+10, description=+5, content=+1 per keyword occurrence
   - Ranking: sorted by score DESC, then by path
+  - Exact phrase (--exact): entire phrase must appear in document
+  - Exact case-sensitivity: default insensitive, --strict enables case-sensitive
+  - Exact + Keywords: both conditions must match (AND logic)
 
 Header Detection (--headers):
   - Regex: /^(#{1,6})\s*(.+)$/m
@@ -902,6 +931,17 @@ HELP;
 
         if ($keywords->isNotEmpty() && !$keywords->contains(fn($kw) => Str::contains($contentLower, Str::lower($kw)))) {
             return null;
+        }
+
+        $exactPhrase = $this->option('exact');
+        if ($exactPhrase !== null && $exactPhrase !== '') {
+            $isStrict = $this->option('strict');
+            $searchContent = $isStrict ? $content : $contentLower;
+            $searchPhrase = $isStrict ? $exactPhrase : Str::lower($exactPhrase);
+
+            if (!Str::contains($searchContent, $searchPhrase)) {
+                return null;
+            }
         }
 
         $result = [
