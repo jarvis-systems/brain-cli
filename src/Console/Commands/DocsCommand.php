@@ -30,6 +30,7 @@ class DocsCommand extends Command
         {--download= : Download doc from URL to .docs/sources/}
         {--as= : Filename for --download (default: URL basename)}
         {--update : Update all downloaded docs from their source URLs}
+        {--validate : Validate documentation files for required fields and quality}
     ';
 
     protected $description = 'Index and search .docs folder with rich metadata extraction';
@@ -72,11 +73,13 @@ Quick: brain docs [keywords] [--options]
   brain docs api --headers=1  Search with headers
   brain docs --update         Refresh downloaded docs
   brain docs --undocumented   Find classes without docs
+  brain docs --validate       Validate docs quality
 
 Cognitive Triggers:
   Using --download?     → Security validation runs. See -vv for details.
   Using --matches?      → Need to know WHERE keywords appear. See -vv.
   Using --undocumented? → Found gaps? Create docs. Prioritize by method_count.
+  Using --validate?     → Fix errors first, then warnings.
   No results?           → Try 3+ keyword variations (split CamelCase, strip suffixes).
 
 Tip: -v for usage, -vv for patterns, -vvv for internals.
@@ -99,15 +102,21 @@ Output:
   JSON array with: path, name, description, score
   Optional: headers[], stats, code_blocks[], links, keywords[], matches[]
 
+Validation (--validate):
+  Critical errors: missing YAML, missing name
+  Warnings: missing description, short description, empty content, no H1, duplicate names
+
 Examples:
   brain docs api --headers=2 --stats    Full metadata
   brain docs api --matches              Find where "api" appears
   brain docs --download=https://...     Download external doc
+  brain docs --validate                 Check docs quality
 
 Cognitive Triggers:
   Before writing code?    → Search docs FIRST. Avoid duplicate work.
   Found interesting URL?  → Download, index, store to vector memory.
   Task mentions feature?  → brain docs feature --headers=2 --code
+  Before commit?          → Run --validate, fix critical errors.
 
 Tip: -vv for best practices + use cases. -vvv for detection algorithms.
 HELP;
@@ -233,6 +242,22 @@ Output:
   - keywords[] (if --keywords): top 10 frequent terms
   - matches[] (if --matches): keyword, line, context (50 chars around match)
 
+Validation (--validate):
+  Returns JSON with validation results for all .md files in .docs/
+  
+  Critical errors (document invalid):
+    - Missing YAML front matter (must start with ---)
+    - Missing required field: name
+  
+  Warnings (quality issues):
+    - Missing recommended field: description
+    - Description too short (< 10 characters)
+    - Empty content after YAML
+    - No H1 header in document
+    - Duplicate name across documents
+  
+  Output: {documents: [{path, valid, errors[], warnings[]}], summary: {total, valid, invalid, warnings}}
+
 Security (--download, --update):
   Downloaded content is validated before saving:
   - Max size: 5MB
@@ -265,6 +290,7 @@ Common Patterns:
   Deep analysis:    brain docs query --headers=2 --stats --code --keywords
   Find matches:     brain docs query --matches --limit=1
   Structure only:   brain docs --headers=2 --limit=10
+  Validate docs:    brain docs --validate
 
 Examples:
   brain docs api                      Search for "api" (limit 5)
@@ -274,6 +300,7 @@ Examples:
   brain docs api --matches            Find "api" and show match locations
   brain docs --download=https://raw.githubusercontent.com/owner/repo/README.md
   brain docs --update                 Refresh all downloaded docs
+  brain docs --validate               Check all docs for errors and warnings
 
 ────────────────────────────────────────────────────────────────────────────────
 Internal Details (for debugging/advanced use):
@@ -365,6 +392,11 @@ HELP;
 
         if ($this->option('undocumented')) {
             $this->scanUndocumented();
+            return 0;
+        }
+
+        if ($this->option('validate')) {
+            $this->validateDocs();
             return 0;
         }
 
@@ -505,6 +537,154 @@ HELP;
         $undocumented['total_undocumented'] = count($undocumented['classes']);
 
         $this->line(json_encode($undocumented, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    protected function validateDocs(): void
+    {
+        $docsDir = Brain::projectDirectory('.docs');
+
+        if (!is_dir($docsDir)) {
+            $this->components->error('.docs directory does not exist.');
+            exit(ERROR);
+        }
+
+        $files = File::allFiles($docsDir);
+        $results = [];
+        $allNames = [];
+        $totalValid = 0;
+        $totalInvalid = 0;
+        $totalWarnings = 0;
+
+        foreach ($files as $file) {
+            if (!str_ends_with($file->getPathname(), '.md')) {
+                continue;
+            }
+
+            $content = file_get_contents($file->getPathname());
+            if ($content === false) {
+                continue;
+            }
+
+            $relativePath = '.docs' . DS . $file->getRelativePathname();
+            $errors = [];
+            $warnings = [];
+
+            $hasYaml = preg_match('/^---\s*\n/', $content);
+            if (!$hasYaml) {
+                $errors[] = 'Missing YAML front matter (document must start with ---)';
+            } else {
+                $yamlResult = $this->parseYamlHeader($content, $file->getRelativePathname());
+                
+                if (!isset($yamlResult['name']) || empty(trim($yamlResult['name']))) {
+                    $errors[] = 'Missing required field: name';
+                } else {
+                    $allNames[$relativePath] = $yamlResult['name'];
+                }
+
+                if (!isset($yamlResult['description']) || empty(trim($yamlResult['description']))) {
+                    $warnings[] = 'Missing recommended field: description (reduces search ranking)';
+                } elseif (strlen(trim($yamlResult['description'])) < 10) {
+                    $warnings[] = 'Description is too short (< 10 chars), consider adding more detail';
+                }
+
+                $contentAfterYaml = preg_replace('/^---\s*.*?\s*---\s*/s', '', $content);
+                $contentAfterYaml = trim($contentAfterYaml);
+
+                if (empty($contentAfterYaml)) {
+                    $warnings[] = 'Empty content after YAML front matter';
+                } elseif (!preg_match('/^#\s+.+/m', $contentAfterYaml)) {
+                    $warnings[] = 'No H1 header found in document content';
+                }
+            }
+
+            $isValid = empty($errors);
+            if ($isValid) {
+                $totalValid++;
+            } else {
+                $totalInvalid++;
+            }
+
+            if (!$isValid || !empty($warnings)) {
+                $result = [
+                    'path' => $relativePath,
+                    'valid' => $isValid,
+                ];
+
+                if (!empty($errors)) {
+                    $result['errors'] = $errors;
+                }
+                if (!empty($warnings)) {
+                    $result['warnings'] = $warnings;
+                }
+
+                $results[] = $result;
+            }
+        }
+
+        $duplicateNames = [];
+        $nameCounts = array_count_values($allNames);
+        foreach ($nameCounts as $name => $count) {
+            if ($count > 1) {
+                $duplicateNames[$name] = array_keys($allNames, $name);
+            }
+        }
+
+        if (!empty($duplicateNames)) {
+            foreach ($results as &$result) {
+                $path = $result['path'];
+                if (isset($allNames[$path])) {
+                    $name = $allNames[$path];
+                    if (isset($duplicateNames[$name])) {
+                        if (!isset($result['warnings'])) {
+                            $result['warnings'] = [];
+                        }
+                        $result['warnings'][] = "Duplicate name '{$name}' used in multiple documents";
+                    }
+                }
+            }
+            unset($result);
+
+            foreach ($allNames as $path => $name) {
+                if (!isset($duplicateNames[$name])) {
+                    continue;
+                }
+                $exists = false;
+                foreach ($results as $r) {
+                    if ($r['path'] === $path) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (!$exists) {
+                    $results[] = [
+                        'path' => $path,
+                        'valid' => true,
+                        'warnings' => ["Duplicate name '{$name}' used in multiple documents"],
+                    ];
+                }
+            }
+        }
+
+        $totalWarnings = 0;
+        foreach ($results as $result) {
+            $totalWarnings += count($result['warnings'] ?? []);
+        }
+
+        $output = [
+            'documents' => $results,
+            'summary' => [
+                'total' => count($results),
+                'valid' => $totalValid,
+                'invalid' => $totalInvalid,
+                'warnings' => $totalWarnings,
+            ],
+        ];
+
+        if (!empty($duplicateNames)) {
+            $output['summary']['duplicate_names'] = array_keys($duplicateNames);
+        }
+
+        $this->line(json_encode($output, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     protected function parseKeywords(array $input): Collection

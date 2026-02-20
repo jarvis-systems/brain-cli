@@ -54,4 +54,14 @@ abstract class ClientAbstract implements ClientContract
      * @return array{inputTokens: int, outputTokens: int}|null
      */
     abstract protected function processParseOutputResult(ProcessFactory $factory, array $json): array|null;
+
+    /**
+     * Extract tool_use blocks from process output.
+     *
+     * @return list<array{id: string|null, name: string, input: array|string}>|null
+     */
+    protected function processParseOutputToolUse(ProcessFactory $factory, array $json): array|null
+    {
+        return null;
+    }
 }

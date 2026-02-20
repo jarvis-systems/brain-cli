@@ -8,6 +8,7 @@ use BrainCLI\Dto\Process\Payload;
 use BrainCLI\Dto\ProcessOutput\Init;
 use BrainCLI\Dto\ProcessOutput\Message;
 use BrainCLI\Dto\ProcessOutput\Result;
+use BrainCLI\Dto\ProcessOutput\ToolUse;
 use BrainCLI\Enums\Process\Type;
 use BrainCLI\Services\ProcessFactory;
 
@@ -78,6 +79,14 @@ trait ProcessTrait
                     ...$data,
                     'agent' => $this->agent(),
                 ]);
+            }
+            if ($toolUses = $this->processParseOutputToolUse($factory, $json)) {
+                foreach ($toolUses as $tu) {
+                    $dto[] = ToolUse::fromAssoc([
+                        ...$tu,
+                        'agent' => $this->agent(),
+                    ]);
+                }
             }
             if ($result) {
                 $dto[] = Result::fromAssoc([

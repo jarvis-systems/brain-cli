@@ -234,17 +234,59 @@ class ClaudeClient extends ClientAbstract
     protected function processParseOutputMessage(ProcessFactory $factory, array $json): array|null
     {
         if (
-            isset($json['type'], $json['message']['type'], $json['message']['content'][0]['text'])
-            && $json['type'] === 'assistant' && $json['message']['type'] === 'message'
-            && $json['message']['content'][0]['text']
+            ! isset($json['type'], $json['message']['type'], $json['message']['content'])
+            || $json['type'] !== 'assistant'
+            || $json['message']['type'] !== 'message'
+            || ! is_array($json['message']['content'])
         ) {
-            return [
-                'id' => $json['message']['id'] ?? null,
-                'content' => $json['message']['content'][0]['text'],
-            ];
+            return null;
         }
 
-        return null;
+        $texts = [];
+        foreach ($json['message']['content'] as $block) {
+            if (isset($block['type'], $block['text']) && $block['type'] === 'text' && $block['text'] !== '') {
+                $texts[] = $block['text'];
+            }
+        }
+
+        if ($texts === []) {
+            return null;
+        }
+
+        return [
+            'id' => $json['message']['id'] ?? null,
+            'content' => implode("\n", $texts),
+        ];
+    }
+
+    /**
+     * Extract tool_use blocks from assistant message content.
+     *
+     * @return list<array{id: string|null, name: string, input: array|string}>|null
+     */
+    protected function processParseOutputToolUse(ProcessFactory $factory, array $json): array|null
+    {
+        if (
+            ! isset($json['type'], $json['message']['type'], $json['message']['content'])
+            || $json['type'] !== 'assistant'
+            || $json['message']['type'] !== 'message'
+            || ! is_array($json['message']['content'])
+        ) {
+            return null;
+        }
+
+        $toolUses = [];
+        foreach ($json['message']['content'] as $block) {
+            if (isset($block['type'], $block['name']) && $block['type'] === 'tool_use') {
+                $toolUses[] = [
+                    'id' => $block['id'] ?? null,
+                    'name' => $block['name'],
+                    'input' => $block['input'] ?? [],
+                ];
+            }
+        }
+
+        return $toolUses !== [] ? $toolUses : null;
     }
 
     /**
