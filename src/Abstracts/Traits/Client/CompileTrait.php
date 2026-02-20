@@ -309,16 +309,71 @@ trait CompileTrait
      */
     protected function createMcpContent(Collection $mcp, Data $brain, array|string|null $old): string|array
     {
+        $pins = $this->loadPins();
         $settings = is_array($old) ? $old : [];
         $settings['mcpServers'] = [];
         foreach ($mcp as $file) {
             $server = $file->structure;
             if (is_array($server)) {
                 $name = $file->meta['id'] ?? preg_replace('/(.*)-mcp/', '$1', $file->id);
-                $settings['mcpServers'][$name] = $server;
+                $settings['mcpServers'][$name] = $this->applyPins($server, $pins);
             }
         }
         return $settings;
+    }
+
+    /**
+     * Load version pins from pins.json when PIN_STRICT=1.
+     *
+     * @return array<string, string>  Package name => version map (empty when pinning disabled)
+     */
+    protected function loadPins(): array
+    {
+        if (getenv('PIN_STRICT') !== '1') {
+            return [];
+        }
+
+        $pinsFile = Brain::projectDirectory('pins.json');
+
+        if (! is_file($pinsFile)) {
+            return [];
+        }
+
+        $data = json_decode((string) file_get_contents($pinsFile), true);
+
+        if (! is_array($data)) {
+            return [];
+        }
+
+        unset($data['_meta']);
+
+        return $data;
+    }
+
+    /**
+     * Apply version pins to MCP server args.
+     *
+     * For stdio servers using uvx/pip, pins the first arg (package name)
+     * by appending "==version" suffix when a matching pin exists.
+     *
+     * @param  array<string, mixed>  $server  Server structure from toArray()
+     * @param  array<string, string>  $pins   Package => version map
+     * @return array<string, mixed>  Server structure with pinned args
+     */
+    protected function applyPins(array $server, array $pins): array
+    {
+        if (empty($pins) || ! isset($server['args'][0]) || ! is_string($server['args'][0])) {
+            return $server;
+        }
+
+        $package = $server['args'][0];
+        $version = $pins[$package] ?? null;
+
+        if ($version !== null) {
+            $server['args'][0] = "{$package}=={$version}";
+        }
+
+        return $server;
     }
 
     /**
