@@ -113,10 +113,31 @@ class MakeMcpCommand extends Command
                 'mcpId' => Str::snake($info['name'], '-'),
                 'namespace' => 'BrainNode\\Mcp',
                 'className' => $data['className'],
-                'source' => $this->tabsMultiline(VarExporter::export($data['source'])),
-                'parameters' => $this->tabsMultiline(VarExporter::export($data['parameters'])),
+                'source' => $this->tabsMultiline($this->exportWithDynamicPaths($data['source'])),
+                'parameters' => $this->tabsMultiline($this->exportWithDynamicPaths($data['parameters'])),
             ]
         ];
+    }
+
+    /**
+     * Export value via VarExporter, replacing hardcoded project directory
+     * with dynamic getcwd() so generated MCP files resolve paths
+     * at compile time (brain compile), not at generation time (brain make:mcp).
+     */
+    protected function exportWithDynamicPaths(mixed $value): string
+    {
+        $exported = VarExporter::export($value);
+
+        $projectDir = $this->const['PROJECT_DIRECTORY'] ?? null;
+        if ($projectDir && is_string($projectDir)) {
+            $exported = str_replace(
+                VarExporter::export($projectDir),
+                "getcwd() ?: '.'",
+                $exported
+            );
+        }
+
+        return $exported;
     }
 
     /**

@@ -42,7 +42,7 @@ class ConstantAccessibilityTest extends TestCase
      */
     public function test_screen_uses_constants_not_literals(): void
     {
-        $screenPath = __DIR__ . '/../../../../../src/Console/AiCommands/Lab/Screen.php';
+        $screenPath = __DIR__ . '/../../../../src/Console/AiCommands/Lab/Screen.php';
         $this->assertFileExists($screenPath, 'Screen.php must exist at expected path');
 
         $screenContent = file_get_contents($screenPath);
@@ -83,7 +83,7 @@ class ConstantAccessibilityTest extends TestCase
      */
     public function test_command_line_prompt_emits_own_constants(): void
     {
-        $promptPath = __DIR__ . '/../../../../../src/Console/AiCommands/Lab/Prompts/CommandLinePrompt.php';
+        $promptPath = __DIR__ . '/../../../../src/Console/AiCommands/Lab/Prompts/CommandLinePrompt.php';
         $this->assertFileExists($promptPath, 'CommandLinePrompt.php must exist at expected path');
 
         $promptContent = file_get_contents($promptPath);

@@ -1,0 +1,50 @@
+parameters:
+    level: 0
+    paths:
+        - src
+    bootstrapFiles:
+        - phpstan-constants.php
+    excludePaths:
+        - src/Console/AiCommands/LabCommand.php.dump
+        - src/Console/Commands/stubs
+        - src/Console/AiCommands/stubs
+        - src/Services/Clients/stubs
+        # Excluded: match() arms with early returns — PHPStan can't suppress
+        - src/Console/Commands/MakeMcpCommand.php
+        # Excluded: bfg/dto base method override pattern — not suppressible
+        - src/Dto/Person.php
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # Brain Facade magic static calls — no larastan installed
+        # Roadmap: Add @method PHPDoc to Brain facade or install larastan
+        -
+            identifier: staticMethod.notFound
+            message: '#BrainCLI\\Support\\Brain#'
+
+        # new static() pattern — same as core package
+        -
+            identifier: new.static
+
+        # bfg/dto write-only properties — DTO pattern
+        -
+            identifier: property.writeOnly
+
+        # Missing function parameter — Lab/Prompts commandline() has optional $options
+        -
+            identifier: argument.missing
+            path: src/Console/AiCommands/BoardCommand.php
+
+        # Non-static access to static property in Laravel Prompts override
+        -
+            identifier: staticProperty.nonStaticAccess
+            path: src/Console/AiCommands/Lab/Prompts/CommandLinePrompt.php
+
+        # Screen::line() inherited via trait at runtime
+        -
+            identifier: method.notFound
+            path: src/Console/AiCommands/Lab/Screen.php
+
+        # PHP 8.0 deprecation: required param after optional — TUI constructor order
+        -
+            identifier: parameter.requiredAfterOptional
+            path: src/Console/AiCommands/TUI/Screen.php

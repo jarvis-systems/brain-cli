@@ -20,7 +20,7 @@ trait ProcessTrait
     public function process(Type $type): ProcessFactory
     {
         return new ProcessFactory(
-            type: Type::RUN,
+            type: $type,
             compiler: $this,
             payload: $this->processPayload(Payload::fromEmpty()),
             command: $this->command,

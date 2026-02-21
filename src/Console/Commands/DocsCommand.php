@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Services\Docs\ContentScorer;
+use BrainCLI\Services\Docs\DocScaffolder;
+use BrainCLI\Services\Docs\DriftDetector;
+use BrainCLI\Services\Docs\MarkdownParser;
+use BrainCLI\Services\Docs\SecurityValidator;
+use BrainCLI\Services\Docs\UndocumentedScanner;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -33,9 +39,21 @@ class DocsCommand extends Command
         {--as= : Filename for --download (default: URL basename)}
         {--update : Update all downloaded docs from their source URLs}
         {--validate : Validate documentation files for required fields and quality}
+        {--scaffold= : Scaffold doc files for undocumented classes (or specific class name)}
     ';
 
     protected $description = 'Index and search .docs folder with rich metadata extraction';
+
+    public function __construct(
+        protected MarkdownParser $markdownParser,
+        protected ContentScorer $contentScorer,
+        protected SecurityValidator $securityValidator,
+        protected UndocumentedScanner $undocumentedScanner,
+        protected DocScaffolder $docScaffolder,
+        protected DriftDetector $driftDetector,
+    ) {
+        parent::__construct();
+    }
 
     public function getHelp(): string
     {
@@ -77,12 +95,17 @@ Quick: brain docs [keywords] [--options]
   brain docs --exact="Error" --strict   Case-sensitive exact
   brain docs --update         Refresh downloaded docs
   brain docs --undocumented   Find classes without docs
+  brain docs --scaffold       Scaffold docs for ALL undocumented classes
+  brain docs --scaffold=Name  Scaffold doc for specific class
   brain docs --validate       Validate docs quality
 
+Formats: .md, .mdx
+
 Cognitive Triggers:
-  Using --download?     → Security validation runs. See -vv for details.
+  Using --download?     → 3-layer security validation runs. See -vv for details.
   Using --matches?      → Need to know WHERE keywords appear. See -vv.
-  Using --undocumented? → Found gaps? Create docs. Prioritize by method_count.
+  Using --undocumented? → Polyglot scan (PHP/JS/TS/Python/Go). Prioritize by method_count.
+  Using --scaffold?     → Auto-generate doc stubs. Never overwrites existing files.
   Using --validate?     → Fix errors first, then warnings.
   No results?           → Try 3+ keyword variations (split CamelCase, strip suffixes).
 
@@ -102,31 +125,70 @@ YAML Front Matter (recommended):
   date: 2025-02-19
   ---
 
+Fallback (for legacy docs without YAML):
+  - Name: First header — ATX (#) or setext (underline ===, ---)
+    Scoring: H1=+7, H2=+6, H3=+5, etc.
+  - Description: First paragraph (≥5 words, +3 score)
+  - Indicators: _auto_name (header level), _auto_description (true)
+
 Output:
   JSON array with: path, name, description, score
   Optional: headers[], stats, code_blocks[], links, keywords[], matches[]
+
+Scoring:
+  YAML name match: +10, YAML description: +5
+  Auto name: H1=+7 to H6=+2, Auto description: +3
+  Content: frequency-based log2 scaling (1 match=1pt, 7=3pt, 50+=~6pt, max=10pt)
 
 Search Modes:
   Keywords (default):    brain docs api auth        → OR logic, case-insensitive
   Exact phrase:          brain docs --exact="class not found"
   Case-sensitive exact:  brain docs --exact="Error" --strict
 
+Headers (--headers):
+  ATX (# Title) and setext (Title\n===) supported. Code-block aware.
+
+Code Blocks (--code):
+  30+ languages detected. Aliases: js→javascript, ts→typescript, py→python, sh→bash
+  Undeclared+undetected blocks included without language key (not dropped).
+
+Security (--download, --update):
+  3-layer: unicode normalization → 15+ injection patterns → base64 decode+rescan
+
+Undocumented (--undocumented):
+  Polyglot scanner: PHP, JavaScript/TypeScript, Python, Go
+  Configurable directories via DOCS_SCAN_DIRS env variable
+
 Validation (--validate):
   Critical errors: missing YAML, missing name
   Warnings: missing description, short description, empty content, no H1, duplicate names
-  Output: only documents with errors/warnings (valid docs omitted for token efficiency)
+  Drift detection: cross-references ### method headers under ## Methods with actual source code
+    - Requires > **Source:** `path` line (scaffold template format)
+    - Detects: methods documented but renamed/deleted in source code
+    - Skips: docs without ## Methods section or Source reference
+
+Scaffold (--scaffold):
+  brain docs --scaffold              Scaffold ALL undocumented classes (respects --limit)
+  brain docs --scaffold=ClassName    Scaffold specific class
+  Output: JSON with created/skipped arrays, never overwrites existing files
+  Template: YAML front matter + H1 + FQN + Source + Overview + Methods stubs
+
+File Support:
+  Formats: .md, .mdx (MDX with React/JSX components supported)
 
 Examples:
   brain docs api --headers=2 --stats    Full metadata
   brain docs api --matches              Find where "api" appears
   brain docs --exact="Class Not Found"  Find exact phrase
   brain docs --download=https://...     Download external doc
+  brain docs --scaffold --limit=5       Scaffold up to 5 undocumented classes
   brain docs --validate                 Check docs quality
 
 Cognitive Triggers:
   Before writing code?    → Search docs FIRST. Avoid duplicate work.
   Found interesting URL?  → Download, index, store to vector memory.
   Task mentions feature?  → brain docs feature --headers=2 --code
+  Found gaps?             → brain docs --scaffold to auto-generate stubs.
   Before commit?          → Run --validate, fix critical errors.
 
 Tip: -vv for best practices + use cases. -vvv for detection algorithms.
@@ -144,24 +206,63 @@ YAML Front Matter (optional but recommended):
   url: https://example.com/docs/source.md  (required for --update)
   date: 2025-02-19
   ---
-  
+
   Documents without YAML still work, but lack name/description in output.
-  Only .md files with valid url in YAML can be updated via --update.
+  Only .md/.mdx files with valid url in YAML can be updated via --update.
 
 Update Behavior (--update):
-  Scans ALL .md files in .docs/ (not just sources/), finds those with valid url
+  Scans ALL .md/.mdx files in .docs/ (not just sources/), finds those with valid url
   in YAML, downloads fresh content, preserves existing YAML fields, updates date.
 
 Output:
   JSON array with documents matching keywords. Each document includes:
   - path, name, description (from YAML front matter)
-  - score (10=keyword in name, 5=in description, 1=in content)
+  - score (frequency-based: YAML name=+10, desc=+5, content=log2 scaled, max 10pt/keyword)
   - headers[] (if --headers): text, start_line, end_line, snippet?
   - stats (if --stats): lines, words, size, hash, modified
-  - code_blocks[] (if --code): language, start_line, end_line (detected, no "text")
+  - code_blocks[] (if --code): language, start_line, end_line (or no language key if undetected)
   - links (if --links): internal[], external[]
   - keywords[] (if --keywords): top 10 frequent terms
   - matches[] (if --matches): keyword, line, context (50 chars around match)
+
+Header Detection (--headers):
+  - ATX headers: # H1, ## H2, ### H3 (code-block aware — headers inside ``` ignored)
+  - Setext headers: Title\n==== (H1), Title\n---- (H2) with YAML/table guards
+  - Level filtering: --headers=1 (H1 only), =2 (H1+H2), =3 (H1+H2+H3)
+
+Code Language Detection (--code):
+  - 30+ languages via CodeLanguage enum with 60+ aliases (js→javascript, ts→typescript, etc.)
+  - Declared language trusted as-is; undeclared uses heuristic rules
+  - Undetected blocks included WITHOUT language key (never dropped)
+
+Security (--download, --update):
+  3-layer validation pipeline:
+    Layer 1: Unicode normalization (NFKC + homoglyph map + zero-width stripping + HTML entity decode)
+    Layer 2: 15+ injection patterns (prompt injection, script/protocol, event handlers, iframes, forms)
+    Layer 3: Base64 detection (40+ char strings decoded and re-scanned through Layer 2)
+
+Undocumented Scan (--undocumented):
+  Polyglot scanner: PHP, JavaScript/TypeScript, Python, Go
+  - PHP: class, abstract class, public methods (excluding __magic)
+  - JS/TS: class, export class, export function
+  - Python: class, def (excluding _private)
+  - Go: type struct, func
+  Configurable directories: DOCS_SCAN_DIRS env (comma-separated), fallback: src/,app/,lib/,classes/,node/
+  Sort: method_count DESC — most complex classes first (prioritize tech debt)
+
+Scaffold (--scaffold):
+  Generates documentation stubs for undocumented classes.
+  - brain docs --scaffold              Scaffold ALL undocumented (respects --limit, default 20)
+  - brain docs --scaffold=ClassName    Scaffold specific class (scans unlimited to find it)
+  - Never overwrites existing .docs/*.md files (skip with warning)
+  - Template: YAML front matter → H1 → FQN/Source → Overview → Methods stubs
+  - Output: JSON {created: [], skipped: [], total_created, total_skipped}
+  - Workflow: --undocumented → review → --scaffold → --validate → commit
+
+MDX Support:
+  Both .md and .mdx files are indexed, searched, and validated.
+  MDX files may contain JSX components (<Component />) — these are treated as regular
+  non-header, non-code-block content. Header and code block parsing is unaffected.
 
 Best Practices:
   1. Always add YAML with name/description for better search ranking
@@ -176,33 +277,34 @@ Use Cases:
     2. Search locally: brain docs topic --headers=2
     3. Store insights to vector memory
     → TRIGGER: After download, always check security (-vv). After search, store to memory.
-  
+
   Documentation Indexing:
     1. Download package docs
     2. brain docs <term> --headers=2 --code --matches
     3. Get structured overview with code examples
     → TRIGGER: Missing docs for your code? Create them. Use /doc:work.
-  
+
   Code Research:
     1. brain docs <feature> --matches
     2. Find WHERE in docs feature is mentioned
     3. Read specific lines, not entire file
     → TRIGGER: No matches? Try 3+ keyword variations (aggressive search).
-  
+
   Documentation Gap Analysis:
     1. brain docs --undocumented
-    2. Get list of classes without documentation
+    2. Get polyglot list of classes/structs without documentation
     3. Prioritize by method_count (most complex first)
-    → TRIGGER: Found undocumented classes? Create docs. Start with highest method_count.
+    4. brain docs --scaffold to auto-generate stubs
+    5. brain docs --validate to verify generated files
+    → TRIGGER: Found undocumented classes? Run --scaffold. Then fill TODOs.
 
 Cognitive Triggers (NLP for AI):
   BEFORE code changes:  brain docs <topic> → found? → read first. not found? → proceed.
   AFTER code changes:   Document what changed. If no doc exists → create one.
   DURING research:      Download interesting docs → index → store insights to memory.
-  ON download:          Security validated automatically. Blocked patterns logged.
+  ON download:          3-layer security validated automatically. Blocked patterns logged.
   ON no results:        Split CamelCase, strip suffixes (Test, Controller), try parent context.
   ON task completion:   Run --undocumented. Found gaps? → log in task comment.
-  ON no results:        Split CamelCase, strip suffixes (Test, Controller), try parent context.
 
 Common Patterns:
   Quick search:     brain docs query --limit=3
@@ -218,6 +320,8 @@ Examples:
   brain docs api --matches            Find "api" and show match locations
   brain docs --download=https://raw.githubusercontent.com/owner/repo/README.md
   brain docs --update                 Refresh all downloaded docs
+  brain docs --scaffold               Scaffold docs for all undocumented classes
+  brain docs --scaffold=UserService   Scaffold doc for specific class
 
 Tip: Use -vvv for internal details (detection logic, edge cases, etc).
 HELP;
@@ -234,21 +338,21 @@ YAML Front Matter (optional but recommended):
   url: https://example.com/docs/source.md  (required for --update)
   date: 2025-02-19
   ---
-  
+
   Documents without YAML still work, but lack name/description in output.
-  Only .md files with valid url in YAML can be updated via --update.
+  Only .md/.mdx files with valid url in YAML can be updated via --update.
 
 Update Behavior (--update):
-  Scans ALL .md files in .docs/ (not just sources/), finds those with valid url
+  Scans ALL .md/.mdx files in .docs/ (not just sources/), finds those with valid url
   in YAML, downloads fresh content, preserves existing YAML fields, updates date.
 
 Output:
   JSON array with documents matching keywords. Each document includes:
   - path, name, description (from YAML front matter)
-  - score (10=keyword in name, 5=in description, 1=in content)
+  - score (10=keyword in name, 5=in description, frequency-based content scoring)
   - headers[] (if --headers): text, start_line, end_line, snippet?
   - stats (if --stats): lines, words, size, hash, modified
-  - code_blocks[] (if --code): language, start_line, end_line (detected, no "text")
+  - code_blocks[] (if --code): language, start_line, end_line (detected or no language key)
   - links (if --links): internal[], external[]
   - keywords[] (if --keywords): top 10 frequent terms
   - matches[] (if --matches): keyword, line, context (50 chars around match)
@@ -257,8 +361,9 @@ Search Modes:
   Keywords (default):
     - OR logic: brain docs api auth → matches "api" OR "auth"
     - Case-insensitive: API = api = Api
-    - Scoring: name=+10, description=+5, content=+1 per keyword
-  
+    - Scoring: YAML name=+10, YAML desc=+5, auto name=+2-7, auto desc=+3
+    - Content scoring: frequency-based with log2 scaling (1 match=1pt, 7=3pt, 50+=~6pt, max=10pt)
+
   Exact phrase (--exact):
     - Matches entire phrase as-is: brain docs --exact="class not found"
     - Case-insensitive by default
@@ -267,27 +372,42 @@ Search Modes:
 
 Validation (--validate):
   Returns JSON with validation results for all .md files in .docs/
-  
+
   Critical errors (document invalid):
     - Missing YAML front matter (must start with ---)
     - Missing required field: name
-  
+
   Warnings (quality issues):
     - Missing recommended field: description
     - Description too short (< 10 characters)
     - Empty content after YAML
     - No H1 header in document
     - Duplicate name across documents
-  
+    - Documentation drift: method documented but renamed/deleted in source code
+
+  Drift detection (during --validate):
+    - Cross-references ### method headers under ## Methods with actual source code
+    - Requires > **Source:** `path` line in document (scaffold template format)
+    - Detects: methods documented but renamed/deleted in source code
+    - Skips: docs without ## Methods section or Source reference
+
   Output: {documents: [{path, valid, errors[], warnings[]}], summary: {total, valid, invalid, warnings}}
 
 Security (--download, --update):
-  Downloaded content is validated before saving:
-  - Max size: 5MB
-  - URL scheme: http/https only (no file://, ftp://)
-  - Blocked: prompt injection, script injection, event handlers
-  - Warning: unusual AI-related terms flagged for review
-  - If blocked: download rejected with error message
+  3-layer validation:
+    Layer 1: Unicode normalization (NFKC + zero-width stripping + HTML entity decode)
+    Layer 2: 15+ injection patterns (prompt, script, protocol, element, event handlers)
+    Layer 3: Base64 detection (40+ char strings decoded and re-scanned)
+
+  Blocked patterns:
+    - "ignore (all) previous/above instructions/prompts/rules"
+    - "forget instructions/prompts/rules/context"
+    - "system: you are now" / "new system prompt"
+    - "you are now a/an/the" / "act as" / "pretend to be"
+    - "<script", "javascript:", "data:text/html", "vbscript:"
+    - Event handlers (onload, onclick, onerror, onfocus, etc)
+    - <iframe>, <embed>, <object>, <form action=>, <meta http-equiv=>
+    - Base64-encoded injection payloads
 
 Best Practices:
   1. Always add YAML with name/description for better search ranking
@@ -302,7 +422,7 @@ Use Cases:
     2. brain docs --download=<url> --as=topic.md
     3. Search locally: brain docs topic --headers=2
     4. Store insights to vector memory for future reference
-  
+
   Documentation Indexing:
     1. Download multiple package docs
     2. brain docs <term> --headers=2 --code --matches
@@ -315,6 +435,8 @@ Common Patterns:
   Structure only:   brain docs --headers=2 --limit=10
   Validate docs:    brain docs --validate
   Exact phrase:     brain docs --exact="class not found"
+  Scaffold all:     brain docs --scaffold
+  Scaffold one:     brain docs --scaffold=ClassName
 
 Examples:
   brain docs api                      Search for "api" (limit 5)
@@ -327,43 +449,42 @@ Examples:
   brain docs --download=https://raw.githubusercontent.com/owner/repo/README.md
   brain docs --update                 Refresh all downloaded docs
   brain docs --validate               Check all docs for errors and warnings
+  brain docs --scaffold               Scaffold docs for all undocumented classes
+  brain docs --scaffold=UserService   Scaffold doc for specific class
+
+Note: Legacy docs without YAML get auto name/description from headers/paragraphs.
 
 ────────────────────────────────────────────────────────────────────────────────
 Internal Details (for debugging/advanced use):
 ────────────────────────────────────────────────────────────────────────────────
 
-Security Patterns Blocked:
-  - "ignore (all) previous/above instructions/prompts/rules"
-  - "system: you are now"
-  - "disregard (all) previous/above"
-  - "<script" tags
-  - "javascript:" protocol
-  - Event handlers (onload, onclick, onerror, etc)
-
 Search Logic:
   - Keywords: OR logic, case-insensitive, partial match allowed
   - Keywords parsed: space/comma separated, empty values filtered
-  - Score: name=+10, description=+5, content=+1 per keyword occurrence
+  - Score weights:
+    * YAML name: +10, auto name: H1=+7, H2=+6, H3=+5, H4=+4, H5=+3, H6=+2
+    * YAML description: +5, auto description (first paragraph): +3
+    * Content frequency: min(ceil(log2(count + 1)), 10) per keyword
   - Ranking: sorted by score DESC, then by path
   - Exact phrase (--exact): entire phrase must appear in document
   - Exact case-sensitivity: default insensitive, --strict enables case-sensitive
   - Exact + Keywords: both conditions must match (AND logic)
 
 Header Detection (--headers):
-  - Regex: /^(#{1,6})\s*(.+)$/m
+  - ATX headers: /^(#{1,6})\s+(.+)$/ (code-block aware)
+  - Setext headers: Title\n==== (H1), Title\n---- (H2)
+  - Setext guards: previous line not empty/header/table/separator/underline
   - Level filtering: 1=H1 only, 2=H1+H2, 3=H1+H2+H3
   - end_line: line before next header of same or higher level
   - Snippet extraction: skips code blocks, empty lines, tables, YAML "---"
 
 Code Language Detection (--code):
   Order of detection:
-    1. Declared language (```json, ```php, etc)
-    2. JSON: starts with { or [
-    3. PHP: <?php or namespace keyword
-    4. Python: def/class/import/from keywords
-    5. JavaScript: function/const/let keywords or => arrow
-    6. Bash: common CLI commands (git, npm, composer, etc)
-    7. Unknown: excluded from output (not shown as "text")
+    1. Declared language (```json, ```php, etc) — resolved via CodeLanguage enum
+    2. Heuristic rules (30+ languages, ordered by specificity)
+    3. Undeclared + undetected: block included WITHOUT language key
+
+  Language aliases: js→javascript, ts→typescript, py→python, sh→bash, etc.
 
 Match Context (--matches):
   - Context: 25 chars before + keyword + 25 chars after
@@ -371,7 +492,7 @@ Match Context (--matches):
   - Line number: 1-indexed
 
 Snippet Cleaning (--snippets):
-  - Removed: YAML "---", empty lines, code blocks, table rows (|)
+  - Removed: YAML "---", empty lines, code blocks, table rows (|), setext underlines
   - Max lines: 5 content lines
   - Max chars: 200 characters
   - Whitespace: collapsed to single space
@@ -382,25 +503,47 @@ Keyword Extraction (--keywords):
   - Output: top 10 by frequency
 
 Undocumented Scan (--undocumented):
-  - Scans: src/, app/, lib/, classes/ for .php files
-  - Extracts: class names, FQN, public methods (excluding __magic)
-  - Cross-references: checks if class name appears in any .docs/*.md
+  - Polyglot: PHP, JavaScript/TypeScript, Python, Go
+  - Scans: src/, app/, lib/, classes/, node/, cli/src/, core/src/ (configurable via DOCS_SCAN_DIRS env)
+  - Extracts: classes/structs, public methods/functions
+  - Cross-references: checks if class name appears in any .docs/*.md or .docs/*.mdx
   - Sort: by method_count DESC (most complex classes first)
   - Output: {classes: [{class, fqn, file, methods[], method_count}], total_scanned, total_undocumented}
-  - Use: identify documentation gaps before/after code changes
+
+Scaffold (--scaffold):
+  - Invokes UndocumentedScanner internally, then generates .docs/*.md files
+  - Template structure: YAML front matter → H1 → FQN/Source blockquote → Overview → Methods
+  - YAML fields: name (class name), description ("API reference for ..."), type ("api"), date
+  - Methods: each public method gets ### heading + <!-- TODO --> placeholder
+  - File naming: .docs/{ClassName}.md
+  - Safety: never overwrites existing files (skip + reason in output)
+  - --scaffold without value: scaffold ALL undocumented (respects --limit)
+  - --scaffold=Name: scaffold specific class (case-insensitive match, scans unlimited)
+  - Output: {created: [{class, path, methods}], skipped: [{class, path, reason}], total_created, total_skipped}
+
+Drift Detection (during --validate):
+  - Cross-references ### method headers under ## Methods with actual source code
+  - Requires > **Source:** `path` line in document (scaffold template format)
+  - Detects: methods documented but renamed/deleted in source code (stale methods)
+  - Skips: docs without ## Methods section or Source reference (non-scaffold docs)
+  - Language support: PHP, JavaScript/TypeScript, Python, Go (same as --undocumented)
+  - Method extraction: same regex patterns as UndocumentedScanner (excluding __magic and _private)
+  - Output: warnings[] with "Documentation drift: method 'X' documented but not found in source (path)"
 
 File Support:
-  - Formats: .md only (html/txt mentioned but .md enforced)
+  - Formats: .md, .mdx (MDX with React/JSX components)
+  - MDX handling: JSX tags treated as non-header, non-code-block content. Parser ignores them.
   - Encoding: UTF-8 expected
   - YAML parser: Symfony Yaml component
 
 Edge Cases:
   - No YAML header: returns [] for name/description, score from content only
-  - Invalid YAML: error logged, file excluded from results
+  - Invalid YAML: warning logged, file indexed without metadata (auto_name/auto_description fallback)
   - Empty file: excluded from results
   - No keywords: returns all files (up to --limit)
   - Duplicate paths: unique by path
   - Security block: download/update rejected with reason
+  - MDX JSX components: ignored by header/code block parsers, treated as regular text
 
 HELP;
     }
@@ -426,6 +569,11 @@ HELP;
 
         if ($this->option('validate')) {
             $this->validateDocs();
+            return 0;
+        }
+
+        if ($this->hasScaffoldOption()) {
+            $this->scaffoldDocs();
             return 0;
         }
 
@@ -455,117 +603,37 @@ HELP;
 
     protected function scanUndocumented(): void
     {
-        $projectDir = Brain::projectDirectory();
-        $docsDir = Brain::projectDirectory('.docs');
+        $limit = (int) $this->option('limit') ?: 20;
+        $result = $this->undocumentedScanner->scan($limit);
 
-        $existingDocs = [];
-        if (is_dir($docsDir)) {
-            $docFiles = File::allFiles($docsDir);
-            foreach ($docFiles as $file) {
-                if (!str_ends_with($file->getPathname(), '.md')) {
-                    continue;
-                }
-                $content = file_get_contents($file->getPathname());
-                if ($content) {
-                    preg_match_all('/\b([A-Z][a-zA-Z]+(?:Controller|Service|Repository|Model|Helper|Factory|Provider|Middleware|Command|Job|Event|Listener|Policy|Request|Resource|Exception|Master|Trait|Include|Skill|Mcp))\b/', $content, $classMatches);
-                    $existingDocs = array_merge($existingDocs, $classMatches[1] ?? []);
-                }
-            }
-        }
-        $existingDocs = array_unique($existingDocs);
+        $this->line(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
 
-        $scanDirs = [];
-        foreach (['src', 'app', 'lib', 'classes', 'node'] as $dir) {
-            $fullPath = $projectDir . DS . $dir;
-            if (is_dir($fullPath)) {
-                $scanDirs[] = $fullPath;
-            }
-        }
+    protected function scaffoldDocs(): void
+    {
+        $scaffoldValue = $this->option('scaffold');
+        $limit = (int) $this->option('limit') ?: 20;
 
-        foreach (['cli', 'core'] as $package) {
-            $packageSrc = $projectDir . DS . $package . DS . 'src';
-            if (is_dir($packageSrc)) {
-                $scanDirs[] = $packageSrc;
+        // When --scaffold without value, scan all; when --scaffold=Name, scan unlimited to find the class
+        $scanLimit = (is_string($scaffoldValue) && $scaffoldValue !== '') ? 0 : $limit;
+        $scanResult = $this->undocumentedScanner->scan($scanLimit);
+        $classes = $scanResult['classes'];
+
+        if (is_string($scaffoldValue) && $scaffoldValue !== '') {
+            $classes = array_values(array_filter(
+                $classes,
+                fn(array $c) => strcasecmp($c['class'], $scaffoldValue) === 0,
+            ));
+
+            if (empty($classes)) {
+                $this->components->warn("Class '{$scaffoldValue}' not found in undocumented scan results.");
+                return;
             }
         }
 
-        $undocumented = [
-            'classes' => [],
-            'total_scanned' => 0,
-            'scan_dirs' => array_map(fn($d) => str_replace($projectDir, '', $d), $scanDirs),
-        ];
+        $result = $this->docScaffolder->scaffoldAll($classes);
 
-        $excludePatterns = [
-            '/vendor/',
-            '/.git/',
-            '/node_modules/',
-            '/.idea/',
-            '/storage/',
-            '/cache/',
-        ];
-
-        foreach ($scanDirs as $scanDir) {
-            $phpFiles = File::allFiles($scanDir);
-
-            foreach ($phpFiles as $file) {
-                $filePath = $file->getPathname();
-
-                $skip = false;
-                foreach ($excludePatterns as $pattern) {
-                    if (Str::contains($filePath, $pattern)) {
-                        $skip = true;
-                        break;
-                    }
-                }
-                if ($skip) {
-                    continue;
-                }
-
-                if (!str_ends_with($filePath, '.php')) {
-                    continue;
-                }
-
-                $undocumented['total_scanned']++;
-                $content = file_get_contents($filePath);
-                if (!$content) {
-                    continue;
-                }
-
-                preg_match('/namespace\s+([^;]+);/', $content, $nsMatch);
-                preg_match('/^(?:abstract\s+)?class\s+(\w+)/m', $content, $classMatch);
-
-                if ($classMatch) {
-                    $className = $classMatch[1];
-                    $fqn = ($nsMatch[1] ?? '') . '\\' . $className;
-                    $isDocumented = in_array($className, $existingDocs);
-
-                    if (!$isDocumented) {
-                        $publicMethods = [];
-                        preg_match_all('/public\s+function\s+(\w+)\s*\(/', $content, $methodMatches);
-
-                        foreach ($methodMatches[1] ?? [] as $method) {
-                            if (!Str::startsWith($method, '__')) {
-                                $publicMethods[] = $method;
-                            }
-                        }
-
-                        $undocumented['classes'][] = [
-                            'class' => $className,
-                            'fqn' => $fqn,
-                            'file' => str_replace($projectDir, '', $filePath),
-                            'methods' => $publicMethods,
-                            'method_count' => count($publicMethods),
-                        ];
-                    }
-                }
-            }
-        }
-
-        usort($undocumented['classes'], fn($a, $b) => $b['method_count'] <=> $a['method_count']);
-        $undocumented['classes'] = array_slice($undocumented['classes'], 0, (int)$this->option('limit') ?: 20);
-        $undocumented['total_undocumented'] = count($undocumented['classes']);
-
-        $this->line(json_encode($undocumented, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     protected function validateDocs(): void
@@ -582,10 +650,9 @@ HELP;
         $allNames = [];
         $totalValid = 0;
         $totalInvalid = 0;
-        $totalWarnings = 0;
 
         foreach ($files as $file) {
-            if (!str_ends_with($file->getPathname(), '.md')) {
+            if (!$this->isMarkdownFile($file->getPathname())) {
                 continue;
             }
 
@@ -603,7 +670,7 @@ HELP;
                 $errors[] = 'Missing YAML front matter (document must start with ---)';
             } else {
                 $yamlResult = $this->parseYamlHeader($content, $file->getRelativePathname());
-                
+
                 if (!isset($yamlResult['name']) || empty(trim($yamlResult['name']))) {
                     $errors[] = 'Missing required field: name';
                 } else {
@@ -623,6 +690,14 @@ HELP;
                     $warnings[] = 'Empty content after YAML front matter';
                 } elseif (!preg_match('/^#\s+.+/m', $contentAfterYaml)) {
                     $warnings[] = 'No H1 header found in document content';
+                }
+            }
+
+            // Drift detection: cross-reference documented methods with source code
+            $drift = $this->driftDetector->detect($content, Brain::projectDirectory());
+            if ($drift !== null) {
+                foreach ($drift['stale_methods'] as $method) {
+                    $warnings[] = "Documentation drift: method '{$method}' documented but not found in source ({$drift['source']})";
                 }
             }
 
@@ -728,7 +803,7 @@ HELP;
 
     protected function updateDocsSources(): void
     {
-        $docsDir = base_path('.docs');
+        $docsDir = Brain::projectDirectory('.docs');
 
         if (!is_dir($docsDir)) {
             $this->components->error('.docs directory does not exist.');
@@ -740,7 +815,7 @@ HELP;
         $skipped = 0;
 
         foreach ($files as $file) {
-            if (!str_ends_with($file->getPathname(), '.md')) {
+            if (!$this->isMarkdownFile($file->getPathname())) {
                 continue;
             }
 
@@ -778,7 +853,7 @@ HELP;
                 continue;
             }
 
-            $validation = $this->validateDownloadedContent($downloaded, $url);
+            $validation = $this->securityValidator->validate($downloaded, $url);
             if (!$validation['valid']) {
                 $this->components->error("Security: {$file->getRelativePathname()} - {$validation['reason']}");
                 continue;
@@ -821,7 +896,7 @@ HELP;
             exit(ERROR);
         }
 
-        $validation = $this->validateDownloadedContent($content, $url);
+        $validation = $this->securityValidator->validate($content, $url);
         if (!$validation['valid']) {
             $this->components->error("Security: {$validation['reason']}");
             exit(ERROR);
@@ -830,7 +905,7 @@ HELP;
             $this->components->warn("Warning: " . implode(', ', $validation['warnings']));
         }
 
-        $sourcesDir = base_path('.docs/sources');
+        $sourcesDir = Brain::projectDirectory('.docs/sources');
         if (!is_dir($sourcesDir)) {
             mkdir($sourcesDir, 0755, true);
         }
@@ -851,50 +926,6 @@ HELP;
         return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($content))));
     }
 
-    protected function validateDownloadedContent(string $content, string $url): array
-    {
-        $warnings = [];
-
-        if (strlen($content) > 5 * 1024 * 1024) {
-            return ['valid' => false, 'reason' => 'File too large (max 5MB)', 'warnings' => []];
-        }
-
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (!in_array($scheme, ['http', 'https'])) {
-            return ['valid' => false, 'reason' => "Invalid URL scheme: {$scheme}", 'warnings' => []];
-        }
-
-        $suspiciousPatterns = [
-            '/ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)/i' => 'prompt injection attempt',
-            '/system\s*:\s*you\s+are\s+now/i' => 'system prompt override',
-            '/disregard\s+(all\s+)?(previous|above)/i' => 'instruction bypass',
-            '/\<\s*script\s+/i' => 'script injection',
-            '/javascript\s*:/i' => 'javascript protocol',
-            '/on(load|error|click|mouse)\s*=/i' => 'event handler injection',
-        ];
-
-        $contentLower = Str::lower($content);
-        foreach ($suspiciousPatterns as $pattern => $type) {
-            if (preg_match($pattern, $content)) {
-                return ['valid' => false, 'reason' => "Detected {$type}", 'warnings' => []];
-            }
-        }
-
-        $cautionPatterns = [
-            '/\b(instruction|prompt|system|override|bypass)\b/i' => 'contains AI-related terms',
-            '/TODO|FIXME|XXX/i' => 'contains development markers',
-        ];
-
-        foreach ($cautionPatterns as $pattern => $type) {
-            if (preg_match($pattern, $content) && substr_count($contentLower, preg_match('/\(instruction|prompt\b/i', $content) ? 'instruction' : 'prompt') > 3) {
-                $warnings[] = $type;
-                break;
-            }
-        }
-
-        return ['valid' => true, 'reason' => null, 'warnings' => $warnings];
-    }
-
     /**
      * @param  Collection<int, string>  $keywords
      * @return array<int, array<string, mixed>>
@@ -908,7 +939,7 @@ HELP;
             ->unique('path')
             ->when($keywords->isNotEmpty(), fn($c) => $c->sortByDesc('score'))
             ->values()
-            ->when($this->option('limit') > 0, fn($c) => $c->take((int)$this->option('limit')))
+            ->when($this->option('limit') > 0, fn($c) => $c->take((int) $this->option('limit')))
             ->toArray();
     }
 
@@ -918,7 +949,7 @@ HELP;
      */
     protected function processFile(SplFileInfo $file, Collection $keywords): ?array
     {
-        if (!str_ends_with($file->getPathname(), '.md')) {
+        if (!$this->isMarkdownFile($file->getPathname())) {
             return null;
         }
 
@@ -948,22 +979,54 @@ HELP;
             'path' => '.docs' . DS . $file->getRelativePathname(),
         ];
 
-        $result = array_merge($result, $this->parseYamlHeader($content, $file->getRelativePathname()));
-        $result['score'] = $keywords->isNotEmpty() ? $this->calculateScore($keywords, $result, $contentLower) : 0;
+        $yamlData = $this->parseYamlHeader($content, $file->getRelativePathname());
+        $result = array_merge($result, $yamlData);
+
+        $hasYamlName = isset($result['name']) && !empty(trim($result['name']));
+        $hasYamlDescription = isset($result['description']) && !empty(trim($result['description']));
+
+        $contentAfterYaml = $content;
+        if (preg_match('/^---\s*.*?\s*---\s*/s', $content)) {
+            $contentAfterYaml = preg_replace('/^---\s*.*?\s*---\s*/s', '', $content);
+        }
+
+        if (!$hasYamlName) {
+            $autoName = $this->markdownParser->extractAutoName($contentAfterYaml);
+            if ($autoName !== null) {
+                $result['name'] = $autoName['text'];
+                $result['_auto_name'] = $autoName['level'];
+            }
+        }
+
+        if (!$hasYamlDescription) {
+            $autoDescription = $this->markdownParser->extractAutoDescription($contentAfterYaml);
+            if ($autoDescription !== null) {
+                $result['description'] = $autoDescription;
+                $result['_auto_description'] = true;
+            }
+        }
+
+        $result['score'] = $keywords->isNotEmpty()
+            ? $this->contentScorer->calculate($keywords, $result, $contentLower)
+            : 0;
 
         if ($this->option('stats')) {
             $result['stats'] = $this->extractStats($content, $file);
         }
 
         if ($this->option('headers') > 0) {
-            $headers = $this->parseMarkdownHeaders($content, (int)$this->option('headers'));
+            $headers = $this->markdownParser->parseHeaders(
+                $content,
+                (int) $this->option('headers'),
+                (bool) $this->option('snippets'),
+            );
             if (!empty($headers)) {
                 $result['headers'] = $headers;
             }
         }
 
         if ($this->option('code')) {
-            $codeBlocks = $this->extractCodeBlocks($content);
+            $codeBlocks = $this->markdownParser->extractCodeBlocks($content);
             if (!empty($codeBlocks)) {
                 $result['code_blocks'] = $codeBlocks;
             }
@@ -1006,32 +1069,9 @@ HELP;
             if (Brain::isDebug()) {
                 dd($e);
             }
-            $this->components->error("YAML error: {$filename}");
-            exit(ERROR);
+            $this->components->warn("YAML parse error in {$filename}, indexing without metadata");
+            return [];
         }
-    }
-
-    /**
-     * @param  Collection<int, string>  $keywords
-     */
-    protected function calculateScore(Collection $keywords, array $result, string $contentLower): int
-    {
-        $score = 0;
-
-        foreach ($keywords as $keyword) {
-            $kw = Str::lower($keyword);
-            if (isset($result['name']) && Str::contains(Str::lower($result['name']), $kw)) {
-                $score += 10;
-            }
-            if (isset($result['description']) && Str::contains(Str::lower($result['description']), $kw)) {
-                $score += 5;
-            }
-            if (Str::contains($contentLower, $kw)) {
-                $score += 1;
-            }
-        }
-
-        return $score;
     }
 
     protected function extractStats(string $content, SplFileInfo $file): array
@@ -1046,80 +1086,6 @@ HELP;
             'hash' => substr(md5($content), 0, 8),
             'modified' => date('c', $file->getMTime()),
         ];
-    }
-
-    protected function extractCodeBlocks(string $content): array
-    {
-        preg_match_all('/```(\w*)\n(.*?)```/s', $content, $matches, PREG_OFFSET_CAPTURE);
-
-        if (empty($matches[0])) {
-            return [];
-        }
-
-        $lineOffsets = $this->buildLineOffsets($content);
-        $blocks = [];
-
-        foreach ($matches[0] as $index => $match) {
-            $declaredLang = $matches[1][$index][0];
-            $codeContent = $matches[2][$index][0];
-            $startLine = $this->offsetToLine($match[1], $lineOffsets);
-            $endLine = $this->offsetToLine($match[1] + strlen($match[0]), $lineOffsets);
-
-            $language = $this->detectCodeLanguage($declaredLang, $codeContent);
-
-            if ($language !== null) {
-                $blocks[] = [
-                    'language' => $language,
-                    'start_line' => $startLine,
-                    'end_line' => $endLine,
-                ];
-            }
-        }
-
-        return $blocks;
-    }
-
-    protected function detectCodeLanguage(string $declared, string $code): ?string
-    {
-        if (!empty($declared)) {
-            return $declared;
-        }
-
-        $code = trim($code);
-
-        if ($code === '') {
-            return null;
-        }
-
-        if (preg_match('/^\s*\{[\s\S]*\}\s*$/', $code) || preg_match('/^\s*\[[\s\S]*\]\s*$/', $code)) {
-            return 'json';
-        }
-
-        if (preg_match('/^\s*<\?php/', $code) || preg_match('/^\s*namespace\s+/', $code)) {
-            return 'php';
-        }
-
-        if (preg_match('/^\s*(def|class|import|from)\s+\w+/', $code)) {
-            return 'python';
-        }
-
-        if (preg_match('/^\s*function\s+\w+/', $code) || preg_match('/^\s*(const|let|var)\s+\w+/', $code) || preg_match('/=>\s*[\{\[]/', $code)) {
-            return 'javascript';
-        }
-
-        if (preg_match('/^\s*function\s+\w+\s*\(/', $code) && preg_match('/:\s*(string|int|float|bool|array|void)/', $code)) {
-            return 'php';
-        }
-
-        if (preg_match('/^\s*(git|npm|yarn|pip|composer|php|docker|kubectl|curl|wget|chmod|mkdir|cd|ls|rm|cp|mv|echo|cat)\s+/', $code)) {
-            return 'bash';
-        }
-
-        if (preg_match('/^\s*\/\//', $code) || preg_match('/^\s*#/', $code)) {
-            return null;
-        }
-
-        return null;
     }
 
     protected function extractLinks(string $content): array
@@ -1184,19 +1150,40 @@ HELP;
             }
         }
 
-        $matches = collect($matches)
+        return collect($matches)
             ->unique(fn($m) => $m['keyword'] . '-' . $m['line'])
             ->take(20)
             ->values()
             ->toArray();
+    }
 
-        return $matches;
+    /**
+     * Check if --scaffold was passed in argv (distinguishes from "not provided" null).
+     */
+    protected function hasScaffoldOption(): bool
+    {
+        $argv = $_SERVER['argv'] ?? [];
+
+        foreach ($argv as $arg) {
+            if ($arg === '--scaffold' || str_starts_with($arg, '--scaffold=')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a file path has a supported markdown extension (.md or .mdx).
+     */
+    protected function isMarkdownFile(string $path): bool
+    {
+        return str_ends_with($path, '.md') || str_ends_with($path, '.mdx');
     }
 
     protected function extractMatchContext(string $line, string $keyword): string
     {
         $line = trim($line);
-        $kwLower = Str::lower($keyword);
         $pos = stripos($line, $keyword);
 
         if ($pos === false) {
@@ -1217,153 +1204,5 @@ HELP;
         }
 
         return $context;
-    }
-
-    protected function parseMarkdownHeaders(string $content, int $maxLevel): array
-    {
-        preg_match_all('/^(#{1,6})\s*(.+)$/m', $content, $matches, PREG_OFFSET_CAPTURE);
-
-        if (empty($matches[0])) {
-            return [];
-        }
-
-        $lineOffsets = $this->buildLineOffsets($content);
-        $totalLines = count($lineOffsets);
-        $allHeaders = [];
-        $lines = preg_split('/\r\n|\r|\n/', $content);
-
-        foreach ($matches[0] as $index => $fullMatch) {
-            $level = strlen($matches[1][$index][0]);
-            $startLine = $this->offsetToLine($matches[0][$index][1], $lineOffsets);
-
-            $header = [
-                'text' => trim($matches[2][$index][0]),
-                'level' => $level,
-                'start_line' => $startLine,
-            ];
-
-            if ($this->option('snippets')) {
-                $snippet = $this->extractHeaderSnippet($lines, $startLine, $totalLines);
-                if (!empty($snippet)) {
-                    $header['snippet'] = $snippet;
-                }
-            }
-
-            $allHeaders[] = $header;
-        }
-
-        return $this->calculateHeaderEndLines($allHeaders, $totalLines, $maxLevel);
-    }
-
-    /**
-     * @param  array<int, string>  $lines
-     */
-    protected function extractHeaderSnippet(array $lines, int $startLine, int $totalLines): string
-    {
-        $snippetLines = [];
-        $inCodeBlock = false;
-
-        for ($i = $startLine; $i < $totalLines && count($snippetLines) < 50; $i++) {
-            $line = $lines[$i] ?? '';
-
-            if (Str::startsWith($line, '```')) {
-                $inCodeBlock = !$inCodeBlock;
-                continue;
-            }
-
-            if ($inCodeBlock) {
-                continue;
-            }
-
-            if (Str::startsWith($line, '#') && count($snippetLines) > 0) {
-                break;
-            }
-
-            if (Str::startsWith($line, '#')) {
-                continue;
-            }
-
-            $trimmed = trim($line);
-            if (empty($trimmed) || $trimmed === '---' || Str::startsWith($trimmed, '|')) {
-                continue;
-            }
-
-            $snippetLines[] = $trimmed;
-
-            if (count($snippetLines) >= 5) {
-                break;
-            }
-        }
-
-        $snippet = implode(' ', $snippetLines);
-        $snippet = preg_replace('/\s+/', ' ', $snippet);
-
-        return Str::limit(trim($snippet), 200);
-    }
-
-    protected function buildLineOffsets(string $content): array
-    {
-        $offsets = [];
-        $currentOffset = 0;
-        $lines = preg_split('/\r\n|\r|\n/', $content);
-
-        foreach ($lines as $line) {
-            $offsets[] = $currentOffset;
-            $currentOffset += strlen($line) + 1;
-        }
-
-        return $offsets;
-    }
-
-    protected function offsetToLine(int $offset, array $lineOffsets): int
-    {
-        $line = 1;
-        foreach ($lineOffsets as $lineNumber => $lineOffset) {
-            if ($offset >= $lineOffset) {
-                $line = $lineNumber + 1;
-            } else {
-                break;
-            }
-        }
-        return $line;
-    }
-
-    /**
-     * @param  array<int, array{text: string, level: int, start_line: int, snippet?: string}>  $allHeaders
-     * @return array<int, array{text: string, start_line: int, end_line: int, snippet?: string}>
-     */
-    protected function calculateHeaderEndLines(array $allHeaders, int $totalLines, int $maxLevel): array
-    {
-        $result = [];
-        $headerCount = count($allHeaders);
-
-        foreach ($allHeaders as $index => $header) {
-            if ($header['level'] > $maxLevel) {
-                continue;
-            }
-
-            $endLine = $totalLines;
-
-            for ($nextIndex = $index + 1; $nextIndex < $headerCount; $nextIndex++) {
-                if ($allHeaders[$nextIndex]['level'] <= $header['level']) {
-                    $endLine = $allHeaders[$nextIndex]['start_line'] - 1;
-                    break;
-                }
-            }
-
-            $item = [
-                'text' => $header['text'],
-                'start_line' => $header['start_line'],
-                'end_line' => $endLine,
-            ];
-
-            if (isset($header['snippet'])) {
-                $item['snippet'] = $header['snippet'];
-            }
-
-            $result[] = $item;
-        }
-
-        return $result;
     }
 }
