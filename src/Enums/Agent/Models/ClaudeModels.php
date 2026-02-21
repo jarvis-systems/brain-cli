@@ -19,7 +19,7 @@ enum ClaudeModels: string
     public function label(): string
     {
         return match ($this) {
-            self::OPUS => 'Claude Opus 4.5',
+            self::OPUS => 'Claude Opus 4.6',
             self::SONNET => 'Claude Sonnet 4.5',
             self::HAIKU => 'Claude Haiku 4.5',
         };
@@ -28,7 +28,7 @@ enum ClaudeModels: string
     public function description(): string
     {
         return match ($this) {
-            self::OPUS => 'Claude Opus 4.5 is the most capable Claude model, excelling in complex reasoning, creative writing, and nuanced understanding.',
+            self::OPUS => 'Claude Opus 4.6 is the most capable Claude model, excelling in complex reasoning, creative writing, and nuanced understanding.',
             self::SONNET => 'Claude Sonnet 4.5 balances performance and efficiency, making it suitable for a wide range of applications with strong language capabilities.',
             self::HAIKU => 'Claude Haiku 4.5 is optimized for speed and cost-effectiveness, ideal for straightforward tasks and applications requiring quick responses.',
         };
