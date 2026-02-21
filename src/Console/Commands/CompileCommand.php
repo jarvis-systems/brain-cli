@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Abstracts\CommandBridgeAbstract;
+use BrainCLI\Services\CompileLock;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\VarExporter\VarExporter;
 
 class CompileCommand extends CommandBridgeAbstract
 {
-    protected $signature = 'compile 
+    protected $signature = 'compile
         {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
         {--json : Output in JSON format}
+        {--no-lock : Skip compile lock (unsafe, for emergency only)}
         ';
 
     protected $description = 'Compile the Brain configurations files';
@@ -36,45 +38,107 @@ class CompileCommand extends CommandBridgeAbstract
 
     public function handleBridge(): int|array
     {
-        $agents = $this->detectAgents();
-        $this->line('');
+        $lock = $this->acquireCompileLock();
 
-        foreach ($agents as $agent) {
+        try {
+            $agents = $this->detectAgents();
+            $this->line('');
 
-            $this->initFor($agent);
+            foreach ($agents as $agent) {
 
-            if ($this->option('show-variables')) {
-                $this->showVariables();
-                continue;
-            }
+                $this->initFor($agent);
 
-            if ($this->argument('agent') === 'exists' && $agent->depended()) {
-                continue;
-            }
+                if ($this->option('show-variables')) {
+                    $this->showVariables();
+                    continue;
+                }
 
-            $result = ERROR;
+                if ($this->argument('agent') === 'exists' && $agent->depended()) {
+                    continue;
+                }
 
-            if ($this->option('json')) {
+                $result = ERROR;
 
-                echo json_encode([
-                    'agent' => $agent->value,
-                    'result' => $this->compilingProcess() === OK ? 'success' : 'error',
-                    'filesAndDirectories' => $this->compiledFilesAndDirectories,
-                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
-            } else {
+                if ($this->option('json')) {
 
-                $this->components->task("Compiling for [{$agent->value}]", function () use (&$result) {
-                    $result = $this->compilingProcess();
-                });
+                    echo json_encode([
+                        'agent' => $agent->value,
+                        'result' => $this->compilingProcess() === OK ? 'success' : 'error',
+                        'filesAndDirectories' => $this->compiledFilesAndDirectories,
+                    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+                } else {
 
-                if ($result !== OK) {
-                    $this->line('');
-                    return $result;
+                    $this->components->task("Compiling for [{$agent->value}]", function () use (&$result) {
+                        $result = $this->compilingProcess();
+                    });
+
+                    if ($result !== OK) {
+                        $this->line('');
+                        return $result;
+                    }
                 }
             }
+            $this->line('');
+            return OK;
+        } finally {
+            $lock?->release();
         }
-        $this->line('');
-        return OK;
+    }
+
+    /**
+     * Acquire compile lock or return null if --no-lock.
+     *
+     * Exits with ERROR if another compilation is already running
+     * or if --no-lock is disallowed by strict mode policy.
+     */
+    private function acquireCompileLock(): ?CompileLock
+    {
+        if ($this->option('no-lock')) {
+            $this->enforceNoLockPolicy();
+            $this->components->warn('Compile lock skipped (--no-lock). Single-writer safety disabled.');
+
+            return null;
+        }
+
+        $lock = new CompileLock(Brain::workingDirectory());
+
+        if (! $lock->acquire()) {
+            $info = $lock->getHolderInfo();
+            $pid = $info['pid'] ?? 'unknown';
+            $since = $info['started_at'] ?? 'unknown';
+
+            $this->components->error(
+                "Compilation locked by PID {$pid} (since {$since}). Another brain compile is running."
+            );
+            $this->components->warn('Use --no-lock to override (unsafe).');
+
+            exit(ERROR);
+        }
+
+        return $lock;
+    }
+
+    /**
+     * Enforce --no-lock governance policy.
+     *
+     * Under paranoid/strict modes, --no-lock is blocked unless
+     * BRAIN_ALLOW_NO_LOCK=1 is explicitly set in environment.
+     */
+    private function enforceNoLockPolicy(): void
+    {
+        $strictMode = Brain::getEnv('STRICT_MODE', 'standard');
+        $allowOverride = Brain::getEnv('BRAIN_ALLOW_NO_LOCK');
+
+        if (! CompileLock::isNoLockAllowed($strictMode, $allowOverride)) {
+            $this->components->error(
+                "The --no-lock flag is disallowed under STRICT_MODE={$strictMode}."
+            );
+            $this->components->warn(
+                'Set BRAIN_ALLOW_NO_LOCK=1 in environment to override.'
+            );
+
+            exit(ERROR);
+        }
     }
 
     protected function compilingProcess(): int

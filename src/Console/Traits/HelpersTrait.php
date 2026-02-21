@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Traits;
 
+use BrainCLI\Services\CompileLock;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Str;
 use Laravel\Prompts\Concerns\Colors;
@@ -33,12 +34,26 @@ trait HelpersTrait
         $workingDir = Brain::workingDirectory();
         $brainFile = Brain::workingDirectory(['node', 'Brain.php']);
 
-        if (! is_dir($workingDir)) {
-            $this->components->error("The brain working directory does not exist: {$workingDir}");
-            exit(ERROR);
-        }
+        if (! is_dir($workingDir) || ! is_file($brainFile)) {
+            // Try auto-switch to project root
+            $cwd = getcwd();
+            if ($cwd !== false) {
+                $brainDirName = to_string(config('brain.dir', '.brain'));
+                $root = CompileLock::findProjectRoot($cwd, $brainDirName);
 
-        if (! is_file($brainFile)) {
+                if ($root !== null && $root !== $cwd) {
+                    chdir($root);
+                    $this->outputComponents()->warn("Auto-switched to project root: {$root}");
+
+                    return;
+                }
+            }
+
+            if (! is_dir($workingDir)) {
+                $this->components->error("The brain working directory does not exist: {$workingDir}");
+                exit(ERROR);
+            }
+
             $this->components->error("The Brain.php file does not exist in the working directory: {$brainFile}");
             exit(ERROR);
         }
