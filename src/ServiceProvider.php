@@ -6,6 +6,7 @@ namespace BrainCLI;
 
 use BrainCLI\Config\ConfigManager;
 use BrainCLI\Console\Commands\CompileCommand;
+use BrainCLI\Console\Commands\DiagnoseCommand;
 use BrainCLI\Console\Commands\DocsCommand;
 use BrainCLI\Console\Commands\InitCommand;
 use BrainCLI\Console\Commands\ListIncludesCommand;
@@ -45,6 +46,7 @@ class ServiceProvider
     protected array $commands = [
         InitCommand::class,
         DocsCommand::class,
+        DiagnoseCommand::class,
         //BrainCommand::class,
         StatusCommand::class,
         ScriptCommand::class,
