@@ -21,7 +21,9 @@ class StatusCommand extends Command
         ];
         $tasks = Task::all();
 
-        dd($tasks->first());
+        $first = $tasks->first();
+        $this->line((string) json_encode($first, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return 0;
     }
 }
 

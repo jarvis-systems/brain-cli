@@ -149,7 +149,7 @@ class CustomRunCommand extends CommandBridgeAbstract
                 }
             } catch (\JsonException $e) {
                 if (Brain::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
                 $this->components->error("Failed to parse context JSON: " . $e->getMessage());
                 return ERROR;
@@ -763,9 +763,6 @@ class CustomRunCommand extends CommandBridgeAbstract
                 // Replace $ARGUMENTS placeholder with interpolated args
                 if ($commandArgs !== null) {
                     $content = str_replace('$ARGUMENTS', "`$commandArgs`", $content);
-                    //dd($content);
-                    //$content = str_replace("'", "`", $content); // Prevent shell issues
-                    //dd(escapeshellcmd($content));
                 }
 
                 return $content;

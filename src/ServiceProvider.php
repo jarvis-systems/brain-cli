@@ -152,7 +152,7 @@ class ServiceProvider
             $provider->register();
         } catch (\Throwable $e) {
             if (static::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $status = $e->getCode() ?: ERROR;
         }
@@ -162,7 +162,7 @@ class ServiceProvider
                 $status = $app->run();
             } catch (\Throwable $e) {
                 if (static::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
                 $status = $e->getCode() ?: ERROR;
             }

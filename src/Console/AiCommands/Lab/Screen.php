@@ -797,7 +797,7 @@ HTML);
                 }
             } catch (\Throwable $e) {
                 if (Brain::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
                 $response->error("Error executing command '{$command}': " . $e->getMessage())
                     ->nextCommand($modifier.$direction.$command, $argument);
@@ -1034,7 +1034,7 @@ HTML);
 
 
                 } else {
-                    dump($result);
+                    $this->command->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
                 }
             }
             $this->devider();

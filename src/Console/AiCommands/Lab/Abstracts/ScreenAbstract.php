@@ -72,7 +72,6 @@ abstract class ScreenAbstract extends Dto
                 } else {
                     $result = str_getcsv($parsed[0], ' ', '"', '\\');
                 }
-//                dd('>>>', $argument);
                 foreach ($result as $key => $inp) {
                     $inp = trim($inp, ',;');
                     $inp = trim($inp);

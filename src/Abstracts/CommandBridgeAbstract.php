@@ -55,7 +55,7 @@ abstract class CommandBridgeAbstract extends Command
             return OK;
         } catch (Throwable $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $this->components->error("Unexpected error: " . $e->getMessage());
             return ERROR;
@@ -249,7 +249,7 @@ abstract class CommandBridgeAbstract extends Command
             throw new \JsonException("Unexpected JSON output");
         } catch (\JsonException $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $this->components->error("Failed to decode JSON output: " . $e->getMessage());
             exit(ERROR);
@@ -270,12 +270,12 @@ abstract class CommandBridgeAbstract extends Command
                     ->json();
             } catch (RequestException $e) {
                 if (Brain::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
                 return OK;
             } catch (Throwable $e) {
                 if (Brain::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
                 $this->components->warn("Failed to check for updates: " . $e->getMessage());
                 return ERROR;
@@ -382,7 +382,7 @@ abstract class CommandBridgeAbstract extends Command
                 }
             } catch (Throwable $e) {
                 if (Brain::isDebug()) {
-                    dd($e);
+                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
                 }
             }
         }

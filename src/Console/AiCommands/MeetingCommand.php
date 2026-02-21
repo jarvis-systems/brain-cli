@@ -82,7 +82,7 @@ class MeetingCommand extends CommandBridgeAbstract
 
         $else = $this->selectPerson('Some else');
 
-        dd();
+        return 0; // WIP: meeting orchestration not yet implemented
 
 
         $name = $this->argument('name');
@@ -90,15 +90,6 @@ class MeetingCommand extends CommandBridgeAbstract
         $tasks = $this->option('task') ?: [];
 
         //intro($name);
-
-        foreach (Agent::persons() as $person) {
-            dump([
-                'label' => $person->label(),
-                'description' => $person->description(),
-                'share' => $person->share(),
-                'position' => $person->position(),
-            ]);
-        }
 
         return OK;
     }

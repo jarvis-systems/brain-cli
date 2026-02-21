@@ -112,7 +112,6 @@ class ProcessFactory implements Arrayable
         $data = $this->toArray();
         $baseEnv = getenv();
         $env = array_merge($baseEnv, $data['env']);
-//dd($env);
         if ($data['commands']['before']) {
             foreach ($data['commands']['before'] as $beforeCommand) {
                 if (empty($beforeCommand)) {

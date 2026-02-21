@@ -26,7 +26,7 @@ class AddCommand extends Command
                 ->get($name, true);
         } catch (\Throwable $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $this->components->error($e->getMessage());
             return ERROR;
@@ -38,15 +38,14 @@ class AddCommand extends Command
             $fileDetector->addServer($serverInfo);
         } catch (\Throwable $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $this->components->error($e->getMessage());
             return 1;
         }
 
-        dd($fileDetector);
-
-        //$this->components->info("MCP server {$server->name} added successfully.");
+        $this->components->info("MCP server {$name} added successfully.");
+        return 0;
     }
 
     public function askCredentials(string $name, mixed $default): string|null

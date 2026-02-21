@@ -24,7 +24,7 @@ trait HelpersTrait
                 ?? ($this->schema ? [] : '');
         } catch (\Throwable $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
             }
             $return = $this->schema ? [] : '';
         }
