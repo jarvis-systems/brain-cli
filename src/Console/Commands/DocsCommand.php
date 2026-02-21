@@ -1067,7 +1067,7 @@ HELP;
             return is_array($parsed) ? $parsed : [];
         } catch (\Exception $e) {
             if (Brain::isDebug()) {
-                dd($e);
+                error_log('[brain-debug] YAML parse error: ' . $e->getMessage());
             }
             $this->components->warn("YAML parse error in {$filename}, indexing without metadata");
             return [];
