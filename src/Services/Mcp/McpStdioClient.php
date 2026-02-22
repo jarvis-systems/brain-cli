@@ -49,9 +49,9 @@ class McpStdioClient
         $cmd = array_merge([$this->command], $this->args);
 
         $descriptors = [
-            0 => ['pipe', 'r'], // stdin
-            1 => ['pipe', 'r'], // stdout
-            2 => ['pipe', 'w'], // stderr (discard)
+            0 => ['pipe', 'r'], // stdin: child reads, parent writes
+            1 => ['pipe', 'w'], // stdout: child writes, parent reads
+            2 => ['pipe', 'w'], // stderr: child writes (discard)
         ];
 
         $process = proc_open($cmd, $descriptors, $pipes, $this->cwd);
