@@ -118,6 +118,32 @@ class ReadinessRunnerTest extends TestCase
         $this->assertSame(0, $result['warnings']);
     }
 
+    // ─── checkMemoryStatus() ────────────────────────────────────────
+
+    public function test_readiness_includes_memory_status_section(): void
+    {
+        $checks = [
+            'repo_health' => ['status' => 'PASS', 'duration_ms' => 1, 'details' => []],
+            'memory_status' => ['status' => 'NEUTRAL', 'duration_ms' => 0, 'details' => ['memory_status' => 'ok']],
+        ];
+
+        // memory_status is always NEUTRAL, so overall should not be affected
+        $result = $this->callComputeOverall($checks);
+        $this->assertSame('PASS', $result);
+    }
+
+    public function test_no_data_memory_status_does_not_flip_overall_fail(): void
+    {
+        $checks = [
+            'repo_health' => ['status' => 'PASS', 'duration_ms' => 1, 'details' => []],
+            'phpstan_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'memory_status' => ['status' => 'NEUTRAL', 'duration_ms' => 0, 'details' => ['memory_status' => 'no_data']],
+        ];
+
+        $result = $this->callComputeOverall($checks);
+        $this->assertSame('PASS', $result, 'memory_status with no_data must not cause FAIL');
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────
 
     /**

@@ -15,6 +15,7 @@ use BrainCLI\Console\Commands\MakeCommandCommand;
 use BrainCLI\Console\Commands\MakeIncludeCommand;
 use BrainCLI\Console\Commands\MakeMasterCommand;
 use BrainCLI\Console\Commands\MemoryHygieneCommand;
+use BrainCLI\Console\Commands\MemoryStatusCommand;
 use BrainCLI\Console\Commands\MakeMcpCommand;
 use BrainCLI\Console\Commands\ReadinessCheckCommand;
 use BrainCLI\Console\Commands\MakeScriptCommand;
@@ -63,6 +64,7 @@ class ServiceProvider
         MakeCommandCommand::class,
         ListIncludesCommand::class,
         MemoryHygieneCommand::class,
+        MemoryStatusCommand::class,
         ReadinessCheckCommand::class,
     ];
 

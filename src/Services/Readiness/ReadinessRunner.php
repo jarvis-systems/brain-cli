@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BrainCLI\Services\Readiness;
 
+use BrainCLI\Services\Memory\MemoryStatusCollector;
+
 /**
  * Pre-release readiness check orchestrator.
  *
@@ -60,6 +62,8 @@ class ReadinessRunner
         } else {
             $checks['memory_hygiene'] = $this->checkMemoryHygiene();
         }
+
+        $checks['memory_status'] = $this->checkMemoryStatus();
 
         $durationMs = (int) ((hrtime(true) - $startTime) / 1_000_000);
 
@@ -294,6 +298,45 @@ class ReadinessRunner
                 'threshold_met' => $thresholdMet,
                 'pass_rate' => $json['smoke']['pass_rate'] ?? 0,
             ],
+        ];
+    }
+
+    /**
+     * Collect memory status from cached artifacts (informational, non-blocking).
+     *
+     * @return array{status: string, duration_ms: int, details: array<string, mixed>}
+     */
+    protected function checkMemoryStatus(): array
+    {
+        $startTime = hrtime(true);
+
+        $artifactDir = $this->projectRoot . '/.work/memory-hygiene';
+        $collector = new MemoryStatusCollector($artifactDir);
+        $data = $collector->collect();
+
+        $memoryStatus = $data['status'] ?? 'no_data';
+        $durationMs = (int) ((hrtime(true) - $startTime) / 1_000_000);
+
+        $details = [
+            'memory_status' => $memoryStatus,
+            'total_memories' => $data['counts']['total_memories'] ?? null,
+            'smoke_pass_rate' => $data['smoke']['pass_rate'] ?? null,
+            'critical_pass_rate' => $data['smoke']['critical_pass_rate'] ?? null,
+            'last_run' => $data['last_run'] ?? null,
+        ];
+
+        // Informational only: NEUTRAL for stale/no_data, PASS for ok
+        $checkStatus = match ($memoryStatus) {
+            'ok' => 'NEUTRAL',
+            'stale' => 'NEUTRAL',
+            'no_data' => 'NEUTRAL',
+            default => 'NEUTRAL',
+        };
+
+        return [
+            'status' => $checkStatus,
+            'duration_ms' => $durationMs,
+            'details' => $details,
         ];
     }
 

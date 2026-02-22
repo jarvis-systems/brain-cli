@@ -166,10 +166,49 @@ class ReadinessCheckCommand extends Command
             $checkId === 'memory_hygiene'
                 => $details['reason'] ?? $details['mode'] ?? '',
 
+            $checkId === 'memory_status'
+                => $this->formatMemoryStatusDetails($details),
+
             $checkId === 'repo_health'
                 => $details['branch'] ?? '',
 
             default => '',
         };
+    }
+
+    /**
+     * Format memory_status check details for human output.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    private function formatMemoryStatusDetails(array $details): string
+    {
+        $status = $details['memory_status'] ?? 'unknown';
+
+        if ($status === 'no_data' || $status === 'stale') {
+            return $status;
+        }
+
+        $parts = [];
+
+        $passRate = $details['smoke_pass_rate'] ?? null;
+
+        if ($passRate !== null) {
+            $parts[] = sprintf('smoke %.0f%%', $passRate * 100);
+        }
+
+        $critRate = $details['critical_pass_rate'] ?? null;
+
+        if ($critRate !== null) {
+            $parts[] = sprintf('critical %.0f%%', $critRate * 100);
+        }
+
+        $total = $details['total_memories'] ?? null;
+
+        if ($total !== null) {
+            $parts[] = "{$total} memories";
+        }
+
+        return $parts !== [] ? implode(', ', $parts) : $status;
     }
 }
