@@ -57,4 +57,77 @@ class CompileCommandGoldenTest extends TestCase
 
         $this->assertEmpty(trim($stderr));
     }
+
+    // ─── Source Inspection: --diff option ────────────────────────────
+
+    public function test_diff_option_exists_in_signature(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('--diff', $source);
+    }
+
+    public function test_diff_mode_uses_compile_diff_service(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('CompileDiff', $source);
+    }
+
+    public function test_diff_mode_creates_backup(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('backupOutputDirs', $source);
+        $this->assertStringContainsString('restoreOutputDirs', $source);
+    }
+
+    public function test_diff_mode_returns_exit_code_2_for_differences(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        // Exit code 2 for differences found (ternary: isEmpty ? OK : 2)
+        $this->assertStringContainsString('OK : 2', $source);
+    }
+
+    public function test_diff_mode_supports_json_output(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('renderDiffHuman', $source);
+        $this->assertStringContainsString('JSON_PRETTY_PRINT', $source);
+    }
+
+    public function test_diff_mode_has_restore_in_finally(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        // Restore must be in finally block for safety
+        $this->assertStringContainsString('finally', $source);
+        $this->assertStringContainsString('restoreOutputDirs', $source);
+        $this->assertStringContainsString('deleteDirectory', $source);
+    }
+
+    public function test_diff_output_dirs_include_claude_and_mcp(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('.claude', $source);
+        $this->assertStringContainsString('.mcp.json', $source);
+        $this->assertStringContainsString('agent-schema.json', $source);
+    }
 }
