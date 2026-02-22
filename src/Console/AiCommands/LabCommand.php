@@ -72,7 +72,6 @@ class LabCommand extends CommandBridgeAbstract
      * 5. Start async draw loop via Screen::drawAsync()
      * 6. Block on Loop::run() until shutdown signal
      *
-     * @param Context $response Initial context from handle()
      * @return int Exit code (self::SUCCESS or self::FAILURE)
      */
     protected function handleBridge(): int|array

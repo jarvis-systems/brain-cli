@@ -61,7 +61,7 @@ enum Agent: string
     }
 
     /**
-     * @return class-string<AgentModelsTrait|BackedEnum>
+     * @return class-string<BackedEnum>
      */
     public function modelsEnum(): string
     {
@@ -154,9 +154,9 @@ enum Agent: string
 
         $enum = $this->modelsEnum();
 
-        $enum::validateShare();
+        $enum::validateShare(); // @phpstan-ignore staticMethod.notFound (AgentModelsTrait method on BackedEnum)
 
-        return $enum::cases();
+        return $enum::cases(); // @phpstan-ignore staticMethod.notFound
     }
 
     public function modelsAssoc(): array
@@ -168,14 +168,11 @@ enum Agent: string
         return $assoc;
     }
 
-    /**
-     * @return AgentModelsTrait|BackedEnum
-     */
     public function bestModel(): BackedEnum
     {
         $enum = $this->modelsEnum();
 
-        return $enum::bestModel();
+        return $enum::bestModel(); // @phpstan-ignore staticMethod.notFound (AgentModelsTrait method on BackedEnum)
     }
 
     public function generalModel(): BackedEnum

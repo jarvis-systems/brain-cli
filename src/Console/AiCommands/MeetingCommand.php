@@ -78,7 +78,7 @@ class MeetingCommand extends CommandBridgeAbstract
     {
         $this->selectOrbiter();
 
-        $this->orbiter->ask();
+        $this->orbiter->ask(''); // WIP: meeting orchestration stub — empty prompt placeholder
 
         $else = $this->selectPerson('Some else');
 

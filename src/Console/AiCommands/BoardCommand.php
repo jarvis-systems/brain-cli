@@ -39,6 +39,7 @@ class BoardCommand extends CommandBridgeAbstract
      *     created_at: string,
      *     updated_at: string,
      *     agents: array<string, array{session_id: string|null, role: string|null, yaml_file: string}>,
+     *     fired: array<string, array{session_id: string|null, role: string|null, yaml_file: string}>,
      *     responses: array<string, list<string>>
      * }
      */
@@ -884,7 +885,7 @@ class BoardCommand extends CommandBridgeAbstract
 
         $this->line('');
         $responseContent = spin(
-            callback: function () use ($cmd, &$sessionId, &$responseContent) {
+            callback: function () use ($cmd, &$responseContent) {
                 $this->callSilently($cmd, ['--json' => true, '--no-update' => true]);
                 return $responseContent;
             },

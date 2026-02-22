@@ -57,30 +57,31 @@ trait AgentModelsTrait
     abstract public function agent(): \BrainCLI\Enums\Agent;
 
     /**
-     * @return array<\BackedEnum|AgentModelsTrait>
+     * @return array<\BackedEnum>
      */
     abstract protected function rawFallback(): array;
 
     /**
-     * @return array<\BackedEnum|AgentModelsTrait>
+     * Resolve fallback model chain with agent availability filtering.
+     *
+     * @return array<\BackedEnum>
      */
     public function fallback(): array
     {
         $fallback = $this->rawFallback();
         $list = [];
         foreach ($fallback as $model) {
-            if ($model->agent()->isEnabled()) {
+            if ($model->agent()->isEnabled()) { // @phpstan-ignore method.notFound (trait methods on BackedEnum resolved at use-site)
                 $list[] = $model;
-                //dump([$this::class => $model::class]);
 
                 if ($this->agent()->depended()) {
-                    if (! $model->agent()->depended()) {
-                        $list = array_merge($list, $model->fallback());
+                    if (! $model->agent()->depended()) { // @phpstan-ignore method.notFound
+                        $list = array_merge($list, $model->fallback()); // @phpstan-ignore method.notFound
                     } elseif ($this::class === $model::class) {
-                        $list = array_merge($list, $model->fallback());
+                        $list = array_merge($list, $model->fallback()); // @phpstan-ignore method.notFound
                     }
                 } else {
-                    $list = array_merge($list, $model->fallback());
+                    $list = array_merge($list, $model->fallback()); // @phpstan-ignore method.notFound
                 }
             }
         }

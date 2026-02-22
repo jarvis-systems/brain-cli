@@ -64,7 +64,7 @@ class RunCommand extends CommandBridgeAbstract
         $this->initFor($this->agent);
 
         if ($sm = $this->argument('searchModel')) {
-            $models = $this->agent->modelsEnum()::searchModel($sm === '-' || is_numeric($sm) ? '' : $sm);
+            $models = $this->agent->modelsEnum()::searchModel($sm === '-' || is_numeric($sm) ? '' : $sm); // @phpstan-ignore staticMethod.notFound (AgentModelsTrait method on BackedEnum)
             if (count($models) === 1) {
                 $model = $models[0]->value;
             } elseif (count($models) > 1) {

@@ -10,7 +10,7 @@ use BrainCLI\Services\ProcessFactory;
 class Reflection extends Dto
 {
     /**
-     * @param  array{command: list<string>, env: array<string, string>, commands: array{before: list<string>, after: list<string>, exit: list<string>}}  $body
+     * @param  array{command?: list<string>, env?: array<string, string>, commands?: array{before?: list<string>, after?: list<string>, exit?: list<string>}}  $body
      * @param  array<string, list<mixed>>  $usedState
      */
     public function __construct(

@@ -600,7 +600,7 @@ HTML);
      * - Command chaining via << operator
      *
      * @param Context $response Current execution context
-     * @param string $input Raw user input to parse and execute
+     * @param string $command Raw user input to parse and execute
      * @return Context Updated context after command processing
      */
     public function submit(Context $response, string $command): Context
@@ -867,7 +867,7 @@ HTML);
                     $response->error("Command execution failed.");
                 }
             })(),
-            '#' => (function () use ($modifier, $command, $argument, &$response) {
+            '#' => (function () use ($command, $argument, &$response) {
                 // Comment/note direction - logs to context for display
                 // Format: #command text (e.g., #note TODO item, #warn check this)
                 $text = trim($command . ' ' . $argument);

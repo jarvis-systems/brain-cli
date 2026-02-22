@@ -31,6 +31,16 @@ class CustomRunCommand extends CommandBridgeAbstract
 
     protected string $originName;
 
+    /**
+     * Runtime-assignable parameters for board-mode execution.
+     */
+    public array $params = [];
+
+    /**
+     * Session ID to resume (set externally by BoardCommand).
+     */
+    public ?string $resume = null;
+
     protected mixed $accumulateCallback = null;
 
     /**
@@ -671,7 +681,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         };
 
         // Eval replacement
-        $evalReplace = function ($matches) use ($variableRegexp, $fileRegexp, $cmdRegexp) {
+        $evalReplace = function ($matches) {
             $code = trim($matches[1]);
             if (! str_ends_with($code, ';')) {
                 $code .= ';';
