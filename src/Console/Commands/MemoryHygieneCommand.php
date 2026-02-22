@@ -86,13 +86,18 @@ class MemoryHygieneCommand extends Command
             // Phase 1: Ledger
             $this->components->info('Building ledger...');
             $ledger = (new LedgerBuilder($client))->build();
-            $writer->writeLedger($ledger);
-            $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
 
-            // NO_DATA: empty vector store — skip smoke and rank safety
+            // NO_DATA: empty vector store — override health_status, skip smoke/rank
             if (((int) ($ledger['total_memories'] ?? 0)) === 0) {
+                $ledger['health_status'] = 'NO_DATA';
+                $writer->writeLedger($ledger);
+                $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
+
                 return $this->handleNoData($writer, $probeSet, $ledger);
             }
+
+            $writer->writeLedger($ledger);
+            $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
 
             // Phase 2: Smoke Tests
             $this->components->info('Running smoke tests...');

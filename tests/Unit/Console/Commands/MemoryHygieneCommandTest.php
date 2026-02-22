@@ -72,4 +72,10 @@ class MemoryHygieneCommandTest extends TestCase
     {
         $this->assertStringContainsString("'NO_DATA'", $this->source);
     }
+
+    public function test_no_data_overrides_health_status(): void
+    {
+        // Verify health_status is explicitly set to NO_DATA for empty stores
+        $this->assertStringContainsString("['health_status'] = 'NO_DATA'", $this->source);
+    }
 }
