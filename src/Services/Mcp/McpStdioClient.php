@@ -25,6 +25,9 @@ class McpStdioClient
     /** @var resource|null */
     protected $stdout = null;
 
+    /** @var resource|null */
+    protected $stderr = null;
+
     protected int $requestId = 0;
 
     /**
@@ -69,9 +72,10 @@ class McpStdioClient
         // Configure read timeout
         stream_set_timeout($this->stdout, self::READ_TIMEOUT_SECONDS);
 
-        // Close stderr — we don't need it
+        // Keep stderr for diagnostics (non-blocking)
         if (isset($pipes[2]) && is_resource($pipes[2])) {
-            fclose($pipes[2]);
+            $this->stderr = $pipes[2];
+            stream_set_blocking($this->stderr, false);
         }
 
         $this->handshake();
@@ -135,6 +139,11 @@ class McpStdioClient
         if (is_resource($this->stdout)) {
             fclose($this->stdout);
             $this->stdout = null;
+        }
+
+        if (is_resource($this->stderr)) {
+            fclose($this->stderr);
+            $this->stderr = null;
         }
 
         if (is_resource($this->process)) {
@@ -273,6 +282,24 @@ class McpStdioClient
     }
 
     /**
+     * Read available stderr output (non-blocking) for diagnostics.
+     */
+    protected function readStderr(): string
+    {
+        if (! is_resource($this->stderr)) {
+            return '';
+        }
+
+        $output = stream_get_contents($this->stderr);
+
+        if ($output === false || $output === '') {
+            return '';
+        }
+
+        return trim(substr($output, 0, 500));
+    }
+
+    /**
      * Read a line from the subprocess stdout.
      *
      * @throws McpClientException
@@ -286,13 +313,22 @@ class McpStdioClient
         $line = fgets($this->stdout);
 
         if ($line === false) {
-            $meta = stream_get_meta_data($this->stdout);
+            if (is_resource($this->stdout)) {
+                $meta = stream_get_meta_data($this->stdout);
 
-            if ($meta['timed_out'] ?? false) {
-                throw McpClientException::timeout(self::READ_TIMEOUT_SECONDS);
+                if ($meta['timed_out'] ?? false) {
+                    throw McpClientException::timeout(self::READ_TIMEOUT_SECONDS);
+                }
             }
 
-            throw McpClientException::connectionFailed('Unexpected end of stdout');
+            $message = 'Unexpected end of stdout';
+            $stderrOutput = $this->readStderr();
+
+            if ($stderrOutput !== '') {
+                $message .= '. stderr: ' . $stderrOutput;
+            }
+
+            throw McpClientException::connectionFailed($message);
         }
 
         return trim($line);
