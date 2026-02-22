@@ -110,10 +110,19 @@ composer test -- --filter=CommandKernel          # Run kernel tests only
 composer test -- --filter=NoProcessTermination   # Run exit() guard
 ```
 
+## Composer Lock & Private Packages
+
+- If you change constraints in `composer.json`, you **must** run `composer update <package>` and commit the updated `composer.lock`. CI will fail on drift.
+- Private VCS packages (e.g. `jarvis-brain/core`) must be declared in the `repositories` block of `composer.json`. Without it, Composer cannot resolve versions beyond what the lock already pins.
+- CI enforces both checks: lock sync (`composer validate --strict` + `git diff`) and private repo availability (`composer show jarvis-brain/core`).
+- After merge conflicts in `composer.lock`: delete the lock, run `composer update`, commit the regenerated lock. Never manually merge lock files.
+
 ## Automated Guards
 
 | Guard | File | What It Catches |
 |-------|------|-----------------|
+| Composer lock sync | CI: `composer validate --strict` + `git diff` | Lock / JSON constraint drift |
+| Private repo access | CI: `composer show jarvis-brain/core` | Missing VCS repository or auth |
 | No exit() regression | `NoProcessTerminationCallsTest` | New `exit()` calls in core commands |
 | CTE adoption | `CommandKernelAdoptionTest` | CommandKernel not used in bridge/docs |
 | Debug migration parity | `DebugMigrationParityTest` | Inline debug blocks returning |
