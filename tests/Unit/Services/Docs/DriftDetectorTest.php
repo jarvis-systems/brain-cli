@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Tests\Unit\Services\Docs;
 
 use BrainCLI\Services\Docs\DriftDetector;
+use BrainCLI\Tests\Support\CliOutputCapture;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class DriftDetectorTest extends TestCase
 {
+    use CliOutputCapture;
+
     protected DriftDetector $detector;
 
     protected string $tmpDir;
@@ -28,7 +31,7 @@ class DriftDetectorTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->removeDirectory($this->tmpDir);
+        $this->cleanDirectory($this->tmpDir);
     }
 
     public function test_detects_stale_methods(): void
@@ -380,29 +383,4 @@ MD;
         file_put_contents($fullPath, $content);
     }
 
-    /**
-     * Recursively remove a directory.
-     */
-    protected function removeDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $items = scandir($dir);
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $dir . '/' . $item;
-            if (is_dir($path)) {
-                $this->removeDirectory($path);
-            } else {
-                unlink($path);
-            }
-        }
-
-        rmdir($dir);
-    }
 }
