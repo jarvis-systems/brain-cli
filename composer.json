@@ -3,7 +3,7 @@
   "description": "The Brain CLI Tool for Agent Management",
   "keywords": ["jarvis", "brain", "cli"],
   "type": "library",
-  "version": "v0.2.0",
+  "version": "v0.2.2",
   "license": "MIT",
   "authors": [
     {
@@ -33,7 +33,7 @@
   ],
   "require": {
     "php": "^8.2",
-    "jarvis-brain/core": "^v0.2.0",
+    "jarvis-brain/core": "^v0.2.2",
     "symfony/var-exporter": "^7.3",
     "symfony/yaml": "^7.3",
     "react/async": "^4.3.0",
