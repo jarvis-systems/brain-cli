@@ -195,6 +195,125 @@ class CompileDiffTest extends TestCase
         $this->assertSame(0, $result['removed']);
     }
 
+    // ─── compare() hash fields ────────────────────────────────────
+
+    public function test_compare_added_file_has_hash_after_only(): void
+    {
+        $dirA = $this->tempDir . '/a';
+        $dirB = $this->tempDir . '/b';
+        mkdir($dirA, 0755, true);
+        mkdir($dirB, 0755, true);
+
+        file_put_contents($dirB . '/new.md', 'content');
+
+        $result = $this->differ->compare($dirA, $dirB);
+
+        $this->assertNull($result['files'][0]['hash_before']);
+        $this->assertNotNull($result['files'][0]['hash_after']);
+        $this->assertSame(12, strlen($result['files'][0]['hash_after']));
+    }
+
+    public function test_compare_changed_file_has_both_hashes(): void
+    {
+        $dirA = $this->tempDir . '/a';
+        $dirB = $this->tempDir . '/b';
+        mkdir($dirA, 0755, true);
+        mkdir($dirB, 0755, true);
+
+        file_put_contents($dirA . '/file.md', 'old');
+        file_put_contents($dirB . '/file.md', 'new');
+
+        $result = $this->differ->compare($dirA, $dirB);
+
+        $this->assertNotNull($result['files'][0]['hash_before']);
+        $this->assertNotNull($result['files'][0]['hash_after']);
+        $this->assertNotSame($result['files'][0]['hash_before'], $result['files'][0]['hash_after']);
+    }
+
+    // ─── toJsonSchema() ─────────────────────────────────────────────
+
+    public function test_to_json_schema_no_diff_returns_status_no_diff(): void
+    {
+        $diff = [
+            'summary' => ['added' => 0, 'changed' => 0, 'removed' => 0, 'unchanged' => 5],
+            'files' => [],
+        ];
+
+        $schema = $this->differ->toJsonSchema($diff);
+
+        $this->assertSame('no_diff', $schema['status']);
+        $this->assertSame(0, $schema['exit_code']);
+        $this->assertSame(0, $schema['added']);
+        $this->assertSame(0, $schema['changed']);
+        $this->assertSame(0, $schema['removed']);
+        $this->assertSame(5, $schema['unchanged']);
+        $this->assertEmpty($schema['files']);
+    }
+
+    public function test_to_json_schema_with_diff_returns_status_diff(): void
+    {
+        $diff = [
+            'summary' => ['added' => 1, 'changed' => 1, 'removed' => 0, 'unchanged' => 3],
+            'files' => [
+                [
+                    'path' => '.claude/agents/test.md',
+                    'status' => 'added',
+                    'hash_before' => null,
+                    'hash_after' => 'abc123def456',
+                    'lines_added' => 10,
+                    'lines_removed' => 0,
+                ],
+                [
+                    'path' => '.claude/CLAUDE.md',
+                    'status' => 'changed',
+                    'hash_before' => '111222333444',
+                    'hash_after' => '555666777888',
+                    'diff' => '--- a/CLAUDE.md\n+++ b/CLAUDE.md',
+                    'lines_added' => 3,
+                    'lines_removed' => 2,
+                    'truncated' => false,
+                ],
+            ],
+        ];
+
+        $schema = $this->differ->toJsonSchema($diff);
+
+        $this->assertSame('diff', $schema['status']);
+        $this->assertSame(2, $schema['exit_code']);
+        $this->assertSame(1, $schema['added']);
+        $this->assertSame(1, $schema['changed']);
+        $this->assertCount(2, $schema['files']);
+
+        // Verify diff text is stripped from JSON schema
+        $this->assertArrayNotHasKey('diff', $schema['files'][0]);
+        $this->assertArrayNotHasKey('diff', $schema['files'][1]);
+        $this->assertArrayNotHasKey('truncated', $schema['files'][1]);
+
+        // Verify hashes preserved
+        $this->assertNull($schema['files'][0]['hash_before']);
+        $this->assertSame('abc123def456', $schema['files'][0]['hash_after']);
+        $this->assertSame('111222333444', $schema['files'][1]['hash_before']);
+    }
+
+    public function test_to_json_schema_files_have_stable_ordering(): void
+    {
+        $diff = [
+            'summary' => ['added' => 0, 'changed' => 2, 'removed' => 0, 'unchanged' => 0],
+            'files' => [
+                ['path' => 'a.md', 'status' => 'changed', 'hash_before' => 'aaa', 'hash_after' => 'bbb', 'lines_added' => 1, 'lines_removed' => 1],
+                ['path' => 'z.md', 'status' => 'changed', 'hash_before' => 'ccc', 'hash_after' => 'ddd', 'lines_added' => 2, 'lines_removed' => 0],
+            ],
+        ];
+
+        $schema1 = $this->differ->toJsonSchema($diff);
+        $schema2 = $this->differ->toJsonSchema($diff);
+
+        // Stable ordering across calls
+        $this->assertSame($schema1, $schema2);
+        $this->assertSame('a.md', $schema1['files'][0]['path']);
+        $this->assertSame('z.md', $schema1['files'][1]['path']);
+    }
+
     // ─── Determinism ────────────────────────────────────────────────
 
     public function test_compare_is_deterministic_across_runs(): void

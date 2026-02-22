@@ -244,13 +244,18 @@ class CompileCommand extends CommandBridgeAbstract
             }
 
             // Output
+            $noDiff = $differ->isEmpty($allDiffs);
+
             if ($this->option('json')) {
-                echo json_encode($allDiffs, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+                echo json_encode(
+                    $differ->toJsonSchema($allDiffs),
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                ) . PHP_EOL;
             } else {
                 $this->renderDiffHuman($allDiffs);
             }
 
-            return $differ->isEmpty($allDiffs) ? OK : 2;
+            return $noDiff ? OK : 2;
         } finally {
             // Restore original files from backup
             $this->restoreOutputDirs($outputDirs, $backupRoot);

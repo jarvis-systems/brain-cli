@@ -62,11 +62,16 @@ class CompileDiff
 
             if (! $inBackup && $inCurrent) {
                 $added++;
-                $entry = ['path' => $displayPath, 'status' => 'added'];
+                $currentContent = file_get_contents($currentDir . '/' . $relativePath);
+                $entry = [
+                    'path' => $displayPath,
+                    'status' => 'added',
+                    'hash_before' => null,
+                    'hash_after' => $this->contentHash($currentContent ?: ''),
+                ];
 
                 if ($this->isTextFile($currentDir . '/' . $relativePath)) {
-                    $content = file_get_contents($currentDir . '/' . $relativePath);
-                    $lineCount = $content !== false ? substr_count($content, "\n") + 1 : 0;
+                    $lineCount = $currentContent !== false ? substr_count($currentContent, "\n") + 1 : 0;
                     $entry['lines_added'] = $lineCount;
                     $entry['lines_removed'] = 0;
                 }
@@ -74,7 +79,13 @@ class CompileDiff
                 $files[] = $entry;
             } elseif ($inBackup && ! $inCurrent) {
                 $removed++;
-                $files[] = ['path' => $displayPath, 'status' => 'removed'];
+                $backupContent = file_get_contents($backupDir . '/' . $relativePath);
+                $files[] = [
+                    'path' => $displayPath,
+                    'status' => 'removed',
+                    'hash_before' => $this->contentHash($backupContent ?: ''),
+                    'hash_after' => null,
+                ];
             } elseif ($inBackup && $inCurrent) {
                 $backupContent = file_get_contents($backupDir . '/' . $relativePath);
                 $currentContent = file_get_contents($currentDir . '/' . $relativePath);
@@ -86,7 +97,12 @@ class CompileDiff
                 }
 
                 $changed++;
-                $entry = ['path' => $displayPath, 'status' => 'changed'];
+                $entry = [
+                    'path' => $displayPath,
+                    'status' => 'changed',
+                    'hash_before' => $this->contentHash($backupContent ?: ''),
+                    'hash_after' => $this->contentHash($currentContent ?: ''),
+                ];
 
                 if ($this->isTextFile($currentDir . '/' . $relativePath)) {
                     $diff = $this->generateUnifiedDiff(
@@ -261,6 +277,61 @@ class CompileDiff
         }
 
         return $result;
+    }
+
+    /**
+     * Build stable JSON schema output for --diff --json.
+     *
+     * Strips human-only fields (diff text) and adds machine-readable
+     * metadata (status, exit_code, per-file hashes).
+     *
+     * @param  array{summary: array{added: int, changed: int, removed: int, unchanged: int}, files: list<array<string, mixed>>}  $diff
+     * @return array<string, mixed>
+     */
+    public function toJsonSchema(array $diff): array
+    {
+        $summary = $diff['summary'];
+        $hasDiff = ! $this->isEmpty($diff);
+        $exitCode = $hasDiff ? 2 : 0;
+
+        $jsonFiles = [];
+
+        foreach ($diff['files'] as $file) {
+            $entry = [
+                'path' => $file['path'],
+                'status' => $file['status'],
+                'hash_before' => $file['hash_before'] ?? null,
+                'hash_after' => $file['hash_after'] ?? null,
+            ];
+
+            if (isset($file['lines_added'])) {
+                $entry['lines_added'] = $file['lines_added'];
+            }
+
+            if (isset($file['lines_removed'])) {
+                $entry['lines_removed'] = $file['lines_removed'];
+            }
+
+            $jsonFiles[] = $entry;
+        }
+
+        return [
+            'status' => $hasDiff ? 'diff' : 'no_diff',
+            'exit_code' => $exitCode,
+            'added' => $summary['added'],
+            'changed' => $summary['changed'],
+            'removed' => $summary['removed'],
+            'unchanged' => $summary['unchanged'],
+            'files' => $jsonFiles,
+        ];
+    }
+
+    /**
+     * Compute a short deterministic hash for file content.
+     */
+    private function contentHash(string $content): string
+    {
+        return substr(hash('sha256', $content), 0, 12);
     }
 
     /**

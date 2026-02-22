@@ -120,6 +120,29 @@ class CompileCommandGoldenTest extends TestCase
         $this->assertStringContainsString('deleteDirectory', $source);
     }
 
+    public function test_diff_json_uses_stable_schema(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        // JSON mode must use toJsonSchema() for stable output
+        $this->assertStringContainsString('toJsonSchema', $source);
+    }
+
+    public function test_diff_json_schema_has_status_and_exit_code(): void
+    {
+        $diffSource = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Services/Compile/CompileDiff.php'
+        ) ?: '';
+
+        // Schema must include status and exit_code fields
+        $this->assertStringContainsString("'status'", $diffSource);
+        $this->assertStringContainsString("'exit_code'", $diffSource);
+        $this->assertStringContainsString("'no_diff'", $diffSource);
+        $this->assertStringContainsString("'diff'", $diffSource);
+    }
+
     public function test_diff_output_dirs_include_claude_and_mcp(): void
     {
         $source = file_get_contents(
