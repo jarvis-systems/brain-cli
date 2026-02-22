@@ -101,6 +101,39 @@ class SmokeTestRunnerTest extends TestCase
         $this->assertSame('PASS', $result['status']);
     }
 
+    public function test_probe_fails_with_empty_search_results(): void
+    {
+        $probe = [
+            'id' => 'P01',
+            'domain' => 'compile-safety',
+            'expected_memory_id' => 276,
+            'critical' => true,
+        ];
+
+        $result = $this->runner->evaluateProbe($probe, [], 0.40);
+
+        $this->assertSame('FAIL', $result['status']);
+        $this->assertEquals(0, $result['top_similarity']);
+        $this->assertNull($result['top_result_id']);
+        $this->assertTrue($result['critical']);
+    }
+
+    public function test_probe_without_expected_id_fails_with_empty_results(): void
+    {
+        $probe = [
+            'id' => 'P04',
+            'domain' => 'static-analysis',
+            'expected_memory_id' => null,
+            'critical' => false,
+        ];
+
+        $result = $this->runner->evaluateProbe($probe, [], 0.40);
+
+        $this->assertSame('FAIL', $result['status']);
+        $this->assertEquals(0, $result['top_similarity']);
+        $this->assertNull($result['top_result_id']);
+    }
+
     public function test_critical_flag_propagated_to_result(): void
     {
         $criticalProbe = [

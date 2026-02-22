@@ -47,4 +47,29 @@ class MemoryHygieneCommandTest extends TestCase
     {
         $this->assertStringContainsString('.work/memory-hygiene', $this->source);
     }
+
+    public function test_no_data_mode_checks_total_memories(): void
+    {
+        $this->assertStringContainsString('total_memories', $this->source);
+    }
+
+    public function test_no_data_mode_sets_no_data_status(): void
+    {
+        $this->assertStringContainsString("'no_data'", $this->source);
+    }
+
+    public function test_no_data_mode_has_handle_method(): void
+    {
+        $this->assertStringContainsString('handleNoData', $this->source);
+    }
+
+    public function test_no_data_smoke_results_include_skipped_count(): void
+    {
+        $this->assertStringContainsString("'skipped'", $this->source);
+    }
+
+    public function test_no_data_rank_safety_verdict_is_no_data(): void
+    {
+        $this->assertStringContainsString("'NO_DATA'", $this->source);
+    }
 }

@@ -75,6 +75,28 @@ class RankSafetyCheckerTest extends TestCase
         $this->assertSame(0.005, $result['anchor_margin']);
     }
 
+    public function test_safe_with_empty_top5(): void
+    {
+        $probe = [
+            'id' => 'P01',
+            'domain' => 'compile-safety',
+            'critical' => true,
+        ];
+
+        $result = $this->checker->evaluateRankSafety(
+            $probe,
+            [],
+            276,
+            [280, 281, 282],
+            [276, 277, 278, 279],
+        );
+
+        $this->assertSame('SAFE', $result['verdict']);
+        $this->assertFalse($result['overlap_risk']);
+        $this->assertNull($result['anchor_margin']);
+        $this->assertSame('BASELINE_FAIL', $result['status']);
+    }
+
     public function test_overlap_fail_when_canonical_outranks(): void
     {
         $probe = [

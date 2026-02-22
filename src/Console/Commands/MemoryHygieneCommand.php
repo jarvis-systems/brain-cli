@@ -89,6 +89,11 @@ class MemoryHygieneCommand extends Command
             $writer->writeLedger($ledger);
             $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
 
+            // NO_DATA: empty vector store — skip smoke and rank safety
+            if (((int) ($ledger['total_memories'] ?? 0)) === 0) {
+                return $this->handleNoData($writer, $probeSet, $ledger);
+            }
+
             // Phase 2: Smoke Tests
             $this->components->info('Running smoke tests...');
             $smokeResults = (new SmokeTestRunner($client))->run($probeSet);
@@ -231,16 +236,75 @@ class MemoryHygieneCommand extends Command
     }
 
     /**
+     * Handle empty vector store: skip smoke/rank, write NO_DATA artifacts.
+     *
+     * @param  array<string, mixed>  $probeSet
+     * @param  array<string, mixed>  $ledger
+     */
+    protected function handleNoData(ArtifactWriter $writer, array $probeSet, array $ledger): int
+    {
+        $this->components->info('NO_DATA: empty vector store — smoke and rank safety skipped.');
+
+        $probes = $probeSet['probes'] ?? [];
+        $criticalTotal = 0;
+
+        foreach ($probes as $probe) {
+            if ($probe['critical'] ?? false) {
+                $criticalTotal++;
+            }
+        }
+
+        $smokeResults = [
+            'run_date' => gmdate('Y-m-d\TH:i:s\Z'),
+            'version' => $probeSet['version'] ?? '1.0.0',
+            'status' => 'no_data',
+            'total_probes' => count($probes),
+            'passed' => 0,
+            'failed' => 0,
+            'skipped' => count($probes),
+            'pass_rate' => 0,
+            'threshold_met' => null,
+            'critical_passed' => 0,
+            'critical_total' => $criticalTotal,
+            'reason' => 'Empty vector store — no memories to evaluate',
+            'results' => [],
+        ];
+
+        $rankResults = [
+            'run_date' => gmdate('Y-m-d\TH:i:s\Z'),
+            'version' => $probeSet['version'] ?? '1.0.0',
+            'status' => 'no_data',
+            'verdict' => 'NO_DATA',
+            'overlap_threshold' => 0.01,
+            'probes_checked' => 0,
+            'critical_probes_passed' => 0,
+            'critical_probes_total' => $criticalTotal,
+            'overlap_risks_detected' => 0,
+            'canonical_ids_checked' => [],
+            'anchor_ids_protected' => [],
+            'reason' => 'Empty vector store — rank safety not applicable',
+            'results' => [],
+        ];
+
+        $writer->writeSmokeResults($smokeResults);
+        $writer->writeRankSafetyResults($rankResults);
+
+        $this->outputSummary($ledger, $smokeResults, $rankResults, 'no_data');
+
+        return OK;
+    }
+
+    /**
      * Output JSON summary to stdout.
      *
      * @param  array<string, mixed>  $ledger
      * @param  array<string, mixed>  $smoke
      * @param  array<string, mixed>  $rank
      */
-    protected function outputSummary(array $ledger, array $smoke, array $rank): void
+    protected function outputSummary(array $ledger, array $smoke, array $rank, string $status = 'complete'): void
     {
         $summary = [
-            'status' => 'complete',
+            'status' => $status,
             'ledger' => [
                 'total_memories' => $ledger['total_memories'] ?? 0,
                 'health_status' => $ledger['health_status'] ?? 'Unknown',
@@ -257,6 +321,11 @@ class MemoryHygieneCommand extends Command
                 'overlap_risks' => $rank['overlap_risks_detected'] ?? 0,
             ],
         ];
+
+        if ($status === 'no_data') {
+            $summary['reason'] = 'Empty vector store — smoke and rank safety skipped';
+            $summary['smoke']['skipped'] = $smoke['skipped'] ?? 0;
+        }
 
         $this->line(json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
     }
