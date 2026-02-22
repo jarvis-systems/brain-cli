@@ -72,4 +72,28 @@ class DocsCommandGoldenTest extends TestCase
         $this->assertStringContainsString('executeCommand()', $source);
         $this->assertStringContainsString("'docs'", $source);
     }
+
+    public function test_global_flag_exists_in_signature(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('{--global', $source);
+        $this->assertStringContainsString('Search all .docs/ folders in project subdirectories', $source);
+    }
+
+    public function test_global_flag_uses_docs_directory_resolver(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('DocsDirectoryResolver', $source);
+        $this->assertStringContainsString('docsDirectoryResolver->resolve(', $source);
+    }
+
+    public function test_global_flag_documented_in_help(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('--global', $source);
+        $this->assertStringContainsString('brain docs api --global', $source);
+    }
 }

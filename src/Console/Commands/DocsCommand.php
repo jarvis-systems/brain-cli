@@ -8,6 +8,7 @@ use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\Docs\ContentScorer;
 use BrainCLI\Services\Docs\DocScaffolder;
+use BrainCLI\Services\Docs\DocsDirectoryResolver;
 use BrainCLI\Services\Docs\DriftDetector;
 use BrainCLI\Services\Docs\MarkdownParser;
 use BrainCLI\Services\Docs\SecurityValidator;
@@ -41,6 +42,7 @@ class DocsCommand extends Command
         {--update : Update all downloaded docs from their source URLs}
         {--validate : Validate documentation files for required fields and quality}
         {--scaffold= : Scaffold doc files for undocumented classes (or specific class name)}
+        {--global : Search all .docs/ folders in project subdirectories}
     ';
 
     protected $description = 'Index and search .docs folder with rich metadata extraction';
@@ -52,6 +54,7 @@ class DocsCommand extends Command
         protected UndocumentedScanner $undocumentedScanner,
         protected DocScaffolder $docScaffolder,
         protected DriftDetector $driftDetector,
+        protected DocsDirectoryResolver $docsDirectoryResolver,
     ) {
         parent::__construct();
     }
@@ -99,6 +102,7 @@ Quick: brain docs [keywords] [--options]
   brain docs --scaffold       Scaffold docs for ALL undocumented classes
   brain docs --scaffold=Name  Scaffold doc for specific class
   brain docs --validate       Validate docs quality
+  brain docs api --global     Search ALL .docs/ in subdirectories
 
 Formats: .md, .mdx
 
@@ -108,6 +112,7 @@ Cognitive Triggers:
   Using --undocumented? → Polyglot scan (PHP/JS/TS/Python/Go). Prioritize by method_count.
   Using --scaffold?     → Auto-generate doc stubs. Never overwrites existing files.
   Using --validate?     → Fix errors first, then warnings.
+  Using --global?       → Mono-repo: finds .docs/ in subdirs (depth 1-3). Works with search/validate/update.
   No results?           → Try 3+ keyword variations (split CamelCase, strip suffixes).
 
 Tip: -v for usage, -vv for patterns, -vvv for internals.
@@ -174,6 +179,13 @@ Scaffold (--scaffold):
   Output: JSON with created/skipped arrays, never overwrites existing files
   Template: YAML front matter + H1 + FQN + Source + Overview + Methods stubs
 
+Global Search (--global):
+  Discovers all .docs/ directories at depth 1-3 from project root.
+  Excludes: vendor/, node_modules/, .git/, .idea/, storage/, cache/, dist/, build/
+  Paths in output: relative to project root (e.g., packages/core/.docs/file.md)
+  Works with: search, --validate, --update
+  Does NOT affect: --download, --undocumented, --scaffold (these always use root .docs/)
+
 File Support:
   Formats: .md, .mdx (MDX with React/JSX components supported)
 
@@ -184,6 +196,8 @@ Examples:
   brain docs --download=https://...     Download external doc
   brain docs --scaffold --limit=5       Scaffold up to 5 undocumented classes
   brain docs --validate                 Check docs quality
+  brain docs api --global               Search all .docs/ in subdirectories
+  brain docs --validate --global        Validate all .docs/ across project
 
 Cognitive Triggers:
   Before writing code?    → Search docs FIRST. Avoid duplicate work.
@@ -191,6 +205,7 @@ Cognitive Triggers:
   Task mentions feature?  → brain docs feature --headers=2 --code
   Found gaps?             → brain docs --scaffold to auto-generate stubs.
   Before commit?          → Run --validate, fix critical errors.
+  Mono-repo project?      → Use --global for cross-subproject doc search.
 
 Tip: -vv for best practices + use cases. -vvv for detection algorithms.
 HELP;
@@ -265,12 +280,23 @@ MDX Support:
   MDX files may contain JSX components (<Component />) — these are treated as regular
   non-header, non-code-block content. Header and code block parsing is unaffected.
 
+Global Search (--global):
+  Discovers all .docs/ directories at depth 1-3 from project root.
+  Useful for mono-repo projects with multiple subprojects, each having their own .docs/.
+  Excludes package directories: vendor/, node_modules/, .git/, .idea/, storage/, cache/, dist/, build/
+  Paths in output: relative to project root (e.g., packages/core/.docs/api.md)
+  Works with: search, --validate, --update
+  Does NOT affect: --download (always saves to root .docs/sources/),
+                   --undocumented, --scaffold (scan source code, not .docs/)
+  Results from all directories are merged, deduplicated by path, and re-sorted by score.
+
 Best Practices:
   1. Always add YAML with name/description for better search ranking
   2. Use --headers=2 for technical docs to get section structure
   3. Use --matches to find exact keyword locations before reading
   4. Use --code for API docs to see which languages have examples
   5. Keep remote docs in .docs/sources/ with url for --update support
+  6. Use --global for mono-repo projects to search docs across all subprojects
 
 Use Cases:
   Research Workflow:
@@ -299,6 +325,12 @@ Use Cases:
     5. brain docs --validate to verify generated files
     → TRIGGER: Found undocumented classes? Run --scaffold. Then fill TODOs.
 
+  Mono-repo Documentation:
+    1. brain docs api --global → search across all subproject .docs/
+    2. brain docs --validate --global → validate all docs in project tree
+    3. brain docs --update --global → refresh downloaded docs across subprojects
+    → TRIGGER: Multi-repo project? Always add --global for complete coverage.
+
 Cognitive Triggers (NLP for AI):
   BEFORE code changes:  brain docs <topic> → found? → read first. not found? → proceed.
   AFTER code changes:   Document what changed. If no doc exists → create one.
@@ -306,12 +338,14 @@ Cognitive Triggers (NLP for AI):
   ON download:          3-layer security validated automatically. Blocked patterns logged.
   ON no results:        Split CamelCase, strip suffixes (Test, Controller), try parent context.
   ON task completion:   Run --undocumented. Found gaps? → log in task comment.
+  ON mono-repo:         Use --global to search all .docs/ directories.
 
 Common Patterns:
   Quick search:     brain docs query --limit=3
   Deep analysis:    brain docs query --headers=2 --stats --code --keywords
   Find matches:     brain docs query --matches --limit=1
   Structure only:   brain docs --headers=2 --limit=10
+  Global search:    brain docs query --global --limit=10
 
 Examples:
   brain docs api                      Search for "api" (limit 5)
@@ -323,6 +357,9 @@ Examples:
   brain docs --update                 Refresh all downloaded docs
   brain docs --scaffold               Scaffold docs for all undocumented classes
   brain docs --scaffold=UserService   Scaffold doc for specific class
+  brain docs api --global             Search all .docs/ in project subdirectories
+  brain docs --validate --global      Validate docs across all subprojects
+  brain docs --update --global        Update downloaded docs in all .docs/ folders
 
 Tip: Use -vvv for internal details (detection logic, edge cases, etc).
 HELP;
@@ -416,6 +453,7 @@ Best Practices:
   3. Use --matches to find exact keyword locations before reading
   4. Use --code for API docs to see which languages have examples
   5. Keep remote docs in .docs/sources/ with url for --update support
+  6. Use --global in mono-repo projects for cross-subproject coverage
 
 Use Cases:
   Research Workflow:
@@ -429,6 +467,11 @@ Use Cases:
     2. brain docs <term> --headers=2 --code --matches
     3. Get structured overview with code examples
 
+  Mono-repo Documentation:
+    1. brain docs api --global → search across all subproject .docs/
+    2. brain docs --validate --global → validate all docs in project tree
+    3. brain docs --update --global → refresh downloaded docs across subprojects
+
 Common Patterns:
   Quick search:     brain docs query --limit=3
   Deep analysis:    brain docs query --headers=2 --stats --code --keywords
@@ -438,6 +481,7 @@ Common Patterns:
   Exact phrase:     brain docs --exact="class not found"
   Scaffold all:     brain docs --scaffold
   Scaffold one:     brain docs --scaffold=ClassName
+  Global search:    brain docs query --global
 
 Examples:
   brain docs api                      Search for "api" (limit 5)
@@ -452,6 +496,8 @@ Examples:
   brain docs --validate               Check all docs for errors and warnings
   brain docs --scaffold               Scaffold docs for all undocumented classes
   brain docs --scaffold=UserService   Scaffold doc for specific class
+  brain docs api --global             Search all .docs/ in project subdirectories
+  brain docs --validate --global      Validate docs across all subprojects
 
 Note: Legacy docs without YAML get auto name/description from headers/paragraphs.
 
@@ -537,6 +583,17 @@ File Support:
   - Encoding: UTF-8 expected
   - YAML parser: Symfony Yaml component
 
+Global Search (--global):
+  - Discovers all .docs/ directories at depth 1-3 from project root using Symfony Finder
+  - Finder config: ignoreDotFiles(false) (required for .docs), ignoreVCS(false), depth 1-3
+  - Excluded directories: vendor, node_modules, .git, .idea, storage, cache, dist, build, __pycache__, .venv
+  - Root .docs/ always listed first, subdirectory results sorted alphabetically by prefix
+  - Path format: prefix + DS + relative path (e.g., packages/core/.docs/api.md)
+  - Works with: search (merged+re-sorted+re-limited), --validate, --update
+  - Does NOT affect: --download, --undocumented, --scaffold
+  - Edge: root .docs/ missing but subdirs exist → works. No dirs at all → warning.
+  - Results from all directories merged, deduplicated by path, re-sorted by score, then limited.
+
 Edge Cases:
   - No YAML header: returns [] for name/description, score from content only
   - Invalid YAML: warning logged, file indexed without metadata (auto_name/auto_description fallback)
@@ -592,13 +649,32 @@ HELP;
         }
 
         $keywords = $this->parseKeywords($this->argument('keywords'));
-        $docsDir = Brain::projectDirectory('.docs');
+        $isGlobal = (bool) $this->option('global');
+        $docsDirs = $this->docsDirectoryResolver->resolve($isGlobal);
 
-        if (!is_dir($docsDir)) {
-            mkdir($docsDir, 0755, true);
+        if (empty($docsDirs) && !$isGlobal) {
+            $rootDocs = Brain::projectDirectory('.docs');
+            mkdir($rootDocs, 0755, true);
+            $docsDirs = [['dir' => $rootDocs, 'prefix' => '.docs']];
         }
 
-        $files = $this->getFileList($docsDir, $keywords);
+        if (empty($docsDirs)) {
+            $this->outputComponents()->warn('No .docs/ directories found.');
+            return 0;
+        }
+
+        $allFiles = [];
+        foreach ($docsDirs as $docsDir) {
+            $dirFiles = $this->getFileList($docsDir['dir'], $keywords, $docsDir['prefix']);
+            $allFiles = array_merge($allFiles, $dirFiles);
+        }
+
+        $files = collect($allFiles)
+            ->unique('path')
+            ->when($keywords->isNotEmpty(), fn($c) => $c->sortByDesc('score'))
+            ->values()
+            ->when($this->option('limit') > 0, fn($c) => $c->take((int) $this->option('limit')))
+            ->toArray();
 
         if (empty($files)) {
             $this->outputComponents()->warn('No documentation files found.');
@@ -647,30 +723,33 @@ HELP;
 
     protected function validateDocs(): void
     {
-        $docsDir = Brain::projectDirectory('.docs');
+        $isGlobal = (bool) $this->option('global');
+        $docsDirs = $this->docsDirectoryResolver->resolve($isGlobal);
 
-        if (!is_dir($docsDir)) {
+        if (empty($docsDirs)) {
             $this->components->error('.docs directory does not exist.');
             throw new CommandTerminatedException();
         }
 
-        $files = File::allFiles($docsDir);
         $results = [];
         $allNames = [];
         $totalValid = 0;
         $totalInvalid = 0;
 
-        foreach ($files as $file) {
-            if (!$this->isMarkdownFile($file->getPathname())) {
-                continue;
-            }
+        foreach ($docsDirs as $docsDir) {
+            $files = File::allFiles($docsDir['dir']);
 
-            $content = file_get_contents($file->getPathname());
-            if ($content === false) {
-                continue;
-            }
+            foreach ($files as $file) {
+                if (!$this->isMarkdownFile($file->getPathname())) {
+                    continue;
+                }
 
-            $relativePath = '.docs' . DS . $file->getRelativePathname();
+                $content = file_get_contents($file->getPathname());
+                if ($content === false) {
+                    continue;
+                }
+
+                $relativePath = $docsDir['prefix'] . DS . $file->getRelativePathname();
             $errors = [];
             $warnings = [];
 
@@ -731,6 +810,7 @@ HELP;
                 }
 
                 $results[] = $result;
+            }
             }
         }
 
@@ -812,72 +892,76 @@ HELP;
 
     protected function updateDocsSources(): void
     {
-        $docsDir = Brain::projectDirectory('.docs');
+        $isGlobal = (bool) $this->option('global');
+        $docsDirs = $this->docsDirectoryResolver->resolve($isGlobal);
 
-        if (!is_dir($docsDir)) {
+        if (empty($docsDirs)) {
             $this->components->error('.docs directory does not exist.');
             throw new CommandTerminatedException();
         }
 
-        $files = File::allFiles($docsDir);
         $updated = 0;
         $skipped = 0;
 
-        foreach ($files as $file) {
-            if (!$this->isMarkdownFile($file->getPathname())) {
-                continue;
-            }
+        foreach ($docsDirs as $docsDir) {
+            $files = File::allFiles($docsDir['dir']);
 
-            $content = file_get_contents($file->getPathname());
-            if (!$content) {
-                continue;
-            }
+            foreach ($files as $file) {
+                if (!$this->isMarkdownFile($file->getPathname())) {
+                    continue;
+                }
 
-            if (!preg_match('/^---\s*(.*?)\s*---/s', $content, $matches)) {
-                $skipped++;
-                continue;
-            }
+                $content = file_get_contents($file->getPathname());
+                if (!$content) {
+                    continue;
+                }
 
-            try {
-                $yaml = Yaml::parse($matches[1]);
-            } catch (\Exception $e) {
-                Brain::debugException($e, 'brain-debug:updateDocsSources');
-                $this->components->warn("YAML error: {$file->getRelativePathname()}");
-                continue;
-            }
+                if (!preg_match('/^---\s*(.*?)\s*---/s', $content, $matches)) {
+                    $skipped++;
+                    continue;
+                }
 
-            if (!is_array($yaml) || empty($yaml['url'])) {
-                $skipped++;
-                continue;
-            }
+                try {
+                    $yaml = Yaml::parse($matches[1]);
+                } catch (\Exception $e) {
+                    Brain::debugException($e, 'brain-debug:updateDocsSources');
+                    $this->components->warn("YAML error: {$file->getRelativePathname()}");
+                    continue;
+                }
 
-            $url = $yaml['url'];
-            if (!filter_var($url, FILTER_VALIDATE_URL)) {
-                $this->components->warn("Invalid URL: {$file->getRelativePathname()}");
-                continue;
-            }
+                if (!is_array($yaml) || empty($yaml['url'])) {
+                    $skipped++;
+                    continue;
+                }
 
-            $downloaded = @file_get_contents($url);
-            if ($downloaded === false || empty($downloaded)) {
-                $this->components->error("Failed: {$file->getRelativePathname()}");
-                continue;
-            }
+                $url = $yaml['url'];
+                if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                    $this->components->warn("Invalid URL: {$file->getRelativePathname()}");
+                    continue;
+                }
 
-            $validation = $this->securityValidator->validate($downloaded, $url);
-            if (!$validation['valid']) {
-                $this->components->error("Security: {$file->getRelativePathname()} - {$validation['reason']}");
-                continue;
-            }
-            if (!empty($validation['warnings'])) {
-                $this->components->warn("Warning: {$file->getRelativePathname()} - " . implode(', ', $validation['warnings']));
-            }
+                $downloaded = @file_get_contents($url);
+                if ($downloaded === false || empty($downloaded)) {
+                    $this->components->error("Failed: {$file->getRelativePathname()}");
+                    continue;
+                }
 
-            $downloaded = $this->normalizeHtml($downloaded);
-            $yaml['date'] = date('c');
+                $validation = $this->securityValidator->validate($downloaded, $url);
+                if (!$validation['valid']) {
+                    $this->components->error("Security: {$file->getRelativePathname()} - {$validation['reason']}");
+                    continue;
+                }
+                if (!empty($validation['warnings'])) {
+                    $this->components->warn("Warning: {$file->getRelativePathname()} - " . implode(', ', $validation['warnings']));
+                }
 
-            $yamlHeader = "---\n" . Yaml::dump($yaml, 1, 2) . "---\n\n";
-            file_put_contents($file->getPathname(), $yamlHeader . $downloaded);
-            $updated++;
+                $downloaded = $this->normalizeHtml($downloaded);
+                $yaml['date'] = date('c');
+
+                $yamlHeader = "---\n" . Yaml::dump($yaml, 1, 2) . "---\n\n";
+                file_put_contents($file->getPathname(), $yamlHeader . $downloaded);
+                $updated++;
+            }
         }
 
         $this->components->info("Updated: {$updated}, Skipped (no url): {$skipped}");
@@ -940,16 +1024,18 @@ HELP;
      * @param  Collection<int, string>  $keywords
      * @return array<int, array<string, mixed>>
      */
-    public function getFileList(string $dir, Collection $keywords): array
+    public function getFileList(string $dir, Collection $keywords, string $pathPrefix = '.docs'): array
     {
         $files = File::allFiles($dir);
 
-        return collect(array_map(fn(SplFileInfo $file) => $this->processFile($file, $keywords), $files))
+        return collect(array_map(
+            fn(SplFileInfo $file) => $this->processFile($file, $keywords, $pathPrefix),
+            $files,
+        ))
             ->filter()
             ->unique('path')
             ->when($keywords->isNotEmpty(), fn($c) => $c->sortByDesc('score'))
             ->values()
-            ->when($this->option('limit') > 0, fn($c) => $c->take((int) $this->option('limit')))
             ->toArray();
     }
 
@@ -957,7 +1043,7 @@ HELP;
      * @param  Collection<int, string>  $keywords
      * @return array<string, mixed>|null
      */
-    protected function processFile(SplFileInfo $file, Collection $keywords): ?array
+    protected function processFile(SplFileInfo $file, Collection $keywords, string $pathPrefix = '.docs'): ?array
     {
         if (!$this->isMarkdownFile($file->getPathname())) {
             return null;
@@ -986,7 +1072,7 @@ HELP;
         }
 
         $result = [
-            'path' => '.docs' . DS . $file->getRelativePathname(),
+            'path' => $pathPrefix . DS . $file->getRelativePathname(),
         ];
 
         $yamlData = $this->parseYamlHeader($content, $file->getRelativePathname());
