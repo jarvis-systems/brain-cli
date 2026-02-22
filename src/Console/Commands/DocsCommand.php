@@ -841,6 +841,7 @@ HELP;
             try {
                 $yaml = Yaml::parse($matches[1]);
             } catch (\Exception $e) {
+                Brain::debugException($e, 'brain-debug:updateDocsSources');
                 $this->components->warn("YAML error: {$file->getRelativePathname()}");
                 continue;
             }

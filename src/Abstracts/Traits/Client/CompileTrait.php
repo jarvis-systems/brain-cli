@@ -290,6 +290,7 @@ trait CompileTrait
 
             return $generator->generateAndSave($files, $this->agent(), $outputPath);
         } catch (\Throwable $e) {
+            Brain::debugException($e, 'brain-debug:generateProjectSchema');
             // Schema generation is non-critical, log but don't fail compilation
             return false;
         }

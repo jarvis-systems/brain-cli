@@ -178,6 +178,7 @@ class CompileCommand extends CommandBridgeAbstract
             try {
                 $value = is_string($value) ? $value : VarExporter::export($value);
             } catch (\Throwable $e) {
+                Brain::debugException($e, 'brain-debug:showVariables');
                 $value = '<error>Cannot export variable</error>';
             }
             $this->line(" - <fg=cyan>{{ $key }}</>: $value");

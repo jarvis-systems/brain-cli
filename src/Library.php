@@ -7,6 +7,7 @@ namespace BrainCLI;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ItemNotFoundException;
 use BrainCLI\Models\Credential;
+use BrainCLI\Support\Brain;
 
 class Library
 {
@@ -25,7 +26,9 @@ class Library
         $this->variables['date_time'] = date('Y-m-d H:i:s');
         try {
             $this->variables['uuid'] = bin2hex(random_bytes(16));
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            Brain::debugException($e, 'brain-debug:Library::__construct');
+        }
 
         $this->data = json_decode(file_get_contents(__DIR__ . '/../library.json'));
     }
