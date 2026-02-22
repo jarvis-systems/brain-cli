@@ -35,12 +35,13 @@ bin/brain compile claude --json
 ## Step 3: Docs search
 
 ```bash
-bin/brain docs --search "install" --limit=1
+bin/brain docs install --limit=1
 ```
 
 - **Exit code:** `0`
 - **Expected output:** JSON array with at least 1 result (path, name, score)
-- **Purpose:** Verifies docs indexing, TNTSearch integration, JSON output
+- **Purpose:** Verifies keyword search, content scoring, JSON output
+- **Note:** Uses positional keyword argument, not `--search`. Requires project root context (auto-switches via workdir detection).
 
 ## Step 4: Docs validate
 
@@ -80,7 +81,8 @@ BRAIN_CLI_DEBUG=1 bin/brain compile claude 2>/tmp/brain-smoke-debug.log; echo "e
 bin/brain diagnose --human && \
 bin/brain --version && \
 bin/brain docs --validate && \
-echo "--- Smoke: 3/6 PASSED (compile/search/debug require project context) ---"
+bin/brain docs install --limit=1 && \
+echo "--- Smoke: 4/6 PASSED (compile/debug require project context) ---"
 ```
 
 ## After smoke

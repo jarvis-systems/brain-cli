@@ -25,7 +25,7 @@ BRAIN_CLI_DEBUG=1 brain compile claude  # Must: debug output on stderr with [bra
 ```bash
 brain docs                     # Must: list docs index, exit 0
 brain docs --validate          # Must: validate front matter, exit 0 on clean
-brain docs --search "keyword"  # Must: return JSON results, exit 0
+brain docs keyword             # Must: return JSON results, exit 0
 brain docs --download=<url> --as=filename.md  # Must: save to .docs/, exit 0
 ```
 
