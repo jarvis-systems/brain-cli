@@ -46,8 +46,22 @@ jobs:
       - name: Configure private package access
         run: composer config --global github-oauth.github.com ${{ secrets.COMPOSER_GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Composer lock sync guard
+        run: |
+          composer validate --no-check-publish
+          composer install --no-interaction --prefer-dist --no-progress
+          if ! git diff --exit-code composer.lock; then
+            echo "::error::composer.lock is out of sync with composer.json. Run 'composer update' locally and commit the lock file."
+            exit 1
+          fi
+
+      - name: Private repo availability guard
+        run: |
+          if ! composer show jarvis-brain/core --no-interaction 2>/dev/null; then
+            echo "::error::Cannot resolve jarvis-brain/core. Check: (1) repositories VCS block in composer.json, (2) COMPOSER_GITHUB_TOKEN secret has read access."
+            exit 1
+          fi
+          echo "jarvis-brain/core: $(composer show jarvis-brain/core --no-interaction 2>/dev/null | head -1)"
 
       - name: PHPStan
         run: composer analyse
