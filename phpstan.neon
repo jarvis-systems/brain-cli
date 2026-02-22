@@ -5,7 +5,6 @@ parameters:
     bootstrapFiles:
         - phpstan-constants.php
     excludePaths:
-        - src/Console/AiCommands/LabCommand.php.dump
         - src/Console/Commands/stubs
         - src/Console/AiCommands/stubs
         - src/Services/Clients/stubs

@@ -13,12 +13,8 @@ class StatusCommand extends Command
 
     protected $description = 'The work status';
 
-    public function handle()
+    public function handle(): int
     {
-        $today = [
-            now()->startOfDay()->toDateTimeString(),
-            now()->endOfDay()->toDateTimeString(),
-        ];
         $tasks = Task::all();
 
         $first = $tasks->first();

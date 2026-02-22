@@ -14,7 +14,7 @@ class DetailCommand extends Command
 
     protected $description = 'Show details of an MCP server from the configuration';
 
-    public function handle()
+    public function handle(): int
     {
         $name = $this->argument('name');
 
@@ -26,7 +26,7 @@ class DetailCommand extends Command
 
         if (! $server) {
             $this->components->error("MCP server '{$name}' not found in the configuration.");
-            return;
+            return 1;
         }
 
         $this->components->success('Found MCP server: ' . $name);
@@ -47,6 +47,8 @@ class DetailCommand extends Command
         }
 
         $this->components->info('Detail of MCP server: ' . $name);
+
+        return 0;
     }
 }
 

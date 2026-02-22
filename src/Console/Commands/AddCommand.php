@@ -16,7 +16,7 @@ class AddCommand extends Command
 
     protected $description = 'Add a new MCP server to the configuration';
 
-    public function handle()
+    public function handle(): int
     {
         $name = $this->argument('name');
 
@@ -25,9 +25,7 @@ class AddCommand extends Command
                 ->setNotFoundCredentialCallback([$this, 'askCredentials'])
                 ->get($name, true);
         } catch (\Throwable $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-            }
+            Brain::debugException($e);
             $this->components->error($e->getMessage());
             return ERROR;
         }
@@ -37,11 +35,9 @@ class AddCommand extends Command
         try {
             $fileDetector->addServer($serverInfo);
         } catch (\Throwable $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-            }
+            Brain::debugException($e);
             $this->components->error($e->getMessage());
-            return 1;
+            return ERROR;
         }
 
         $this->components->info("MCP server {$name} added successfully.");

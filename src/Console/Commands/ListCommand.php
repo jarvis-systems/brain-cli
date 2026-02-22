@@ -14,7 +14,7 @@ class ListCommand extends Command
 
     protected $description = 'The list of MCP servers';
 
-    public function handle()
+    public function handle(): int
     {
         $all = Library::create()->all(
             $this->argument('search')
@@ -22,7 +22,7 @@ class ListCommand extends Command
 
         if (count($all) === 0) {
             $this->components->warn('No MCP servers found in the configuration.');
-            return;
+            return 0;
         } else {
             $this->components->success('List of MCP servers:');
         }
@@ -35,6 +35,8 @@ class ListCommand extends Command
         });
 
         $this->components->info('Total MCP servers: ' . $all->count());
+
+        return 0;
     }
 
 
