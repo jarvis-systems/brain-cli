@@ -148,9 +148,7 @@ class CustomRunCommand extends CommandBridgeAbstract
                     return ERROR;
                 }
             } catch (\JsonException $e) {
-                if (Brain::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-                }
+                Brain::debugException($e);
                 $this->components->error("Failed to parse context JSON: " . $e->getMessage());
                 return ERROR;
             }

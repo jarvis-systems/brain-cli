@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace BrainCLI\Abstracts;
 
 use BrainCLI\Console\Commands\UpdateCommand;
+use BrainCLI\Console\Kernel\CommandKernel;
 use BrainCLI\Console\Traits\HelpersTrait;
 use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Enums\Agent;
+use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\LockFileFactory;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
@@ -46,20 +48,14 @@ abstract class CommandBridgeAbstract extends Command
             return $updateResult;
         }
 
-        try {
+        return CommandKernel::run(function () {
             $result = $this->handleBridge();
             if (is_int($result)) {
                 return $result;
             }
             $this->line(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             return OK;
-        } catch (Throwable $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-            }
-            $this->components->error("Unexpected error: " . $e->getMessage());
-            return ERROR;
-        }
+        }, 'bridge', fn (Throwable $e) => $this->components->error("Unexpected error: " . $e->getMessage()));
     }
 
     abstract protected function handleBridge(): int|array;
@@ -248,11 +244,9 @@ abstract class CommandBridgeAbstract extends Command
             }
             throw new \JsonException("Unexpected JSON output");
         } catch (\JsonException $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-            }
+            Brain::debugException($e);
             $this->components->error("Failed to decode JSON output: " . $e->getMessage());
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
     }
 
@@ -269,14 +263,10 @@ abstract class CommandBridgeAbstract extends Command
                     ->throw()
                     ->json();
             } catch (RequestException $e) {
-                if (Brain::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-                }
+                Brain::debugException($e);
                 return OK;
             } catch (Throwable $e) {
-                if (Brain::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-                }
+                Brain::debugException($e);
                 $this->components->warn("Failed to check for updates: " . $e->getMessage());
                 return ERROR;
             }
@@ -381,9 +371,7 @@ abstract class CommandBridgeAbstract extends Command
                     $existsAgents[] = $agent;
                 }
             } catch (Throwable $e) {
-                if (Brain::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-                }
+                Brain::debugException($e);
             }
         }
         return $existsAgents;

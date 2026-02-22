@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\Docs\ContentScorer;
 use BrainCLI\Services\Docs\DocScaffolder;
 use BrainCLI\Services\Docs\DriftDetector;
@@ -550,6 +551,14 @@ HELP;
 
     public function handle(): int
     {
+        return \BrainCLI\Console\Kernel\CommandKernel::run(
+            fn () => $this->executeCommand(),
+            'docs',
+        );
+    }
+
+    protected function executeCommand(): int
+    {
         $this->checkWorkingDir();
 
         if ($this->option('update')) {
@@ -642,7 +651,7 @@ HELP;
 
         if (!is_dir($docsDir)) {
             $this->components->error('.docs directory does not exist.');
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         $files = File::allFiles($docsDir);
@@ -807,7 +816,7 @@ HELP;
 
         if (!is_dir($docsDir)) {
             $this->components->error('.docs directory does not exist.');
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         $files = File::allFiles($docsDir);
@@ -879,27 +888,27 @@ HELP;
 
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             $this->components->error('Invalid URL.');
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         $filename = $this->option('as') ?: basename(parse_url($url, PHP_URL_PATH));
 
         if (!preg_match('/^[\w,\s-]+\.(md|txt|html)$/i', $filename)) {
             $this->components->error('Filename must end with .md, .txt, or .html');
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         $content = @file_get_contents($url);
 
         if ($content === false || empty($content)) {
             $this->components->error('Download failed or empty.');
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         $validation = $this->securityValidator->validate($content, $url);
         if (!$validation['valid']) {
             $this->components->error("Security: {$validation['reason']}");
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
         if (!empty($validation['warnings'])) {
             $this->components->warn("Warning: " . implode(', ', $validation['warnings']));
@@ -1066,9 +1075,7 @@ HELP;
             $parsed = Yaml::parse($matches[1]);
             return is_array($parsed) ? $parsed : [];
         } catch (\Exception $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] YAML parse error: ' . $e->getMessage());
-            }
+            Brain::debugException($e);
             $this->components->warn("YAML parse error in {$filename}, indexing without metadata");
             return [];
         }

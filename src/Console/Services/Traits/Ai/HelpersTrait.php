@@ -23,9 +23,7 @@ trait HelpersTrait
             $return = await($this->promise)?->content
                 ?? ($this->schema ? [] : '');
         } catch (\Throwable $e) {
-            if (Brain::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-            }
+            Brain::debugException($e);
             $return = $this->schema ? [] : '';
         }
 

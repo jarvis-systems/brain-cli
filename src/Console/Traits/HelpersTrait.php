@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Traits;
 
+use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\CompileLock;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Str;
@@ -51,11 +52,11 @@ trait HelpersTrait
 
             if (! is_dir($workingDir)) {
                 $this->components->error("The brain working directory does not exist: {$workingDir}");
-                exit(ERROR);
+                throw new CommandTerminatedException();
             }
 
             $this->components->error("The Brain.php file does not exist in the working directory: {$brainFile}");
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         if (Brain::isDebug()) {

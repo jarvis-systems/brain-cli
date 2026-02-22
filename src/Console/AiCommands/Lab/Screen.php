@@ -796,9 +796,7 @@ HTML);
                     $response = $workingResponse;
                 }
             } catch (\Throwable $e) {
-                if (Brain::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
-                }
+                Brain::debugException($e);
                 $response->error("Error executing command '{$command}': " . $e->getMessage())
                     ->nextCommand($modifier.$direction.$command, $argument);
 

@@ -3,7 +3,7 @@
   "description": "The Brain CLI Tool for Agent Management",
   "keywords": ["jarvis", "brain", "cli"],
   "type": "library",
-  "version": "v0.0.1",
+  "version": "v0.0.2",
   "license": "MIT",
   "authors": [
     {
@@ -50,6 +50,7 @@
   },
   "scripts": {
     "test": "phpunit",
+    "test:unit": "phpunit --testsuite Unit",
     "test-filter": "phpunit --filter",
     "analyse": "phpstan analyse",
     "post-install-cmd": [

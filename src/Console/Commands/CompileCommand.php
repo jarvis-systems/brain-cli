@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Abstracts\CommandBridgeAbstract;
+use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\CompileLock;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Facades\File;
@@ -112,7 +113,7 @@ class CompileCommand extends CommandBridgeAbstract
             );
             $this->components->warn('Use --no-lock to override (unsafe).');
 
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
 
         return $lock;
@@ -137,7 +138,7 @@ class CompileCommand extends CommandBridgeAbstract
                 'Set BRAIN_ALLOW_NO_LOCK=1 in environment to override.'
             );
 
-            exit(ERROR);
+            throw new CommandTerminatedException();
         }
     }
 

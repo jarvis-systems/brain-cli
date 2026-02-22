@@ -15,6 +15,19 @@ class Core
         return ServiceProvider::isDebug();
     }
 
+    /**
+     * Log an exception to stderr when debug mode is enabled.
+     *
+     * Emits: [prefix] ClassName: message
+     * No-op when BRAIN_CLI_DEBUG is not set.
+     */
+    public function debugException(\Throwable $e, string $prefix = 'brain-debug'): void
+    {
+        if ($this->isDebug()) {
+            error_log('[' . $prefix . '] ' . get_class($e) . ': ' . $e->getMessage());
+        }
+    }
+
     public function getEnv(string $name, mixed $default = null): mixed
     {
         if ($this->hasEnv($name)) {
