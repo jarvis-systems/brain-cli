@@ -25,6 +25,12 @@
     "bin/brain",
     "bin/ai"
   ],
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/jarvis-systems/brain-core.git"
+    }
+  ],
   "require": {
     "php": "^8.2",
     "jarvis-brain/core": "^v0.2.0",
