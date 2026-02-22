@@ -43,6 +43,9 @@ jobs:
           key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
           restore-keys: composer-${{ matrix.php }}-
 
+      - name: Configure private package access
+        run: composer config --global github-oauth.github.com ${{ secrets.COMPOSER_GITHUB_TOKEN }}
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
