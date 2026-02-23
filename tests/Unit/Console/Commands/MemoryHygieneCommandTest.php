@@ -78,4 +78,30 @@ class MemoryHygieneCommandTest extends TestCase
         // Verify health_status is explicitly set to NO_DATA for empty stores
         $this->assertStringContainsString("['health_status'] = 'NO_DATA'", $this->source);
     }
+
+    // ─── --json flag: clean output contract ─────────────────────────
+
+    public function test_json_option_exists_in_signature(): void
+    {
+        $this->assertStringContainsString('{--json', $this->source);
+    }
+
+    public function test_json_mode_guards_progress_messages(): void
+    {
+        // All $this->components->info() calls should be guarded by !option('json')
+        // Count info() calls and guards
+        $infoCount = substr_count($this->source, "\$this->components->info(");
+        $guardCount = substr_count($this->source, "! \$this->option('json')");
+
+        // Every info() call should have a corresponding json guard
+        // (error messages via $this->components->error() are NOT guarded — they go to stderr)
+        $this->assertGreaterThan(0, $guardCount, 'No json guards found');
+        $this->assertGreaterThanOrEqual($infoCount, $guardCount, 'Not all info() calls are guarded by json check');
+    }
+
+    public function test_json_output_summary_always_emitted(): void
+    {
+        // outputSummary() must NOT be guarded — it's the JSON payload
+        $this->assertStringContainsString('$this->outputSummary(', $this->source);
+    }
 }
