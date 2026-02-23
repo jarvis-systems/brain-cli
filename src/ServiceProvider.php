@@ -143,12 +143,14 @@ class ServiceProvider
     {
         $brain = new Core;
         // Load environment variables
-        // MIG-2025-02-23: Using mutable repository to allow process env override.
-        // This enables CLI callers to inject env vars like WEB_RESEARCH_MASTER_MODEL
-        // that take precedence over .brain/.env values.
+        // IMMUTABLE: process env WINS over .env file values.
+        // This is required for STRICT_MODE / COGNITIVE_LEVEL tier switching:
+        // caller sets env in process (e.g., STRICT_MODE=standard) and it must
+        // NOT be overwritten by .brain/.env values (e.g., STRICT_MODE=paranoid).
         if (file_exists($brain->workingDirectory('.env'))) {
             $repository = RepositoryBuilder::createWithDefaultAdapters()
                 ->addAdapter(PutenvAdapter::class)
+                ->immutable()
                 ->make();
 
             $dotenv = Dotenv::create($repository, $brain->workingDirectory());
