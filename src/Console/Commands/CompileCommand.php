@@ -18,6 +18,7 @@ class CompileCommand extends CommandBridgeAbstract
         {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
         {--json : Output in JSON format}
+        {--human : Human-readable output (default)}
         {--no-lock : Skip compile lock (unsafe, for emergency only)}
         {--diff : Preview compilation changes without keeping them (backup/compile/diff/restore)}
         ';

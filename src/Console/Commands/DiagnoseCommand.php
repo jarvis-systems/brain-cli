@@ -14,7 +14,10 @@ class DiagnoseCommand extends Command
     /**
      * @var string
      */
-    protected $signature = 'diagnose {--human : Human-readable output}';
+    protected $signature = 'diagnose
+        {--json : JSON output (default)}
+        {--human : Human-readable output}
+    ';
 
     /**
      * @var string

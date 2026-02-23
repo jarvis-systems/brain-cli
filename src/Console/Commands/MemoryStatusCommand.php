@@ -21,6 +21,7 @@ class MemoryStatusCommand extends Command
 
     protected $signature = 'memory:status
         {--json : Output raw JSON}
+        {--human : Human-readable dashboard (default)}
     ';
 
     protected $description = 'Show memory health dashboard from cached artifacts';
