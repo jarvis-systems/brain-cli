@@ -49,7 +49,10 @@ class CompileCommand extends CommandBridgeAbstract
 
         try {
             $agents = $this->detectAgents();
-            $this->line('');
+
+            if (! $this->option('json')) {
+                $this->line('');
+            }
 
             foreach ($agents as $agent) {
 
@@ -85,7 +88,11 @@ class CompileCommand extends CommandBridgeAbstract
                     }
                 }
             }
-            $this->line('');
+
+            if (! $this->option('json')) {
+                $this->line('');
+            }
+
             return OK;
         } finally {
             $lock?->release();

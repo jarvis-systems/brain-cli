@@ -153,4 +153,35 @@ class CompileCommandGoldenTest extends TestCase
         $this->assertStringContainsString('.mcp.json', $source);
         $this->assertStringContainsString('agent-schema.json', $source);
     }
+
+    // ─── Source Inspection: --json stdout purity ────────────────────
+
+    public function test_json_mode_guards_empty_line_before_loop(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        // The $this->line('') before the loop must be guarded by !option('json')
+        $this->assertStringContainsString("if (! \$this->option('json'))", $source);
+    }
+
+    public function test_json_mode_guards_empty_lines_around_loop(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        // handleBridge must have json guards to prevent stdout pollution.
+        // The two $this->line('') calls (before and after agent loop) must be
+        // inside `if (! $this->option('json'))` blocks.
+        $start = strpos($source, 'function handleBridge()');
+        $this->assertNotFalse($start, 'handleBridge() not found');
+
+        $body = substr($source, $start, strpos($source, 'private function acquireCompileLock', $start) - $start);
+
+        // Must have at least 2 json guards (before-loop and after-loop)
+        $guardCount = substr_count($body, "! \$this->option('json')");
+        $this->assertGreaterThanOrEqual(2, $guardCount, 'handleBridge() needs json guards for empty lines');
+    }
 }
