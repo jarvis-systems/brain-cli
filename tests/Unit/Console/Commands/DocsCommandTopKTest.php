@@ -90,6 +90,24 @@ class DocsCommandTopKTest extends TestCase
         $this->assertIsArray($output['files']);
     }
 
+    public function test_json_schema_version_is_present(): void
+    {
+        $output = $this->runDocsCommand(['--limit=1', 'api']);
+
+        $this->assertArrayHasKey('schema_version', $output, 'Output must include schema_version');
+        $this->assertSame(2, $output['schema_version'], 'Current schema version must be 2');
+    }
+
+    public function test_json_required_keys_present(): void
+    {
+        $output = $this->runDocsCommand(['--limit=1', 'api']);
+
+        $requiredKeys = ['schema_version', 'total_matches', 'files'];
+        foreach ($requiredKeys as $key) {
+            $this->assertArrayHasKey($key, $output, "Output must include required key: {$key}");
+        }
+    }
+
     private function runDocsCommand(array $args): array
     {
         $cmd = sprintf(

@@ -788,6 +788,7 @@ HELP;
         $this->indexCache->save();
 
         $output = [
+            'schema_version' => 2,
             'total_matches' => $totalMatches,
             'files' => $files,
         ];
