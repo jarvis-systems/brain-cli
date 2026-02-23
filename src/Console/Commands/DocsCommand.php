@@ -10,8 +10,10 @@ use BrainCLI\Services\Docs\ContentScorer;
 use BrainCLI\Services\Docs\DocScaffolder;
 use BrainCLI\Services\Docs\DocsDirectoryResolver;
 use BrainCLI\Services\Docs\DriftDetector;
+use BrainCLI\Services\Docs\FreshnessResolver;
 use BrainCLI\Services\Docs\MarkdownParser;
 use BrainCLI\Services\Docs\SecurityValidator;
+use BrainCLI\Services\Docs\TrustResolver;
 use BrainCLI\Services\Docs\UndocumentedScanner;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
@@ -43,6 +45,8 @@ class DocsCommand extends Command
         {--validate : Validate documentation files for required fields and quality}
         {--scaffold= : Scaffold doc files for undocumented classes (or specific class name)}
         {--global : Search all .docs/ folders in project subdirectories}
+        {--freshness= : Include only docs modified within N days (0 = no filter)}
+        {--trust= : Minimum trust level: low|med|high}
     ';
 
     protected $description = 'Index and search .docs folder with rich metadata extraction';
@@ -55,6 +59,8 @@ class DocsCommand extends Command
         protected DocScaffolder $docScaffolder,
         protected DriftDetector $driftDetector,
         protected DocsDirectoryResolver $docsDirectoryResolver,
+        protected FreshnessResolver $freshnessResolver,
+        protected TrustResolver $trustResolver,
     ) {
         parent::__construct();
     }
@@ -663,6 +669,10 @@ HELP;
             return 0;
         }
 
+        foreach ($docsDirs as $docsDir) {
+            $this->freshnessResolver->warmDirectory($docsDir['dir']);
+        }
+
         $allFiles = [];
         foreach ($docsDirs as $docsDir) {
             $dirFiles = $this->getFileList($docsDir['dir'], $keywords, $docsDir['prefix']);
@@ -671,9 +681,22 @@ HELP;
 
         $files = collect($allFiles)
             ->unique('path')
-            ->when($keywords->isNotEmpty(), fn($c) => $c->sortByDesc('score'))
+            ->when($this->option('freshness') !== null, function ($c) {
+                $maxDays = (int) $this->option('freshness');
+
+                return $c->filter(fn ($r) => ($r['freshness']['days_ago'] ?? 0) <= $maxDays);
+            })
+            ->when($this->option('trust') !== null, function ($c) {
+                $trustOrder = ['low' => 0, 'med' => 1, 'high' => 2];
+                $minLevel = $trustOrder[(string) $this->option('trust')] ?? 0;
+
+                return $c->filter(fn ($r) => ($trustOrder[$r['trust']['level'] ?? 'low'] ?? 0) >= $minLevel);
+            })
+            ->when($keywords->isNotEmpty(), fn ($c) => $c->sort(
+                fn ($a, $b) => ($b['score'] <=> $a['score']) ?: strcmp($a['path'], $b['path']),
+            ))
             ->values()
-            ->when($this->option('limit') > 0, fn($c) => $c->take((int) $this->option('limit')))
+            ->when($this->option('limit') > 0, fn ($c) => $c->take((int) $this->option('limit')))
             ->toArray();
 
         if (empty($files)) {
@@ -1105,6 +1128,14 @@ HELP;
         $result['score'] = $keywords->isNotEmpty()
             ? $this->contentScorer->calculate($keywords, $result, $contentLower)
             : 0;
+
+        $absolutePath = $file->getPathname();
+        $relativePath = $file->getRelativePathname();
+        $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
+
+        $result['source'] = $this->trustResolver->inferSource($relativePath, $pathPrefix, $result['url'] ?? null);
+        $result['freshness'] = $this->freshnessResolver->resolve($absolutePath, $docsDir);
+        $result['trust'] = $this->trustResolver->inferTrust($result['source'], $result['url'] ?? null);
 
         if ($this->option('stats')) {
             $result['stats'] = $this->extractStats($content, $file);

@@ -1,69 +1,73 @@
 {
-  "name": "jarvis-brain/cli",
-  "description": "The Brain CLI Tool for Agent Management",
-  "keywords": ["jarvis", "brain", "cli"],
-  "type": "library",
-  "version": "v0.2.2",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "Xsaven",
-      "email": "xsaven@gmail.com",
-      "role": "Developer/Maintainer"
-    }
-  ],
-  "autoload": {
-    "psr-4": {
-      "BrainCLI\\": "src/"
-    },
-    "files": [
-      "helpers.php",
-      "src/Console/AiCommands/Lab/Prompts/helpers.php"
-    ]
-  },
-  "bin": [
-    "bin/brain",
-    "bin/ai"
-  ],
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/jarvis-systems/brain-core.git"
-    }
-  ],
-  "require": {
-    "php": "^8.2",
-    "jarvis-brain/core": "^v0.2.2",
-    "symfony/var-exporter": "^7.3",
-    "symfony/yaml": "^7.3",
-    "react/async": "^4.3.0",
-    "react/event-loop": "^1.5",
-    "react/promise": "^3.2",
-    "bfg/attributes": "^1.2",
-    "react/stream": "^1.4.0",
-    "react/child-process": "^0.6.6",
-    "teamtnt/tntsearch": "^5.0"
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "BrainCLI\\Tests\\": "tests/"
-    }
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^11.0",
-    "fakerphp/faker": "^1.24",
-    "phpstan/phpstan": "^2.0"
-  },
-  "scripts": {
-    "test": "phpunit",
-    "test:unit": "phpunit --testsuite Unit",
-    "test-filter": "phpunit --filter",
-    "analyse": "phpstan analyse",
-    "post-install-cmd": [
-      "BrainCLI\\Composer\\Hooks::postInstall"
+    "name": "jarvis-brain/cli",
+    "description": "The Brain CLI Tool for Agent Management",
+    "keywords": [
+        "jarvis",
+        "brain",
+        "cli"
     ],
-    "post-update-cmd": [
-      "BrainCLI\\Composer\\Hooks::postUpdate"
-    ]
-  }
+    "type": "library",
+    "version": "v0.3.0",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Xsaven",
+            "email": "xsaven@gmail.com",
+            "role": "Developer/Maintainer"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "BrainCLI\\": "src/"
+        },
+        "files": [
+            "helpers.php",
+            "src/Console/AiCommands/Lab/Prompts/helpers.php"
+        ]
+    },
+    "bin": [
+        "bin/brain",
+        "bin/ai"
+    ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/jarvis-systems/brain-core.git"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "jarvis-brain/core": "^v0.3.0",
+        "symfony/var-exporter": "^7.3",
+        "symfony/yaml": "^7.3",
+        "react/async": "^4.3.0",
+        "react/event-loop": "^1.5",
+        "react/promise": "^3.2",
+        "bfg/attributes": "^1.2",
+        "react/stream": "^1.4.0",
+        "react/child-process": "^0.6.6",
+        "teamtnt/tntsearch": "^5.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BrainCLI\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "fakerphp/faker": "^1.24",
+        "phpstan/phpstan": "^2.0"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test-filter": "phpunit --filter",
+        "analyse": "phpstan analyse",
+        "post-install-cmd": [
+            "BrainCLI\\Composer\\Hooks::postInstall"
+        ],
+        "post-update-cmd": [
+            "BrainCLI\\Composer\\Hooks::postUpdate"
+        ]
+    }
 }

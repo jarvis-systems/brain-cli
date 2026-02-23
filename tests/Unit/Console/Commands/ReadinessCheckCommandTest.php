@@ -96,4 +96,41 @@ class ReadinessCheckCommandTest extends TestCase
 
         $this->assertStringContainsString("'NEUTRAL'", $runnerSource);
     }
+
+    public function test_json_option_exists_in_signature(): void
+    {
+        $this->assertStringContainsString('{--json', $this->source);
+    }
+
+    public function test_json_is_default_output_mode(): void
+    {
+        // JSON branch fires when --human is NOT set (i.e. JSON is default)
+        $this->assertStringContainsString("option('human')", $this->source);
+        $this->assertStringContainsString('json_encode', $this->source);
+    }
+
+    public function test_json_output_contains_required_keys(): void
+    {
+        $runnerSource = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Services/Readiness/ReadinessRunner.php'
+        ) ?: '';
+
+        // release:prepare depends on 'overall' and 'checks' keys
+        $this->assertStringContainsString("'overall'", $runnerSource);
+        $this->assertStringContainsString("'checks'", $runnerSource);
+        $this->assertStringContainsString("'version'", $runnerSource);
+        $this->assertStringContainsString("'timestamp'", $runnerSource);
+        $this->assertStringContainsString("'duration_ms'", $runnerSource);
+    }
+
+    public function test_release_prepare_runner_calls_with_json_flag(): void
+    {
+        $runnerSource = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Services/Release/ReleasePrepareRunner.php'
+        ) ?: '';
+
+        // release:prepare invokes readiness:check with --json
+        $this->assertStringContainsString('readiness:check', $runnerSource);
+        $this->assertStringContainsString('--json', $runnerSource);
+    }
 }

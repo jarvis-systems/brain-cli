@@ -23,6 +23,7 @@ class ReadinessCheckCommand extends Command
      * @var string
      */
     protected $signature = 'readiness:check
+        {--json : JSON output (default)}
         {--human : Human-readable output instead of JSON}
         {--skip-memory : Skip memory hygiene check}
     ';

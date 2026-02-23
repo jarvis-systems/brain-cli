@@ -18,6 +18,7 @@ use BrainCLI\Console\Commands\MemoryHygieneCommand;
 use BrainCLI\Console\Commands\MemoryStatusCommand;
 use BrainCLI\Console\Commands\MakeMcpCommand;
 use BrainCLI\Console\Commands\ReadinessCheckCommand;
+use BrainCLI\Console\Commands\ReleasePrepareCommand;
 use BrainCLI\Console\Commands\MakeScriptCommand;
 use BrainCLI\Console\Commands\MakeSkillCommand;
 use BrainCLI\Console\Commands\ScriptCommand;
@@ -66,6 +67,7 @@ class ServiceProvider
         MemoryHygieneCommand::class,
         MemoryStatusCommand::class,
         ReadinessCheckCommand::class,
+        ReleasePrepareCommand::class,
     ];
 
     /**

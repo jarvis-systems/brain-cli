@@ -96,4 +96,47 @@ class DocsCommandGoldenTest extends TestCase
         $this->assertStringContainsString('--global', $source);
         $this->assertStringContainsString('brain docs api --global', $source);
     }
+
+    public function test_freshness_option_exists_in_signature(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('{--freshness=', $source);
+        $this->assertStringContainsString('Include only docs modified within N days', $source);
+    }
+
+    public function test_trust_option_exists_in_signature(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('{--trust=', $source);
+        $this->assertStringContainsString('Minimum trust level: low|med|high', $source);
+    }
+
+    public function test_command_uses_freshness_resolver(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('FreshnessResolver', $source);
+        $this->assertStringContainsString('freshnessResolver->resolve(', $source);
+        $this->assertStringContainsString('freshnessResolver->warmDirectory(', $source);
+    }
+
+    public function test_command_uses_trust_resolver(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('TrustResolver', $source);
+        $this->assertStringContainsString('trustResolver->inferSource(', $source);
+        $this->assertStringContainsString('trustResolver->inferTrust(', $source);
+    }
+
+    public function test_command_has_stable_sort(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        // Stable sort: score DESC then path ASC tiebreaker
+        $this->assertStringContainsString('$b[\'score\'] <=> $a[\'score\']', $source);
+        $this->assertStringContainsString('strcmp($a[\'path\'], $b[\'path\'])', $source);
+    }
 }
