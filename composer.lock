@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "73b496a2226ba2afee12c893e38dce20",
+    "content-hash": "3cbd5527ed693206a59ee3e399f5b69c",
     "packages": [
         {
             "name": "bfg/attributes",
@@ -3147,16 +3147,16 @@
         },
         {
             "name": "jarvis-brain/core",
-            "version": "v0.3.0",
+            "version": "v0.4.0",
             "source": {
                 "type": "git",
                 "url": "git@github.com:jarvis-systems/brain-core.git",
-                "reference": "8aa239b530c67d345c560fc23f9f0d386a13b2ce"
+                "reference": "552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jarvis-systems/brain-core/zipball/8aa239b530c67d345c560fc23f9f0d386a13b2ce",
-                "reference": "8aa239b530c67d345c560fc23f9f0d386a13b2ce",
+                "url": "https://api.github.com/repos/jarvis-systems/brain-core/zipball/552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d",
+                "reference": "552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d",
                 "shasum": ""
             },
             "require": {
@@ -3233,7 +3233,7 @@
                 "core",
                 "jarvis"
             ],
-            "time": "2026-02-23T01:34:51+00:00"
+            "time": "2026-02-23T03:26:34+00:00"
         },
         {
             "name": "justinrainbow/json-schema",
