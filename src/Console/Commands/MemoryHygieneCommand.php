@@ -25,7 +25,8 @@ class MemoryHygieneCommand extends Command
     use HelpersTrait;
 
     protected $signature = 'memory:hygiene
-        {--json : JSON-only output (suppress progress messages)}
+        {--json : JSON output (default)}
+        {--human : Human-readable progress output with phase details}
         {--consolidate : Run consolidation phase (requires --yes)}
         {--yes : Confirm destructive operations}
         {--probe-set= : Path to probe-set.json (default: .work/memory-hygiene/probe-set.json)}
@@ -38,8 +39,9 @@ class MemoryHygieneCommand extends Command
         return parent::getHelp() . <<<'HELP'
 
 Examples:
-  brain memory:hygiene                  Run full hygiene (ledger + smoke + rank safety)
-  brain memory:hygiene --json           JSON-only output (no progress messages)
+  brain memory:hygiene                  Run full hygiene, JSON summary to stdout (default)
+  brain memory:hygiene --human          Human-readable progress with phase details
+  brain memory:hygiene --json           Explicit JSON mode (same as default, for clarity)
   brain memory:hygiene --consolidate --yes  Run with consolidation phase
   brain memory:hygiene --probe-set=custom.json  Use custom probe set
 
@@ -93,7 +95,7 @@ HELP;
         );
 
         try {
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info('Connecting to vector-memory MCP server...');
             }
             $client->connect();
@@ -101,7 +103,7 @@ HELP;
             $writer = new ArtifactWriter($outputDir);
 
             // Phase 1: Ledger
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info('Building ledger...');
             }
             $ledger = (new LedgerBuilder($client))->build();
@@ -110,7 +112,7 @@ HELP;
             if (((int) ($ledger['total_memories'] ?? 0)) === 0) {
                 $ledger['health_status'] = 'NO_DATA';
                 $writer->writeLedger($ledger);
-                if (! $this->option('json')) {
+                if ($this->option('human')) {
                     $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
                 }
 
@@ -118,17 +120,17 @@ HELP;
             }
 
             $writer->writeLedger($ledger);
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info('Ledger written to .work/memory-hygiene/ledger.json');
             }
 
             // Phase 2: Smoke Tests
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info('Running smoke tests...');
             }
             $smokeResults = (new SmokeTestRunner($client))->run($probeSet);
             $writer->writeSmokeResults($smokeResults);
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info(sprintf(
                     'Smoke tests: %d/%d passed (%.0f%%) — %s',
                     $smokeResults['passed'],
@@ -139,7 +141,7 @@ HELP;
             }
 
             // Phase 3: Rank Safety
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info('Checking rank safety...');
             }
             $canonicalIds = $this->extractCanonicalIds($ledger);
@@ -147,7 +149,7 @@ HELP;
 
             $rankResults = (new RankSafetyChecker($client))->check($probeSet, $canonicalIds, $anchorIds);
             $writer->writeRankSafetyResults($rankResults);
-            if (! $this->option('json')) {
+            if ($this->option('human')) {
                 $this->components->info(sprintf(
                     'Rank safety: %s — %d overlap risks',
                     $rankResults['verdict'],
@@ -169,7 +171,7 @@ HELP;
                     return ERROR;
                 }
 
-                if (! $this->option('json')) {
+                if ($this->option('human')) {
                     $this->components->warn('Consolidation phase not yet implemented');
                 }
             }
@@ -281,7 +283,7 @@ HELP;
      */
     protected function handleNoData(ArtifactWriter $writer, array $probeSet, array $ledger): int
     {
-        if (! $this->option('json')) {
+        if ($this->option('human')) {
             $this->components->info('NO_DATA: empty vector store — smoke and rank safety skipped.');
         }
 

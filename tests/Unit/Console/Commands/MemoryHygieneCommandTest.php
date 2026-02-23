@@ -89,29 +89,63 @@ class MemoryHygieneCommandTest extends TestCase
         $this->assertStringContainsString('--consolidate', $this->source);
     }
 
-    // ─── --json flag: clean output contract ─────────────────────────
+    // ─── Output mode contract (JSON default, --human opt-in) ──────
 
     public function test_json_option_exists_in_signature(): void
     {
         $this->assertStringContainsString('{--json', $this->source);
     }
 
-    public function test_json_mode_guards_progress_messages(): void
+    public function test_human_option_exists_in_signature(): void
     {
-        // All $this->components->info() calls should be guarded by !option('json')
-        // Count info() calls and guards
-        $infoCount = substr_count($this->source, "\$this->components->info(");
-        $guardCount = substr_count($this->source, "! \$this->option('json')");
+        $this->assertStringContainsString('{--human', $this->source);
+    }
 
-        // Every info() call should have a corresponding json guard
+    public function test_default_mode_is_json(): void
+    {
+        // Progress messages must be guarded by option('human'), NOT !option('json').
+        // This ensures default (no flags) produces clean JSON output.
+        $this->assertStringNotContainsString(
+            "! \$this->option('json')",
+            $this->source,
+            'Default mode must be JSON — guards should use option(\'human\'), not !option(\'json\')',
+        );
+    }
+
+    public function test_human_mode_guards_progress_messages(): void
+    {
+        // All $this->components->info() calls must be guarded by option('human')
+        $infoCount = substr_count($this->source, "\$this->components->info(");
+        $humanGuardCount = substr_count($this->source, "\$this->option('human')");
+
+        // Every info() call should have a corresponding human guard
         // (error messages via $this->components->error() are NOT guarded — they go to stderr)
-        $this->assertGreaterThan(0, $guardCount, 'No json guards found');
-        $this->assertGreaterThanOrEqual($infoCount, $guardCount, 'Not all info() calls are guarded by json check');
+        $this->assertGreaterThan(0, $humanGuardCount, 'No human guards found');
+        $this->assertGreaterThanOrEqual($infoCount, $humanGuardCount, 'Not all info() calls are guarded by human check');
     }
 
     public function test_json_output_summary_always_emitted(): void
     {
-        // outputSummary() must NOT be guarded — it's the JSON payload
+        // outputSummary() must NOT be guarded — it's the JSON payload in both modes
         $this->assertStringContainsString('$this->outputSummary(', $this->source);
+
+        // Verify outputSummary is not inside any conditional block by checking
+        // it's preceded by a comment, not an if-statement
+        $pos = strpos($this->source, '$this->outputSummary(');
+        $this->assertNotFalse($pos);
+
+        $preceding = substr($this->source, max(0, $pos - 80), 80);
+        $this->assertStringNotContainsString("if (", $preceding, 'outputSummary() must not be inside a conditional');
+    }
+
+    public function test_no_negated_json_option_check(): void
+    {
+        // Regression lock: the v0.3.x pattern `! $this->option('json')` must not reappear.
+        // v0.4.0 uses `$this->option('human')` for all progress guards.
+        $this->assertSame(
+            0,
+            substr_count($this->source, "! \$this->option('json')"),
+            'Negated json option check found — use option(\'human\') instead',
+        );
     }
 }
