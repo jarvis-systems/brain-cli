@@ -21,6 +21,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use Symfony\Component\Yaml\Yaml;
 
@@ -723,41 +724,50 @@ HELP;
         $warmupEnd = (int) (microtime(true) * 1000);
 
         $scanStart = (int) (microtime(true) * 1000);
-        $allFiles = [];
+
+        $allCandidates = [];
         foreach ($docsDirs as $docsDir) {
-            $dirFiles = $this->getFileList($docsDir['dir'], $keywords, $docsDir['prefix']);
-            $allFiles = array_merge($allFiles, $dirFiles);
+            $dirCandidates = $this->computeCandidateScores($docsDir['dir'], $keywords, $docsDir['prefix']);
+            $allCandidates = array_merge($allCandidates, $dirCandidates);
         }
+
         $scanEnd = (int) (microtime(true) * 1000);
 
         $rebuildEnd = (int) (microtime(true) * 1000);
         $this->indexCache->setRebuildTime($rebuildEnd - $rebuildStart);
         $this->indexCache->setScanTime($scanEnd - $scanStart);
 
-        $activeFiles = array_map(fn ($f) => $f['_abs_path'] ?? '', $allFiles);
+        $activeFiles = array_map(fn($c) => $c['_abs_path'] ?? '', $allCandidates);
         $this->indexCache->prune(array_filter($activeFiles));
 
         $enrichStart = (int) (microtime(true) * 1000);
 
-        $files = collect($allFiles)
+        $limit = (int) $this->option('limit');
+
+        $sortedCandidates = collect($allCandidates)
             ->unique('path')
             ->when($this->option('freshness') !== null, function ($c) {
                 $maxDays = (int) $this->option('freshness');
 
-                return $c->filter(fn ($r) => ($r['freshness']['days_ago'] ?? 0) <= $maxDays);
+                return $c->filter(fn($r) => ($r['freshness']['days_ago'] ?? 0) <= $maxDays);
             })
             ->when($this->option('trust') !== null, function ($c) {
                 $trustOrder = ['low' => 0, 'med' => 1, 'high' => 2];
                 $minLevel = $trustOrder[(string) $this->option('trust')] ?? 0;
 
-                return $c->filter(fn ($r) => ($trustOrder[$r['trust']['level'] ?? 'low'] ?? 0) >= $minLevel);
+                return $c->filter(fn($r) => ($trustOrder[$r['trust']['level'] ?? 'low'] ?? 0) >= $minLevel);
             })
-            ->when($keywords->isNotEmpty(), fn ($c) => $c->sort(
-                fn ($a, $b) => ($b['score'] <=> $a['score']) ?: strcmp($a['path'], $b['path']),
+            ->when($keywords->isNotEmpty(), fn($c) => $c->sort(
+                fn($a, $b) => ($b['score'] <=> $a['score']) ?: strcmp($a['path'], $b['path']),
             ))
-            ->values()
-            ->when($this->option('limit') > 0, fn ($c) => $c->take((int) $this->option('limit')))
-            ->map(fn ($r) => collect($r)->except('_abs_path')->all())
+            ->values();
+
+        $totalMatches = $sortedCandidates->count();
+
+        $topCandidates = $limit > 0 ? $sortedCandidates->take($limit) : $sortedCandidates;
+
+        $files = $topCandidates
+            ->map(fn($c) => $this->enrichCandidate($c, $keywords))
             ->toArray();
 
         $enrichEnd = (int) (microtime(true) * 1000);
@@ -777,7 +787,12 @@ HELP;
         $this->indexCache->recordSearchRun(true);
         $this->indexCache->save();
 
-        $this->line(json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $output = [
+            'total_matches' => $totalMatches,
+            'files' => $files,
+        ];
+
+        $this->line(json_encode($output, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         $renderEnd = (int) (microtime(true) * 1000);
         $this->indexCache->setRenderTime($renderEnd - $renderStart);
@@ -1136,6 +1151,257 @@ HELP;
             ->when($keywords->isNotEmpty(), fn($c) => $c->sortByDesc('score'))
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Phase 1: Compute minimal scores for all candidates (no expensive enrichment).
+     *
+     * @param  Collection<int, string>  $keywords
+     * @return array<int, array{path: string, score: int, _abs_path: string, _cached: array|null, _content: string|null, _content_lower: string|null, name: string|null, description: string|null, _auto_name: int|null, _auto_description: bool, source: string, freshness: array, trust: array, yaml: array}>
+     */
+    protected function computeCandidateScores(string $dir, Collection $keywords, string $pathPrefix = '.docs'): array
+    {
+        $finder = new Finder();
+        $finder->files()->in($dir)->name(['*.md', '*.mdx']);
+        $candidates = [];
+
+        foreach ($finder as $file) {
+            if (!$this->isMarkdownFile($file->getPathname())) {
+                continue;
+            }
+
+            $absolutePath = $file->getPathname();
+            $relativePath = $file->getRelativePathname();
+            $path = $pathPrefix . DS . $relativePath;
+
+            $cached = $this->indexCache->lookup($absolutePath);
+            $isStale = $this->indexCache->isStale($absolutePath, $cached);
+
+            $content = null;
+            $contentLower = null;
+            $yamlData = [];
+            $name = null;
+            $description = null;
+            $autoName = null;
+            $autoDescription = null;
+            $autoNameLevel = null;
+            $autoDescriptionFlag = false;
+
+            if (!$isStale && $cached !== null) {
+                $yamlData = $cached['yaml'] ?? [];
+                $name = $yamlData['name'] ?? null;
+                $description = $yamlData['description'] ?? null;
+
+                if (($cached['auto_name'] ?? null) !== null) {
+                    $name = $cached['auto_name']['text'];
+                    $autoNameLevel = $cached['auto_name']['level'];
+                }
+
+                if (($cached['auto_description'] ?? null) !== null) {
+                    $description = $cached['auto_description'];
+                    $autoDescriptionFlag = true;
+                }
+            }
+
+            if ($keywords->isNotEmpty()) {
+                $content = file_get_contents($absolutePath);
+                if ($content === false) {
+                    continue;
+                }
+                $contentLower = Str::lower($content);
+
+                if (!$keywords->contains(fn($kw) => Str::contains($contentLower, Str::lower($kw)))) {
+                    continue;
+                }
+
+                $exactPhrase = $this->option('exact');
+                if ($exactPhrase !== null && $exactPhrase !== '') {
+                    $isStrict = $this->option('strict');
+                    $searchContent = $isStrict ? $content : $contentLower;
+                    $searchPhrase = $isStrict ? $exactPhrase : Str::lower($exactPhrase);
+
+                    if (!Str::contains($searchContent, $searchPhrase)) {
+                        continue;
+                    }
+                }
+
+                if ($isStale || $cached === null) {
+                    $yamlData = $this->parseYamlHeader($content, $relativePath);
+                    $name = $yamlData['name'] ?? null;
+                    $description = $yamlData['description'] ?? null;
+
+                    $hasYamlName = isset($yamlData['name']) && !empty(trim($yamlData['name']));
+                    $hasYamlDescription = isset($yamlData['description']) && !empty(trim($yamlData['description']));
+
+                    $contentAfterYaml = $content;
+                    if (preg_match('/^---\s*.*?\s*---\s*/s', $content)) {
+                        $contentAfterYaml = preg_replace('/^---\s*.*?\s*---\s*/s', '', $content);
+                    }
+
+                    if (!$hasYamlName) {
+                        $autoName = $this->markdownParser->extractAutoName($contentAfterYaml);
+                        if ($autoName !== null) {
+                            $name = $autoName['text'];
+                            $autoNameLevel = $autoName['level'];
+                        }
+                    }
+
+                    if (!$hasYamlDescription) {
+                        $autoDescription = $this->markdownParser->extractAutoDescription($contentAfterYaml);
+                        if ($autoDescription !== null) {
+                            $description = $autoDescription;
+                            $autoDescriptionFlag = true;
+                        }
+                    }
+                }
+
+                $scoreData = [
+                    'name' => $name,
+                    'description' => $description,
+                    '_auto_name' => $autoNameLevel,
+                    '_auto_description' => $autoDescriptionFlag,
+                ];
+                $score = $this->contentScorer->calculate($keywords, $scoreData, $contentLower);
+            } else {
+                $score = 0;
+            }
+
+            $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
+
+            if ($isStale || $cached === null) {
+                if ($content === null) {
+                    $content = file_get_contents($absolutePath);
+                    if ($content === false) {
+                        continue;
+                    }
+                }
+
+                $source = $this->trustResolver->inferSource($relativePath, $pathPrefix, $yamlData['url'] ?? null);
+                $freshness = $this->freshnessResolver->resolve($absolutePath, $docsDir);
+                $trust = $this->trustResolver->inferTrust($source, $yamlData['url'] ?? null);
+
+                $this->indexCache->store($absolutePath, [
+                    'yaml' => $yamlData,
+                    'auto_name' => $autoNameLevel !== null ? ['text' => $name, 'level' => $autoNameLevel] : null,
+                    'auto_description' => $autoDescriptionFlag ? $description : null,
+                    'source' => $source,
+                    'trust' => $trust,
+                    'freshness' => $freshness,
+                    'content_hash' => substr(md5($content), 0, 8),
+                ]);
+
+                $cached = $this->indexCache->lookup($absolutePath);
+            } else {
+                $this->indexCache->incrementGitCallsSaved();
+            }
+
+            $source = $cached['source'] ?? 'local';
+            $freshness = is_array($cached['freshness'] ?? null)
+                ? $this->recalculateFreshnessDays($cached['freshness'])
+                : $this->freshnessResolver->resolve($absolutePath, $docsDir);
+            $trust = $cached['trust'] ?? ['level' => 'low', 'reason' => 'Unknown source'];
+
+            $candidates[] = [
+                'path' => $path,
+                'score' => $score,
+                '_abs_path' => $absolutePath,
+                '_cached' => $cached,
+                '_content' => $content,
+                '_content_lower' => $contentLower,
+                'name' => $name,
+                'description' => $description,
+                '_auto_name' => $autoNameLevel,
+                '_auto_description' => $autoDescriptionFlag,
+                'source' => $source,
+                'freshness' => $freshness,
+                'trust' => $trust,
+                'yaml' => $yamlData,
+            ];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Phase 2: Enrich only top-K candidates with expensive operations.
+     *
+     * @param  array<string, mixed>  $candidate
+     * @param  Collection<int, string>  $keywords
+     * @return array<string, mixed>
+     */
+    protected function enrichCandidate(array $candidate, Collection $keywords): array
+    {
+        $result = [
+            'path' => $candidate['path'],
+            'name' => $candidate['name'],
+            'description' => $candidate['description'],
+            'score' => $candidate['score'],
+            'source' => $candidate['source'],
+            'freshness' => $candidate['freshness'],
+            'trust' => $candidate['trust'],
+        ];
+
+        if ($candidate['_auto_name'] !== null) {
+            $result['_auto_name'] = $candidate['_auto_name'];
+        }
+        if ($candidate['_auto_description']) {
+            $result['_auto_description'] = true;
+        }
+
+        $content = $candidate['_content'];
+        if ($content === null) {
+            $content = file_get_contents($candidate['_abs_path']);
+        }
+
+        if ($content === false) {
+            return $result;
+        }
+
+        if ($this->option('stats')) {
+            $file = new SplFileInfo($candidate['_abs_path'], dirname($candidate['path']), $candidate['path']);
+            $result['stats'] = $this->extractStats($content, $file);
+        }
+
+        if ($this->option('headers') > 0) {
+            $headers = $this->markdownParser->parseHeaders(
+                $content,
+                (int) $this->option('headers'),
+                (bool) $this->option('snippets'),
+            );
+            if (!empty($headers)) {
+                $result['headers'] = $headers;
+            }
+        }
+
+        if ($this->option('code')) {
+            $codeBlocks = $this->markdownParser->extractCodeBlocks($content);
+            if (!empty($codeBlocks)) {
+                $result['code_blocks'] = $codeBlocks;
+            }
+        }
+
+        if ($this->option('links')) {
+            $links = $this->extractLinks($content);
+            if (!empty($links['internal']) || !empty($links['external'])) {
+                $result['links'] = $links;
+            }
+        }
+
+        if ($this->option('keywords')) {
+            $keywordsExtracted = $this->extractKeywords($content);
+            if (!empty($keywordsExtracted)) {
+                $result['keywords'] = $keywordsExtracted;
+            }
+        }
+
+        if ($this->option('matches') && $keywords->isNotEmpty()) {
+            $matches = $this->extractMatches($content, $keywords);
+            if (!empty($matches)) {
+                $result['matches'] = $matches;
+            }
+        }
+
+        return $result;
     }
 
     /**
