@@ -705,30 +705,39 @@ HELP;
             return 0;
         }
 
+        $loadStart = (int) (microtime(true) * 1000);
         $this->indexCache->load(getcwd() ?: '.');
+        $loadEnd = (int) (microtime(true) * 1000);
 
         if ($this->indexCache->getHealth() === DocsIndexCache::HEALTH_CORRUPT) {
             $this->indexCache->recoverFromCorruption();
         }
 
-        foreach ($docsDirs as $docsDir) {
-            $this->freshnessResolver->warmDirectory($docsDir['dir']);
+        $warmupStart = (int) (microtime(true) * 1000);
+        $needsGitWarmup = $this->indexCache->isFullRebuild() || $this->indexCache->getStats()['total'] === 0;
+        if ($needsGitWarmup) {
+            foreach ($docsDirs as $docsDir) {
+                $this->freshnessResolver->warmDirectory($docsDir['dir']);
+            }
         }
+        $warmupEnd = (int) (microtime(true) * 1000);
 
+        $scanStart = (int) (microtime(true) * 1000);
         $allFiles = [];
         foreach ($docsDirs as $docsDir) {
             $dirFiles = $this->getFileList($docsDir['dir'], $keywords, $docsDir['prefix']);
             $allFiles = array_merge($allFiles, $dirFiles);
         }
+        $scanEnd = (int) (microtime(true) * 1000);
 
         $rebuildEnd = (int) (microtime(true) * 1000);
         $this->indexCache->setRebuildTime($rebuildEnd - $rebuildStart);
+        $this->indexCache->setScanTime($scanEnd - $scanStart);
 
         $activeFiles = array_map(fn ($f) => $f['_abs_path'] ?? '', $allFiles);
         $this->indexCache->prune(array_filter($activeFiles));
-        $this->indexCache->save();
 
-        $searchStart = (int) (microtime(true) * 1000);
+        $enrichStart = (int) (microtime(true) * 1000);
 
         $files = collect($allFiles)
             ->unique('path')
@@ -751,8 +760,11 @@ HELP;
             ->map(fn ($r) => collect($r)->except('_abs_path')->all())
             ->toArray();
 
-        $searchEnd = (int) (microtime(true) * 1000);
-        $this->indexCache->setSearchTime($searchEnd - $searchStart);
+        $enrichEnd = (int) (microtime(true) * 1000);
+        $this->indexCache->setEnrichTime($enrichEnd - $enrichStart);
+
+        $renderStart = (int) (microtime(true) * 1000);
+        $this->indexCache->save();
 
         if (empty($files)) {
             $this->outputComponents()->warn('No documentation files found.');
@@ -766,6 +778,9 @@ HELP;
         $this->indexCache->save();
 
         $this->line(json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        $renderEnd = (int) (microtime(true) * 1000);
+        $this->indexCache->setRenderTime($renderEnd - $renderStart);
 
         return 0;
     }
@@ -1140,18 +1155,15 @@ HELP;
         if (!$this->indexCache->isStale($absolutePath, $cached) && $keywords->isEmpty() && ($this->option('exact') === null || $this->option('exact') === '')) {
             $result = ['path' => $pathPrefix . DS . $file->getRelativePathname()];
 
-            // Restore YAML fields
             if (is_array($cached['yaml'] ?? null)) {
                 $result = array_merge($result, $cached['yaml']);
             }
 
-            // Restore auto-extracted name
             if (is_array($cached['auto_name'] ?? null)) {
                 $result['name'] = $cached['auto_name']['text'];
                 $result['_auto_name'] = $cached['auto_name']['level'];
             }
 
-            // Restore auto-extracted description
             if (($cached['auto_description'] ?? null) !== null) {
                 $result['description'] = $cached['auto_description'];
                 $result['_auto_description'] = true;
@@ -1159,13 +1171,17 @@ HELP;
 
             $result['score'] = 0;
             $result['source'] = $cached['source'] ?? 'local';
-
-            // Re-resolve freshness (depends on current time, not file content)
-            $relativePath = $file->getRelativePathname();
-            $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
-            $result['freshness'] = $this->freshnessResolver->resolve($absolutePath, $docsDir);
-            $result['trust'] = $cached['trust'] ?? ['level' => 'low', 'reason' => 'Unknown source'];
             $result['_abs_path'] = $absolutePath;
+
+            if (is_array($cached['freshness'] ?? null)) {
+                $result['freshness'] = $this->recalculateFreshnessDays($cached['freshness']);
+                $this->indexCache->incrementGitCallsSaved();
+            } else {
+                $relativePath = $file->getRelativePathname();
+                $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
+                $result['freshness'] = $this->freshnessResolver->resolve($absolutePath, $docsDir);
+            }
+            $result['trust'] = $cached['trust'] ?? ['level' => 'low', 'reason' => 'Unknown source'];
 
             return $result;
         }
@@ -1284,12 +1300,53 @@ HELP;
             'auto_description' => ($result['_auto_description'] ?? false) ? $result['description'] : null,
             'source' => $result['source'],
             'trust' => $result['trust'],
+            'freshness' => $result['freshness'],
             'content_hash' => substr(md5($content), 0, 8),
         ]);
 
         $result['_abs_path'] = $absolutePath;
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $cachedFreshness
+     * @return array<string, mixed>
+     */
+    protected function recalculateFreshnessDays(array $cachedFreshness): array
+    {
+        if (!isset($cachedFreshness['modified_at'])) {
+            return $cachedFreshness;
+        }
+
+        $modifiedAt = strtotime($cachedFreshness['modified_at']);
+        if ($modifiedAt === false) {
+            return $cachedFreshness;
+        }
+
+        $now = time();
+        $daysAgo = max(0, (int) floor(($now - $modifiedAt) / 86400));
+
+        return [
+            'modified_at' => $cachedFreshness['modified_at'],
+            'days_ago' => $daysAgo,
+            'bucket' => $this->computeFreshnessBucket($daysAgo),
+        ];
+    }
+
+    protected function computeFreshnessBucket(int $daysAgo): string
+    {
+        if ($daysAgo <= 7) {
+            return 'fresh';
+        }
+        if ($daysAgo <= 30) {
+            return 'recent';
+        }
+        if ($daysAgo <= 90) {
+            return 'aging';
+        }
+
+        return 'stale';
     }
 
     protected function parseYamlHeader(string $content, string $filename): array

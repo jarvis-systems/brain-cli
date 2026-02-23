@@ -54,6 +54,14 @@ class DocsIndexCache
 
     private bool $fullRebuild = false;
 
+    private int $scanMs = 0;
+
+    private int $enrichMs = 0;
+
+    private int $renderMs = 0;
+
+    private int $gitCallsSaved = 0;
+
     public function load(string $projectRoot): void
     {
         $this->cacheDir = rtrim($projectRoot, '/') . '/.work';
@@ -324,6 +332,10 @@ class DocsIndexCache
             'entries_removed' => $this->entriesRemoved,
             'rebuild_ms' => $this->lastRebuildMs,
             'search_ms' => $this->lastSearchMs,
+            'scan_ms' => $this->scanMs,
+            'enrich_ms' => $this->enrichMs,
+            'render_ms' => $this->renderMs,
+            'git_calls_saved' => $this->gitCallsSaved,
             'hit' => $hit,
         ];
 
@@ -341,6 +353,10 @@ class DocsIndexCache
         $this->entriesRemoved = 0;
         $this->lastRebuildMs = 0;
         $this->lastSearchMs = 0;
+        $this->scanMs = 0;
+        $this->enrichMs = 0;
+        $this->renderMs = 0;
+        $this->gitCallsSaved = 0;
     }
 
     public function getHealth(): string
@@ -376,7 +392,7 @@ class DocsIndexCache
     }
 
     /**
-     * @return array{cache_hit: bool, entries_total: int, entries_changed: int, entries_added: int, entries_removed: int, rebuild_ms: int, search_ms: int, hit_rate: float, health: string, last_build_at: string|null}
+     * @return array{cache_hit: bool, entries_total: int, entries_changed: int, entries_added: int, entries_removed: int, rebuild_ms: int, search_ms: int, hit_rate: float, health: string, last_build_at: string|null, timing: array{scan_ms: int, enrich_ms: int, render_ms: int, git_calls_saved: int}}
      */
     public function getDetailedStats(): array
     {
@@ -404,7 +420,33 @@ class DocsIndexCache
             'hit_rate' => $hitRate,
             'health' => $this->health,
             'last_build_at' => $this->lastBuildAt,
+            'timing' => [
+                'scan_ms' => $lastRun['scan_ms'] ?? $this->scanMs,
+                'enrich_ms' => $lastRun['enrich_ms'] ?? $this->enrichMs,
+                'render_ms' => $lastRun['render_ms'] ?? $this->renderMs,
+                'git_calls_saved' => $lastRun['git_calls_saved'] ?? $this->gitCallsSaved,
+            ],
         ];
+    }
+
+    public function setScanTime(int $ms): void
+    {
+        $this->scanMs = $ms;
+    }
+
+    public function setEnrichTime(int $ms): void
+    {
+        $this->enrichMs = $ms;
+    }
+
+    public function setRenderTime(int $ms): void
+    {
+        $this->renderMs = $ms;
+    }
+
+    public function incrementGitCallsSaved(int $count = 1): void
+    {
+        $this->gitCallsSaved += $count;
     }
 
     /**

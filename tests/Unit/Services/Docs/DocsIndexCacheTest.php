@@ -565,6 +565,40 @@ class DocsIndexCacheTest extends TestCase
         $this->assertArrayHasKey('hit_rate', $stats);
         $this->assertArrayHasKey('health', $stats);
         $this->assertArrayHasKey('last_build_at', $stats);
+        $this->assertArrayHasKey('timing', $stats);
+        $this->assertArrayHasKey('scan_ms', $stats['timing']);
+        $this->assertArrayHasKey('enrich_ms', $stats['timing']);
+        $this->assertArrayHasKey('render_ms', $stats['timing']);
+        $this->assertArrayHasKey('git_calls_saved', $stats['timing']);
+    }
+
+    public function test_timing_breakdown_keys_present_and_stable(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $this->cache->setScanTime(10);
+        $this->cache->setEnrichTime(5);
+        $this->cache->setRenderTime(2);
+        $this->cache->incrementGitCallsSaved(3);
+
+        $stats = $this->cache->getDetailedStats();
+
+        $this->assertSame(10, $stats['timing']['scan_ms']);
+        $this->assertSame(5, $stats['timing']['enrich_ms']);
+        $this->assertSame(2, $stats['timing']['render_ms']);
+        $this->assertSame(3, $stats['timing']['git_calls_saved']);
+    }
+
+    public function test_git_calls_saved_increments(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $this->cache->incrementGitCallsSaved(1);
+        $this->cache->incrementGitCallsSaved(5);
+
+        $stats = $this->cache->getDetailedStats();
+
+        $this->assertSame(6, $stats['timing']['git_calls_saved']);
     }
 
     public function test_rolling_stats_bounded_to_max(): void
