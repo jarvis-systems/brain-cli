@@ -13,7 +13,7 @@ enum OpenCodeModels: string
     use AgentModelsTrait;
 
     case GLM47 = 'zai-coding-plan/glm-4.7';
-    case GLM50 = 'zai-coding-plan/glm-5.0';
+    case GLM50 = 'zai-coding-plan/glm-5';
     case GLM47_FREE = 'opencode/glm-4.7-free';
     case BIG_PICKLE_FREE = 'opencode/big-pickle';
     case GROK_CODE_FREE = 'opencode/grok-code';
