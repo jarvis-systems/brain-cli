@@ -90,6 +90,9 @@ class CodexClient extends ClientAbstract
             $tomls[] = "model = \"{$brain->meta['model']}\"";
         }
 
+        $projectDir = Brain::projectDirectory();
+        $tomls[] = "[projects.\"$projectDir\"]\ntrust_level = \"trusted\"";
+
         foreach ($mcp as $mcpFile) {
             $server = $mcpFile->structure;
             if (is_string($server)) {
