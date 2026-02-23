@@ -9,6 +9,7 @@ use BrainCLI\Dto\Compile\AgentInfo;
 use BrainCLI\Dto\Compile\Collect;
 use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
+use BrainCLI\Dto\Compile\SkillInfo;
 use BrainCLI\Dto\Compile\Puzzle;
 use BrainCLI\Services\SchemaGenerator;
 use BrainCLI\Support\Brain;
@@ -272,6 +273,47 @@ trait CompileTrait
      */
     protected function generateSkillsFiles(string $folder, Collection $skills, Data $brain): bool
     {
+        if ($skills->isEmpty() || ! method_exists($this, 'createSkillContent')) {
+            return true;
+        }
+
+        $directory = Brain::projectDirectory($folder);
+        File::ensureDirectoryExists($directory);
+        File::cleanDirectory($directory);
+
+        foreach ($skills as $skill) {
+            $info = SkillInfo::fromAssoc([
+                'filename' => preg_replace('/(.*)-skill/', '$1', $skill->id),
+                'insidePath' => $this->insidePath($skill->file, 'Skills'),
+                'name' => $skill->meta['id'] ?? $skill->id,
+                'description' => $skill->meta['description'] ?? '',
+                'meta' => $skill->meta,
+            ]);
+
+            $content = $this->createSkillContent($skill, $brain, $info);
+
+            if (is_string($content)) {
+                $file = implode(DS, array_filter([$directory, $info->insidePath ?: null, $info->filename . '.md']));
+            } elseif (is_array($content)) {
+                $file = $content['file'] ?? throw new \RuntimeException('Skill content array must contain "file" key.');
+                $content = $content['content'] ?? throw new \RuntimeException('Skill content array must contain "content" key.');
+                $file = implode(DS, [$directory, $file]);
+            } else {
+                continue;
+            }
+
+            $fileDir = dirname($file);
+            if (! is_dir($fileDir) && ! mkdir($fileDir, 0755, true)) {
+                return false;
+            }
+
+            $this->compiledFilesAndDirectories[] = $file;
+
+            if (! file_put_contents($file, $content)) {
+                return false;
+            }
+        }
+
         return true;
     }
 

@@ -8,6 +8,7 @@ use BrainCLI\Abstracts\ClientAbstract;
 use BrainCLI\Dto\Compile\AgentInfo;
 use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
+use BrainCLI\Dto\Compile\SkillInfo;
 use BrainCLI\Dto\Process\Payload;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\ProcessFactory;
@@ -82,6 +83,17 @@ TOML
         ];
     }
 
+
+    /**
+     * @return non-empty-string|array{file: non-empty-string, content: non-empty-string}|false
+     */
+    protected function createSkillContent(Data $skill, Data $brain, SkillInfo $info): string|array|false
+    {
+        return $this->generateWithYamlHeader([
+            'name' => $info->name,
+            'description' => $info->description,
+        ], $skill->structure);
+    }
 
     /**
      * PROCESS METHODS

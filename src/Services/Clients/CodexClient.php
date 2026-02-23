@@ -7,6 +7,7 @@ namespace BrainCLI\Services\Clients;
 use BrainCLI\Abstracts\ClientAbstract;
 use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
+use BrainCLI\Dto\Compile\SkillInfo;
 use BrainCLI\Dto\Process\Payload;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Services\ProcessFactory;
@@ -60,6 +61,11 @@ class CodexClient extends ClientAbstract
     protected function getCommandsFolderParts(): string|array
     {
         return [$this->folder(), 'prompts'];
+    }
+
+    protected function getSkillsFolderParts(): string|array
+    {
+        return ['.agents', 'skills'];
     }
 
     /**
@@ -135,6 +141,20 @@ class CodexClient extends ClientAbstract
                 'name' => $info->name,
                 'description' => $info->description,
             ], $command->structure),
+        ];
+    }
+
+    /**
+     * @return non-empty-string|array{file: non-empty-string, content: non-empty-string}|false
+     */
+    protected function createSkillContent(Data $skill, Data $brain, SkillInfo $info): string|array|false
+    {
+        return [
+            'file' => implode(DS, [$info->filename, 'SKILL.md']),
+            'content' => $this->generateWithYamlHeader([
+                'name' => $info->name,
+                'description' => $info->description,
+            ], $skill->structure),
         ];
     }
 
