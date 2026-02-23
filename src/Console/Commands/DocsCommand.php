@@ -48,6 +48,10 @@ class DocsCommand extends Command
         {--global : Search all .docs/ folders in project subdirectories}
         {--freshness= : Include only docs modified within N days (0 = no filter)}
         {--trust= : Minimum trust level: low|med|high}
+        {--cache=on : Cache mode: on (default), off (disable)}
+        {--cache-stats : Show cache statistics (entries, hit rate, timings)}
+        {--cache-health : Show cache health report with recommendations}
+        {--clear-cache : Clear the docs index cache}
     ';
 
     protected $description = 'Index and search .docs folder with rich metadata extraction';
@@ -626,6 +630,31 @@ HELP;
     {
         $this->checkWorkingDir();
 
+        if ($this->option('clear-cache')) {
+            $this->indexCache->load(getcwd() ?: '.');
+            $this->indexCache->clear();
+            $this->indexCache->save();
+            $this->components->info('Docs index cache cleared.');
+
+            return 0;
+        }
+
+        if ($this->option('cache-stats')) {
+            $this->indexCache->load(getcwd() ?: '.');
+            $stats = $this->indexCache->getDetailedStats();
+            $this->line(json_encode($stats, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+            return 0;
+        }
+
+        if ($this->option('cache-health')) {
+            $this->indexCache->load(getcwd() ?: '.');
+            $health = $this->indexCache->getHealthReport();
+            $this->line(json_encode($health, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+            return 0;
+        }
+
         if ($this->option('update')) {
             $this->updateDocsSources();
             return 0;
@@ -656,6 +685,11 @@ HELP;
             return ERROR;
         }
 
+        $cacheMode = $this->option('cache');
+        $this->indexCache->setDisabled($cacheMode === 'off');
+
+        $rebuildStart = (int) (microtime(true) * 1000);
+
         $keywords = $this->parseKeywords($this->argument('keywords'));
         $isGlobal = (bool) $this->option('global');
         $docsDirs = $this->docsDirectoryResolver->resolve($isGlobal);
@@ -673,6 +707,10 @@ HELP;
 
         $this->indexCache->load(getcwd() ?: '.');
 
+        if ($this->indexCache->getHealth() === DocsIndexCache::HEALTH_CORRUPT) {
+            $this->indexCache->recoverFromCorruption();
+        }
+
         foreach ($docsDirs as $docsDir) {
             $this->freshnessResolver->warmDirectory($docsDir['dir']);
         }
@@ -683,9 +721,14 @@ HELP;
             $allFiles = array_merge($allFiles, $dirFiles);
         }
 
+        $rebuildEnd = (int) (microtime(true) * 1000);
+        $this->indexCache->setRebuildTime($rebuildEnd - $rebuildStart);
+
         $activeFiles = array_map(fn ($f) => $f['_abs_path'] ?? '', $allFiles);
         $this->indexCache->prune(array_filter($activeFiles));
         $this->indexCache->save();
+
+        $searchStart = (int) (microtime(true) * 1000);
 
         $files = collect($allFiles)
             ->unique('path')
@@ -708,10 +751,19 @@ HELP;
             ->map(fn ($r) => collect($r)->except('_abs_path')->all())
             ->toArray();
 
+        $searchEnd = (int) (microtime(true) * 1000);
+        $this->indexCache->setSearchTime($searchEnd - $searchStart);
+
         if (empty($files)) {
             $this->outputComponents()->warn('No documentation files found.');
+            $this->indexCache->recordSearchRun(false);
+            $this->indexCache->save();
+
             return 0;
         }
+
+        $this->indexCache->recordSearchRun(true);
+        $this->indexCache->save();
 
         $this->line(json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 

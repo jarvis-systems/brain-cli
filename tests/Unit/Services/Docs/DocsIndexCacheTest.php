@@ -446,6 +446,237 @@ class DocsIndexCacheTest extends TestCase
         $this->assertFalse($cache2->isStale($file2, $entry2));
     }
 
+    // --- v2 feature tests ---
+
+    public function test_migration_v1_to_v2(): void
+    {
+        $workDir = $this->tempDir . '/.work';
+        mkdir($workDir, 0755, true);
+
+        $v1Data = [
+            'version' => 1,
+            'generated_at' => '2026-01-01T00:00:00Z',
+            'entries' => [
+                '/path/to/file.md' => [
+                    'mtime' => 1000000,
+                    'size' => 100,
+                    'content_hash' => 'abcd1234',
+                    'yaml' => ['name' => 'Test'],
+                ],
+            ],
+        ];
+        file_put_contents($workDir . '/docs-index.json', json_encode($v1Data));
+
+        $this->cache->load($this->tempDir);
+
+        $this->assertSame(1, $this->cache->getStats()['total']);
+
+        $this->cache->save();
+
+        $saved = json_decode(file_get_contents($workDir . '/docs-index.json'), true);
+        $this->assertSame(2, $saved['version']);
+        $this->assertSame(2, $saved['meta']['schema_version']);
+        $this->assertArrayHasKey('rolling_stats', $saved['meta']);
+    }
+
+    public function test_incremental_update_changes_only_modified_file(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file1 = $this->tempDir . '/doc1.md';
+        $file2 = $this->tempDir . '/doc2.md';
+        file_put_contents($file1, "# Doc1\nContent1");
+        file_put_contents($file2, "# Doc2\nContent2");
+
+        $this->cache->store($file1, ['yaml' => ['name' => 'Doc1'], 'source' => 'local', 'trust' => ['level' => 'high']]);
+        $this->cache->store($file2, ['yaml' => ['name' => 'Doc2'], 'source' => 'local', 'trust' => ['level' => 'high']]);
+        $this->cache->save();
+
+        $cache2 = new DocsIndexCache();
+        $cache2->load($this->tempDir);
+
+        $entry1 = $cache2->lookup($file1);
+        $entry2 = $cache2->lookup($file2);
+
+        $this->assertFalse($cache2->isStale($file1, $entry1));
+        $this->assertFalse($cache2->isStale($file2, $entry2));
+
+        clearstatcache();
+        file_put_contents($file1, "# Doc1 Modified\nNew Content");
+        clearstatcache();
+
+        $this->assertTrue($cache2->isStale($file1, $entry1));
+        $this->assertFalse($cache2->isStale($file2, $entry2));
+    }
+
+    public function test_corruption_recovery(): void
+    {
+        $workDir = $this->tempDir . '/.work';
+        mkdir($workDir, 0755, true);
+        file_put_contents($workDir . '/docs-index.json', 'not valid json{{{');
+
+        $this->cache->load($this->tempDir);
+
+        $this->assertSame(DocsIndexCache::HEALTH_CORRUPT, $this->cache->getHealth());
+        $this->assertTrue($this->cache->isFullRebuild());
+
+        $this->cache->recoverFromCorruption();
+
+        $this->assertSame(DocsIndexCache::HEALTH_HEALTHY, $this->cache->getHealth());
+        $this->assertSame(0, $this->cache->getStats()['total']);
+    }
+
+    public function test_determinism_check(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file1 = $this->tempDir . '/alpha.md';
+        $file2 = $this->tempDir . '/beta.md';
+        file_put_contents($file1, '# Alpha');
+        file_put_contents($file2, '# Beta');
+
+        $this->cache->store($file1, ['yaml' => ['name' => 'Alpha']]);
+        $this->cache->store($file2, ['yaml' => ['name' => 'Beta']]);
+        $this->cache->save();
+
+        $health = $this->cache->getHealthReport();
+
+        $this->assertTrue($health['determinism_check']);
+    }
+
+    public function test_detailed_stats_schema(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+        $this->cache->recordSearchRun(true);
+
+        $stats = $this->cache->getDetailedStats();
+
+        $this->assertArrayHasKey('cache_hit', $stats);
+        $this->assertArrayHasKey('entries_total', $stats);
+        $this->assertArrayHasKey('entries_changed', $stats);
+        $this->assertArrayHasKey('entries_added', $stats);
+        $this->assertArrayHasKey('entries_removed', $stats);
+        $this->assertArrayHasKey('rebuild_ms', $stats);
+        $this->assertArrayHasKey('search_ms', $stats);
+        $this->assertArrayHasKey('hit_rate', $stats);
+        $this->assertArrayHasKey('health', $stats);
+        $this->assertArrayHasKey('last_build_at', $stats);
+    }
+
+    public function test_rolling_stats_bounded_to_max(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+
+        for ($i = 0; $i < 30; $i++) {
+            $this->cache->recordSearchRun(true);
+        }
+
+        $this->cache->save();
+
+        $data = json_decode(file_get_contents($this->tempDir . '/.work/docs-index.json'), true);
+
+        $this->assertLessThanOrEqual(DocsIndexCache::MAX_ROLLING_STATS, count($data['meta']['rolling_stats']));
+    }
+
+    public function test_health_report_schema(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $health = $this->cache->getHealthReport();
+
+        $this->assertArrayHasKey('status', $health);
+        $this->assertArrayHasKey('entries', $health);
+        $this->assertArrayHasKey('last_build', $health);
+        $this->assertArrayHasKey('avg_rebuild_ms', $health);
+        $this->assertArrayHasKey('avg_search_ms', $health);
+        $this->assertArrayHasKey('hit_rate', $health);
+        $this->assertArrayHasKey('determinism_check', $health);
+        $this->assertArrayHasKey('recommendations', $health);
+        $this->assertIsArray($health['recommendations']);
+    }
+
+    public function test_hit_rate_calculation(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+
+        $this->cache->recordSearchRun(true);
+        $this->cache->recordSearchRun(true);
+        $this->cache->recordSearchRun(false);
+        $this->cache->recordSearchRun(true);
+
+        $stats = $this->cache->getDetailedStats();
+
+        $this->assertSame(0.75, $stats['hit_rate']);
+    }
+
+    public function test_cache_disabled_mode(): void
+    {
+        $this->cache->load($this->tempDir);
+        $this->cache->setDisabled(true);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+
+        $this->assertTrue($this->cache->isDisabled());
+        $this->assertSame(DocsIndexCache::HEALTH_DISABLED, $this->cache->getHealth());
+    }
+
+    public function test_clear_cache(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+        $this->cache->recordSearchRun(true);
+        $this->cache->save();
+
+        $this->cache->clear();
+        $this->cache->save();
+
+        $data = json_decode(file_get_contents($this->tempDir . '/.work/docs-index.json'), true);
+
+        $this->assertSame(0, count($data['entries']));
+        $this->assertSame(0, count($data['meta']['rolling_stats']));
+    }
+
+    public function test_mtime_update_without_content_change_not_stale(): void
+    {
+        $this->cache->load($this->tempDir);
+
+        $file = $this->tempDir . '/test.md';
+        file_put_contents($file, '# Test Content');
+        $this->cache->store($file, ['yaml' => ['name' => 'Test']]);
+
+        $entry = $this->cache->lookup($file);
+        $originalHash = $entry['content_hash'];
+
+        clearstatcache();
+        touch($file, time() + 100);
+        clearstatcache();
+
+        $isStale = $this->cache->isStale($file, $entry);
+
+        $this->assertFalse($isStale);
+
+        $updatedEntry = $this->cache->lookup($file);
+        $this->assertNotSame($entry['mtime'], $updatedEntry['mtime']);
+        $this->assertSame($originalHash, $updatedEntry['content_hash']);
+    }
+
     // --- helpers ---
 
     private function cleanDirectory(string $dir): void
