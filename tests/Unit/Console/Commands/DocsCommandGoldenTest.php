@@ -139,4 +139,43 @@ class DocsCommandGoldenTest extends TestCase
         $this->assertStringContainsString('$b[\'score\'] <=> $a[\'score\']', $source);
         $this->assertStringContainsString('strcmp($a[\'path\'], $b[\'path\'])', $source);
     }
+
+    public function test_command_uses_docs_index_cache(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('DocsIndexCache', $source);
+        $this->assertStringContainsString('protected DocsIndexCache $indexCache', $source);
+    }
+
+    public function test_command_has_cache_load_in_execute(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('indexCache->load(', $source);
+    }
+
+    public function test_command_has_cache_save_in_execute(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('indexCache->save()', $source);
+    }
+
+    public function test_process_file_has_cache_lookup(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('indexCache->lookup(', $source);
+        $this->assertStringContainsString('indexCache->isStale(', $source);
+        $this->assertStringContainsString('indexCache->store(', $source);
+    }
+
+    public function test_command_has_cache_prune(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 4) . '/src/Console/Commands/DocsCommand.php') ?: '';
+
+        $this->assertStringContainsString('indexCache->prune(', $source);
+        $this->assertStringContainsString('_abs_path', $source);
+    }
 }

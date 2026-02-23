@@ -9,6 +9,7 @@ use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\Docs\ContentScorer;
 use BrainCLI\Services\Docs\DocScaffolder;
 use BrainCLI\Services\Docs\DocsDirectoryResolver;
+use BrainCLI\Services\Docs\DocsIndexCache;
 use BrainCLI\Services\Docs\DriftDetector;
 use BrainCLI\Services\Docs\FreshnessResolver;
 use BrainCLI\Services\Docs\MarkdownParser;
@@ -61,6 +62,7 @@ class DocsCommand extends Command
         protected DocsDirectoryResolver $docsDirectoryResolver,
         protected FreshnessResolver $freshnessResolver,
         protected TrustResolver $trustResolver,
+        protected DocsIndexCache $indexCache,
     ) {
         parent::__construct();
     }
@@ -669,6 +671,8 @@ HELP;
             return 0;
         }
 
+        $this->indexCache->load(getcwd() ?: '.');
+
         foreach ($docsDirs as $docsDir) {
             $this->freshnessResolver->warmDirectory($docsDir['dir']);
         }
@@ -678,6 +682,10 @@ HELP;
             $dirFiles = $this->getFileList($docsDir['dir'], $keywords, $docsDir['prefix']);
             $allFiles = array_merge($allFiles, $dirFiles);
         }
+
+        $activeFiles = array_map(fn ($f) => $f['_abs_path'] ?? '', $allFiles);
+        $this->indexCache->prune(array_filter($activeFiles));
+        $this->indexCache->save();
 
         $files = collect($allFiles)
             ->unique('path')
@@ -697,6 +705,7 @@ HELP;
             ))
             ->values()
             ->when($this->option('limit') > 0, fn ($c) => $c->take((int) $this->option('limit')))
+            ->map(fn ($r) => collect($r)->except('_abs_path')->all())
             ->toArray();
 
         if (empty($files)) {
@@ -1072,6 +1081,43 @@ HELP;
             return null;
         }
 
+        $absolutePath = $file->getPathname();
+        $cached = $this->indexCache->lookup($absolutePath);
+
+        // Cache hit for metadata-only queries (no keywords, no exact phrase)
+        if (!$this->indexCache->isStale($absolutePath, $cached) && $keywords->isEmpty() && ($this->option('exact') === null || $this->option('exact') === '')) {
+            $result = ['path' => $pathPrefix . DS . $file->getRelativePathname()];
+
+            // Restore YAML fields
+            if (is_array($cached['yaml'] ?? null)) {
+                $result = array_merge($result, $cached['yaml']);
+            }
+
+            // Restore auto-extracted name
+            if (is_array($cached['auto_name'] ?? null)) {
+                $result['name'] = $cached['auto_name']['text'];
+                $result['_auto_name'] = $cached['auto_name']['level'];
+            }
+
+            // Restore auto-extracted description
+            if (($cached['auto_description'] ?? null) !== null) {
+                $result['description'] = $cached['auto_description'];
+                $result['_auto_description'] = true;
+            }
+
+            $result['score'] = 0;
+            $result['source'] = $cached['source'] ?? 'local';
+
+            // Re-resolve freshness (depends on current time, not file content)
+            $relativePath = $file->getRelativePathname();
+            $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
+            $result['freshness'] = $this->freshnessResolver->resolve($absolutePath, $docsDir);
+            $result['trust'] = $cached['trust'] ?? ['level' => 'low', 'reason' => 'Unknown source'];
+            $result['_abs_path'] = $absolutePath;
+
+            return $result;
+        }
+
         $content = file_get_contents($file->getPathname());
         if (!$content) {
             return null;
@@ -1129,7 +1175,6 @@ HELP;
             ? $this->contentScorer->calculate($keywords, $result, $contentLower)
             : 0;
 
-        $absolutePath = $file->getPathname();
         $relativePath = $file->getRelativePathname();
         $docsDir = substr($absolutePath, 0, -strlen($relativePath) - 1);
 
@@ -1179,6 +1224,18 @@ HELP;
                 $result['matches'] = $matches;
             }
         }
+
+        // Store metadata in cache for future runs
+        $this->indexCache->store($absolutePath, [
+            'yaml' => $yamlData,
+            'auto_name' => isset($result['_auto_name']) ? ['text' => $result['name'], 'level' => $result['_auto_name']] : null,
+            'auto_description' => ($result['_auto_description'] ?? false) ? $result['description'] : null,
+            'source' => $result['source'],
+            'trust' => $result['trust'],
+            'content_hash' => substr(md5($content), 0, 8),
+        ]);
+
+        $result['_abs_path'] = $absolutePath;
 
         return $result;
     }
