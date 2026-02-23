@@ -144,6 +144,89 @@ class ReadinessRunnerTest extends TestCase
         $this->assertSame('PASS', $result, 'memory_status with no_data must not cause FAIL');
     }
 
+    // ─── memory_hygiene: infra classification ──────────────────────
+
+    public function test_mcp_unavailable_classifies_as_infra(): void
+    {
+        $method = new \ReflectionMethod($this->runner, 'classifyMcpInfraError');
+
+        // Known MCP infrastructure error patterns
+        $this->assertSame(
+            'MCP config not found (.mcp.json missing)',
+            $method->invoke($this->runner, '  ERROR  .mcp.json not found in project root'),
+        );
+
+        $this->assertSame(
+            'MCP server connection failed',
+            $method->invoke($this->runner, '  ERROR  MCP error: Connection refused'),
+        );
+
+        $this->assertSame(
+            'MCP server binary not found on PATH',
+            $method->invoke($this->runner, '  ERROR  npx not found on PATH. Install it first.'),
+        );
+    }
+
+    public function test_real_failure_does_not_classify_as_infra(): void
+    {
+        $method = new \ReflectionMethod($this->runner, 'classifyMcpInfraError');
+
+        // Non-infra errors must return null (not classified as infra)
+        $this->assertNull($method->invoke($this->runner, 'Some other error'));
+        $this->assertNull($method->invoke($this->runner, 'Consolidation blocked: smoke tests below threshold'));
+        $this->assertNull($method->invoke($this->runner, ''));
+    }
+
+    public function test_mcp_infra_warn_does_not_block_overall(): void
+    {
+        // memory_hygiene = WARN (infra) + all others = PASS → overall = WARN (not FAIL)
+        $checks = [
+            'repo_health' => ['status' => 'PASS', 'duration_ms' => 1, 'details' => []],
+            'phpstan_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpstan_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpunit_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpunit_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'docs_validation' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'composer_audit_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'composer_audit_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'memory_hygiene' => [
+                'status' => 'WARN',
+                'duration_ms' => 100,
+                'details' => ['mode' => 'infra_unavailable', 'error_kind' => 'infra', 'reason' => 'MCP config not found'],
+            ],
+            'memory_status' => ['status' => 'NEUTRAL', 'duration_ms' => 0, 'details' => []],
+        ];
+
+        $result = $this->callComputeOverall($checks);
+
+        $this->assertSame('WARN', $result, 'MCP infra failure must produce WARN overall, not FAIL');
+    }
+
+    public function test_real_hygiene_fail_still_blocks_overall(): void
+    {
+        // memory_hygiene = FAIL (real regression) → overall = FAIL (still blocks release)
+        $checks = [
+            'repo_health' => ['status' => 'PASS', 'duration_ms' => 1, 'details' => []],
+            'phpstan_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpstan_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpunit_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'phpunit_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'docs_validation' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'composer_audit_core' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'composer_audit_cli' => ['status' => 'PASS', 'duration_ms' => 10, 'details' => []],
+            'memory_hygiene' => [
+                'status' => 'FAIL',
+                'duration_ms' => 5000,
+                'details' => ['mode' => 'evaluated', 'threshold_met' => false, 'pass_rate' => 0.3],
+            ],
+            'memory_status' => ['status' => 'NEUTRAL', 'duration_ms' => 0, 'details' => []],
+        ];
+
+        $result = $this->callComputeOverall($checks);
+
+        $this->assertSame('FAIL', $result, 'Real hygiene regression must produce FAIL overall');
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────
 
     /**

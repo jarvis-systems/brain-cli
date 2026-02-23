@@ -17,6 +17,20 @@ class ReadinessRunner
     private const VERSION = '1.0.0';
 
     /**
+     * MCP infrastructure error patterns → human-readable reasons.
+     *
+     * @var array<string, string>
+     */
+    private const MCP_INFRA_PATTERNS = [
+        '.mcp.json not found' => 'MCP config not found (.mcp.json missing)',
+        'not configured in .mcp.json' => 'vector-memory server not configured',
+        'invalid command in .mcp.json' => 'vector-memory server has invalid command',
+        'not found on PATH' => 'MCP server binary not found on PATH',
+        'MCP error:' => 'MCP server connection failed',
+        'Failed to start process' => 'Failed to start MCP server process',
+    ];
+
+    /**
      * Allowed untracked patterns for repo_health check.
      *
      * @var list<string>
@@ -264,12 +278,27 @@ class ReadinessRunner
         $json = json_decode($stdout, true);
 
         if (! is_array($json)) {
-            // If no JSON output, likely MCP server not available or no data
+            // NO_DATA: empty vector store
             if (str_contains($stdout, 'NO_DATA') || str_contains($stdout, 'no_data')) {
                 return [
                     'status' => 'NEUTRAL',
                     'duration_ms' => $durationMs,
                     'details' => ['mode' => 'no_data', 'reason' => 'Empty vector store'],
+                ];
+            }
+
+            // MCP infrastructure unavailable — WARN, not FAIL
+            $infraReason = $this->classifyMcpInfraError($stdout);
+
+            if ($exitCode !== 0 && $infraReason !== null) {
+                return [
+                    'status' => 'WARN',
+                    'duration_ms' => $durationMs,
+                    'details' => [
+                        'mode' => 'infra_unavailable',
+                        'error_kind' => 'infra',
+                        'reason' => $infraReason,
+                    ],
                 ];
             }
 
@@ -473,6 +502,23 @@ class ReadinessRunner
         }
 
         return false;
+    }
+
+    /**
+     * Classify MCP infrastructure errors from command output.
+     *
+     * Returns a human-readable reason if the output matches a known
+     * MCP infra pattern, or null if it's not an infra error.
+     */
+    protected function classifyMcpInfraError(string $output): ?string
+    {
+        foreach (self::MCP_INFRA_PATTERNS as $pattern => $reason) {
+            if (str_contains($output, $pattern)) {
+                return $reason;
+            }
+        }
+
+        return null;
     }
 
     /**
