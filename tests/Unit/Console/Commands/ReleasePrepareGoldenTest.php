@@ -259,7 +259,7 @@ class ReleasePrepareGoldenTest extends TestCase
             $this->assertArrayHasKey($key, $manifest, "Manifest missing key: {$key}");
         }
 
-        $this->assertSame('1.2.0', $manifest['version']);
+        $this->assertSame('1.3.0', $manifest['version']);
         $this->assertSame('v0.3.0', $manifest['target']);
         $this->assertSame('v0.2.2', $manifest['current']);
     }
@@ -625,5 +625,124 @@ class ReleasePrepareGoldenTest extends TestCase
         $this->assertStringContainsString('Examples:', $source);
         $this->assertStringContainsString('--evidence', $source);
         $this->assertStringContainsString('--apply', $source);
+    }
+
+    // ─── Lock Sync Evidence Golden Tests ──────────────────────────
+
+    public function test_evidence_meta_includes_lock_sync(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', false);
+
+        $this->assertArrayHasKey('lock_sync', $result['evidence']);
+    }
+
+    public function test_lock_sync_skipped_without_evidence(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', false);
+
+        $lockSync = $result['evidence']['lock_sync'];
+        $this->assertSame('skipped', $lockSync['status']);
+        $this->assertNotNull($lockSync['reason']);
+        $this->assertArrayHasKey('repos', $lockSync);
+    }
+
+    public function test_lock_sync_structure_has_repos(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', true);
+
+        $lockSync = $result['evidence']['lock_sync'];
+        $this->assertArrayHasKey('status', $lockSync);
+        $this->assertArrayHasKey('reason', $lockSync);
+        $this->assertArrayHasKey('repos', $lockSync);
+        $this->assertIsArray($lockSync['repos']);
+    }
+
+    public function test_lock_sync_repos_skip_without_lock_file(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', true);
+
+        $lockSync = $result['evidence']['lock_sync'];
+
+        // Temp fixtures have no composer.lock → all repos should be 'skip'
+        foreach ($lockSync['repos'] as $name => $info) {
+            $this->assertSame('skip', $info['status'], "Repo {$name} should be 'skip' without lock file");
+            $this->assertSame('No composer.lock', $info['reason']);
+        }
+    }
+
+    public function test_lock_sync_in_manifest_json(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', false);
+
+        $packDir = $this->tempDir . '/' . $result['pack_dir'];
+        $manifest = json_decode((string) file_get_contents($packDir . '/manifest.json'), true);
+
+        $this->assertIsArray($manifest);
+        $this->assertArrayHasKey('evidence', $manifest);
+        $this->assertArrayHasKey('lock_sync', $manifest['evidence']);
+    }
+
+    public function test_lock_sync_detects_drift_with_stale_lock(): void
+    {
+        // Create a composer.lock with wrong content-hash for cli
+        $cliLock = (string) json_encode([
+            '_readme' => ['This file is auto-generated'],
+            'content-hash' => str_repeat('a', 32),
+            'packages' => [],
+            'packages-dev' => [],
+        ]);
+        file_put_contents($this->tempDir . '/cli/composer.lock', $cliLock);
+
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->prepare('v0.3.0', true);
+
+        $lockSync = $result['evidence']['lock_sync'];
+
+        // CLI should report warn (content-hash mismatch)
+        $this->assertSame('warn', $lockSync['repos']['cli']['status']);
+        $this->assertNotNull($lockSync['repos']['cli']['reason']);
+
+        // Overall should be warn
+        $this->assertSame('warn', $lockSync['status']);
+    }
+
+    public function test_apply_post_bump_includes_lock_sync(): void
+    {
+        $runner = new ReleasePrepareRunner($this->tempDir);
+        $result = $runner->apply('v0.3.0', false);
+
+        // Even without evidence flag, apply always runs lock sync post-bump
+        $this->assertArrayHasKey('lock_sync', $result['evidence']);
+        $lockSync = $result['evidence']['lock_sync'];
+        $this->assertArrayHasKey('status', $lockSync);
+        $this->assertArrayHasKey('repos', $lockSync);
+    }
+
+    public function test_runner_source_has_lock_sync_check(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Services/Release/ReleasePrepareRunner.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('checkLockSync', $source);
+        $this->assertStringContainsString('extractLockDriftReason', $source);
+        $this->assertStringContainsString('composer validate', $source);
+        $this->assertStringContainsString("'lock_sync'", $source);
+    }
+
+    public function test_command_renders_lock_sync_in_evidence(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/ReleasePrepareCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString("'lock_sync'", $source);
+        $this->assertStringContainsString("'Lock sync'", $source);
+        $this->assertStringContainsString("'warn'", $source);
     }
 }

@@ -217,7 +217,7 @@ HELP;
      */
     private function renderEvidenceSection(array $result): void
     {
-        /** @var array{readiness: array{status: string, reason: string|null}, compile_diff: array{status: string, reason: string|null}}|null $evidence */
+        /** @var array<string, mixed>|null $evidence */
         $evidence = $result['evidence'] ?? null;
 
         if ($evidence === null) {
@@ -230,24 +230,47 @@ HELP;
         $labels = [
             'readiness' => 'Readiness',
             'compile_diff' => 'Compile diff',
+            'lock_sync' => 'Lock sync',
         ];
 
         foreach ($labels as $key => $label) {
             $meta = $evidence[$key] ?? ['status' => 'skipped', 'reason' => null];
             $badge = match ($meta['status']) {
                 'present' => '<fg=green>present</>',
+                'ok' => '<fg=green>ok</>',
                 'missing' => '<fg=red>missing</>',
+                'warn' => '<fg=yellow>warn</>',
                 'skipped' => '<fg=gray>skipped</>',
                 default => $meta['status'],
             };
 
             $value = $badge;
 
-            if ($meta['reason'] !== null) {
+            if (($meta['reason'] ?? null) !== null) {
                 $value .= " ({$meta['reason']})";
             }
 
             $this->components->twoColumnDetail("  {$label}", $value);
+
+            // Render per-repo detail for lock_sync
+            if ($key === 'lock_sync' && isset($meta['repos']) && is_array($meta['repos'])) {
+                foreach ($meta['repos'] as $repoName => $repoInfo) {
+                    $repoBadge = match ($repoInfo['status'] ?? 'skip') {
+                        'ok' => '<fg=green>ok</>',
+                        'warn' => '<fg=yellow>warn</>',
+                        'skip' => '<fg=gray>skip</>',
+                        default => $repoInfo['status'] ?? 'unknown',
+                    };
+
+                    $repoValue = $repoBadge;
+
+                    if (($repoInfo['reason'] ?? null) !== null) {
+                        $repoValue .= " ({$repoInfo['reason']})";
+                    }
+
+                    $this->components->twoColumnDetail("    {$repoName}", $repoValue);
+                }
+            }
         }
     }
 }

@@ -13,7 +13,7 @@ namespace BrainCLI\Services\Release;
  */
 class ReleasePrepareRunner
 {
-    private const VERSION = '1.2.0';
+    private const VERSION = '1.3.0';
 
     /**
      * @var array<string, array{composer: string, dir: string}>
@@ -45,13 +45,15 @@ class ReleasePrepareRunner
 
         $readiness = null;
         $compileDiff = null;
+        $lockSync = null;
 
         if ($collectEvidence) {
             $readiness = $this->collectReadiness();
             $compileDiff = $this->collectCompileDiff();
+            $lockSync = $this->checkLockSync();
         }
 
-        $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence);
+        $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence, $lockSync);
 
         $packDir = $this->generatePack(
             $targetVersion,
@@ -131,7 +133,8 @@ class ReleasePrepareRunner
 
         // Block apply if readiness is FAIL
         if ($readiness !== null && ($readiness['overall'] ?? null) === 'FAIL') {
-            $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence);
+            $lockSync = $collectEvidence ? $this->checkLockSync() : null;
+            $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence, $lockSync);
 
             $packDir = $this->generatePack(
                 $targetVersion,
@@ -163,10 +166,13 @@ class ReleasePrepareRunner
             ];
         }
 
-        $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence);
-
         // Apply version bumps
         $applyPlan = $this->applyVersionBumps($targetVersion, $currentVersion);
+
+        // Post-bump lock sync check (catches constraint-lock drift)
+        $lockSync = $this->checkLockSync();
+
+        $evidenceMeta = $this->buildEvidenceMeta($readiness, $compileDiff, $collectEvidence, $lockSync);
 
         // Re-detect versions after apply
         $versionsAfter = $this->detectVersions();
@@ -334,7 +340,7 @@ class ReleasePrepareRunner
      * @param  array<string, array{path: string, version: string|null, tag: string|null}>  $versions
      * @param  array<string, mixed>|null  $readiness
      * @param  array<string, mixed>|null  $compileDiff
-     * @param  array{readiness: array{status: string, reason: string|null}, compile_diff: array{status: string, reason: string|null}}|null  $evidenceMeta
+     * @param  array<string, mixed>|null  $evidenceMeta
      */
     protected function generatePack(
         string $targetVersion,
@@ -421,16 +427,25 @@ class ReleasePrepareRunner
      *
      * @param  array<string, mixed>|null  $readiness
      * @param  array<string, mixed>|null  $compileDiff
-     * @return array{readiness: array{status: string, reason: string|null}, compile_diff: array{status: string, reason: string|null}}
+     * @param  array{status: string, reason: string|null, repos: array<string, array{status: string, reason: string|null}>}|null  $lockSync
+     * @return array{readiness: array{status: string, reason: string|null}, compile_diff: array{status: string, reason: string|null}, lock_sync: array<string, mixed>}
      */
     protected function buildEvidenceMeta(
         ?array $readiness,
         ?array $compileDiff,
         bool $requested,
+        ?array $lockSync = null,
     ): array {
         return [
             'readiness' => $this->buildSingleEvidenceMeta($readiness, $requested, 'readiness:check'),
             'compile_diff' => $this->buildSingleEvidenceMeta($compileDiff, $requested, 'compile --diff'),
+            'lock_sync' => $lockSync ?? [
+                'status' => $requested ? 'missing' : 'skipped',
+                'reason' => $requested
+                    ? 'Lock sync check did not execute'
+                    : 'Evidence collection not requested (use --evidence or --apply)',
+                'repos' => [],
+            ],
         ];
     }
 
@@ -724,6 +739,74 @@ class ReleasePrepareRunner
         }
 
         return 'has_diff';
+    }
+
+    /**
+     * Check lock file sync status across all repos with composer.lock.
+     *
+     * @return array{status: string, reason: string|null, repos: array<string, array{status: string, reason: string|null}>}
+     */
+    protected function checkLockSync(): array
+    {
+        $repos = [];
+        $overallStatus = 'ok';
+
+        foreach (self::REPOS as $name => $repo) {
+            $repoDir = $this->projectRoot . '/' . $repo['dir'];
+            $lockPath = $repoDir . '/composer.lock';
+
+            if (! file_exists($lockPath)) {
+                $repos[$name] = ['status' => 'skip', 'reason' => 'No composer.lock'];
+
+                continue;
+            }
+
+            [$exitCode, $stdout] = $this->exec(
+                'composer validate --no-check-publish --no-interaction 2>&1',
+                $repoDir,
+            );
+
+            if ($exitCode === 0) {
+                $repos[$name] = ['status' => 'ok', 'reason' => null];
+            } else {
+                $reason = $this->extractLockDriftReason($stdout);
+                $repos[$name] = ['status' => 'warn', 'reason' => $reason];
+                $overallStatus = 'warn';
+            }
+        }
+
+        return [
+            'status' => $overallStatus,
+            'reason' => $overallStatus === 'warn'
+                ? 'Lock file drift detected in one or more repos'
+                : null,
+            'repos' => $repos,
+        ];
+    }
+
+    /**
+     * Extract a human-readable reason from composer validate output.
+     */
+    private function extractLockDriftReason(string $output): string
+    {
+        if (str_contains($output, 'lock file is not up to date')) {
+            return 'Lock file content-hash mismatch (run composer update)';
+        }
+
+        if (str_contains($output, 'out of date')) {
+            return 'Lock file is out of date with composer.json';
+        }
+
+        $lines = array_filter(
+            array_map('trim', explode("\n", $output)),
+            fn (string $line) => $line !== '' && ! str_starts_with($line, '{'),
+        );
+
+        if ($lines !== []) {
+            return reset($lines);
+        }
+
+        return 'composer validate failed (exit code non-zero)';
     }
 
     /**
