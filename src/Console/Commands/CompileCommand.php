@@ -28,6 +28,20 @@ class CompileCommand extends CommandBridgeAbstract
 
     protected array $compiledFilesAndDirectories = [];
 
+    public function getHelp(): string
+    {
+        return parent::getHelp() . <<<'HELP'
+
+Examples:
+  brain compile              Compile all existing agent targets
+  brain compile claude       Compile only Claude target
+  brain compile --json       Machine-parseable JSON output
+  brain compile --diff       Preview changes without writing (exit 0=no diff, 2=diff)
+  brain compile --diff --json  Diff as JSON schema (status, exit_code, files)
+  PIN_STRICT=1 brain compile   Compile with strict MCP pin verification
+HELP;
+    }
+
     public function __construct(
         protected array $env = []
     )

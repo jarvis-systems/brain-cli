@@ -25,6 +25,19 @@ class MemoryStatusCommand extends Command
 
     protected $description = 'Show memory health dashboard from cached artifacts';
 
+    public function getHelp(): string
+    {
+        return parent::getHelp() . <<<'HELP'
+
+Examples:
+  brain memory:status          Human-readable dashboard (default)
+  brain memory:status --json   Raw JSON for scripting
+  brain memory:status --json | jq '.status'  Extract health status (ok/stale/no_data)
+
+Read-only: uses cached .work/memory-hygiene/ artifacts. Run memory:hygiene first.
+HELP;
+    }
+
     public function handle(): int
     {
         return CommandKernel::run(

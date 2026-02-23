@@ -33,6 +33,20 @@ class MemoryHygieneCommand extends Command
 
     protected $description = 'Run memory hygiene checks: ledger, smoke tests, rank safety';
 
+    public function getHelp(): string
+    {
+        return parent::getHelp() . <<<'HELP'
+
+Examples:
+  brain memory:hygiene                  Run full hygiene (ledger + smoke + rank safety)
+  brain memory:hygiene --json           JSON-only output (no progress messages)
+  brain memory:hygiene --consolidate --yes  Run with consolidation phase
+  brain memory:hygiene --probe-set=custom.json  Use custom probe set
+
+Artifacts: .work/memory-hygiene/ (ledger.json, smoke-results.json, rank-safety-results.json)
+HELP;
+    }
+
     public function handle(): int
     {
         return CommandKernel::run(

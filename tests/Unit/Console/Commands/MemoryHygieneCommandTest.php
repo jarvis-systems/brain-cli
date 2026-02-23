@@ -79,6 +79,16 @@ class MemoryHygieneCommandTest extends TestCase
         $this->assertStringContainsString("['health_status'] = 'NO_DATA'", $this->source);
     }
 
+    // ─── Help examples ────────────────────────────────────────────
+
+    public function test_command_has_help_examples(): void
+    {
+        $this->assertStringContainsString('function getHelp()', $this->source);
+        $this->assertStringContainsString('Examples:', $this->source);
+        $this->assertStringContainsString('brain memory:hygiene', $this->source);
+        $this->assertStringContainsString('--consolidate', $this->source);
+    }
+
     // ─── --json flag: clean output contract ─────────────────────────
 
     public function test_json_option_exists_in_signature(): void

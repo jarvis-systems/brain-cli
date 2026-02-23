@@ -166,6 +166,20 @@ class CompileCommandGoldenTest extends TestCase
         $this->assertStringContainsString("if (! \$this->option('json'))", $source);
     }
 
+    // ─── Source Inspection: help examples ──────────────────────────
+
+    public function test_command_has_help_examples(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/CompileCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('function getHelp()', $source);
+        $this->assertStringContainsString('Examples:', $source);
+        $this->assertStringContainsString('brain compile', $source);
+        $this->assertStringContainsString('--json', $source);
+    }
+
     public function test_json_mode_guards_empty_lines_around_loop(): void
     {
         $source = file_get_contents(

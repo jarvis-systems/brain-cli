@@ -38,6 +38,14 @@ class MemoryStatusCommandTest extends TestCase
         $this->assertStringContainsString('CommandKernel::run(', $this->source);
     }
 
+    public function test_command_has_help_examples(): void
+    {
+        $this->assertStringContainsString('function getHelp()', $this->source);
+        $this->assertStringContainsString('Examples:', $this->source);
+        $this->assertStringContainsString('brain memory:status', $this->source);
+        $this->assertStringContainsString('--json', $this->source);
+    }
+
     public function test_exit_code_is_always_ok(): void
     {
         // Both branches (JSON and human output) return OK

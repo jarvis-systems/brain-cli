@@ -97,6 +97,18 @@ class ReadinessCheckCommandTest extends TestCase
         $this->assertStringContainsString("'NEUTRAL'", $runnerSource);
     }
 
+    // ─── Help examples ────────────────────────────────────────────
+
+    public function test_command_has_help_examples(): void
+    {
+        $this->assertStringContainsString('function getHelp()', $this->source);
+        $this->assertStringContainsString('Examples:', $this->source);
+        $this->assertStringContainsString('brain readiness:check', $this->source);
+        $this->assertStringContainsString('--human', $this->source);
+    }
+
+    // ─── JSON contract ──────────────────────────────────────────────
+
     public function test_json_option_exists_in_signature(): void
     {
         $this->assertStringContainsString('{--json', $this->source);

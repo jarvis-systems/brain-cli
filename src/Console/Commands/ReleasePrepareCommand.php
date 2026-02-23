@@ -37,6 +37,21 @@ class ReleasePrepareCommand extends Command
      */
     protected $description = 'Generate a release preparation pack with version detection, optional evidence, and apply mode';
 
+    public function getHelp(): string
+    {
+        return parent::getHelp() . <<<'HELP'
+
+Examples:
+  brain release:prepare v0.4.0                Dry-run: detect versions, generate pack
+  brain release:prepare v0.4.0 --evidence     Collect readiness + compile-diff evidence
+  brain release:prepare v0.4.0 --apply        Apply version bumps to composer.json files
+  brain release:prepare --human               Human-readable output with status badges
+  brain release:prepare                       Auto-suggest next minor version
+
+Exit codes: 0=success, 1=error, 2=validation failed or blocked
+HELP;
+    }
+
     public function handle(): int
     {
         return CommandKernel::run(
@@ -62,7 +77,10 @@ class ReleasePrepareCommand extends Command
 
         if ($targetVersion === null || $targetVersion === '') {
             $targetVersion = $this->suggestNextVersion($cwd);
-            $this->components->info("Auto-suggested target version: {$targetVersion}");
+
+            if ($this->option('human')) {
+                $this->components->info("Auto-suggested target version: {$targetVersion}");
+            }
         }
 
         /** @var string $targetVersion */

@@ -33,6 +33,18 @@ class ReadinessCheckCommand extends Command
      */
     protected $description = 'Run pre-release readiness checks: PHPStan, PHPUnit, docs, audit, repo health';
 
+    public function getHelp(): string
+    {
+        return parent::getHelp() . <<<'HELP'
+
+Examples:
+  brain readiness:check              JSON output (default), all 9 checks
+  brain readiness:check --human      Human-readable dashboard with badges
+  brain readiness:check --skip-memory  Skip memory hygiene check (faster)
+  brain readiness:check --json | jq '.overall'  Extract overall status
+HELP;
+    }
+
     public function handle(): int
     {
         return CommandKernel::run(

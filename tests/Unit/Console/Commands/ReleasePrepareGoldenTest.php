@@ -571,4 +571,59 @@ class ReleasePrepareGoldenTest extends TestCase
         $this->assertStringContainsString("'validation_failed'", $source);
         $this->assertStringContainsString("'blocked'", $source);
     }
+
+    // ─── JSON stdout purity ────────────────────────────────────────
+
+    public function test_json_mode_auto_suggest_does_not_pollute_stdout(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/ReleasePrepareCommand.php'
+        ) ?: '';
+
+        // Auto-suggest info message must be guarded by --human check
+        // to prevent stdout pollution in JSON mode
+        $this->assertStringContainsString("option('human')", $source);
+
+        // The info() call and the human guard must be near each other
+        $infoPos = strpos($source, 'Auto-suggested target version');
+        $this->assertNotFalse($infoPos, 'Auto-suggest message not found');
+
+        // The human guard must come before the info() call
+        $guardPos = strrpos(substr($source, 0, $infoPos), "option('human')");
+        $this->assertNotFalse($guardPos, 'Human guard must precede auto-suggest info');
+    }
+
+    public function test_json_output_path_has_no_info_calls(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/ReleasePrepareCommand.php'
+        ) ?: '';
+
+        // The JSON output path (else branch of --human check) must only contain
+        // json_encode output, not any $this->components->info() calls
+        $jsonOutputPos = strpos($source, 'json_encode(');
+        $this->assertNotFalse($jsonOutputPos, 'json_encode call not found');
+
+        // After the json_encode block and before return, no unguarded info() calls
+        $afterJson = substr($source, $jsonOutputPos);
+        $returnPos = strpos($afterJson, 'return OK;');
+        $this->assertNotFalse($returnPos, 'return OK not found after json_encode');
+
+        $betweenJsonAndReturn = substr($afterJson, 0, $returnPos);
+        $this->assertStringNotContainsString('components->info(', $betweenJsonAndReturn);
+    }
+
+    // ─── Help examples ─────────────────────────────────────────────
+
+    public function test_command_has_help_examples(): void
+    {
+        $source = file_get_contents(
+            dirname(__DIR__, 4) . '/src/Console/Commands/ReleasePrepareCommand.php'
+        ) ?: '';
+
+        $this->assertStringContainsString('function getHelp()', $source);
+        $this->assertStringContainsString('Examples:', $source);
+        $this->assertStringContainsString('--evidence', $source);
+        $this->assertStringContainsString('--apply', $source);
+    }
 }
