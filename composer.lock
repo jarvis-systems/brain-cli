@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f769c0f91d394a46336116e72ad28697",
+    "content-hash": "73b496a2226ba2afee12c893e38dce20",
     "packages": [
         {
             "name": "bfg/attributes",
@@ -3147,16 +3147,16 @@
         },
         {
             "name": "jarvis-brain/core",
-            "version": "v0.2.0",
+            "version": "v0.3.0",
             "source": {
                 "type": "git",
                 "url": "git@github.com:jarvis-systems/brain-core.git",
-                "reference": "1e811814e028d3e8b356a54470f23c586590ea3a"
+                "reference": "8aa239b530c67d345c560fc23f9f0d386a13b2ce"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jarvis-systems/brain-core/zipball/1e811814e028d3e8b356a54470f23c586590ea3a",
-                "reference": "1e811814e028d3e8b356a54470f23c586590ea3a",
+                "url": "https://api.github.com/repos/jarvis-systems/brain-core/zipball/8aa239b530c67d345c560fc23f9f0d386a13b2ce",
+                "reference": "8aa239b530c67d345c560fc23f9f0d386a13b2ce",
                 "shasum": ""
             },
             "require": {
@@ -3233,11 +3233,7 @@
                 "core",
                 "jarvis"
             ],
-            "support": {
-                "source": "https://github.com/jarvis-systems/brain-core/tree/v0.2.0",
-                "issues": "https://github.com/jarvis-systems/brain-core/issues"
-            },
-            "time": "2026-02-22T18:35:13+00:00"
+            "time": "2026-02-23T01:34:51+00:00"
         },
         {
             "name": "justinrainbow/json-schema",
