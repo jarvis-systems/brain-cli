@@ -100,18 +100,18 @@ class DiagnoseCommandTest extends TestCase
 
     // ─── Source Inspection: Self-Dev Detection Sources ───────────────
 
-    public function test_self_dev_source_values(): void
+    public function test_self_dev_source_from_resolver(): void
     {
-        // Three possible sources: env, autodetect, off
-        $this->assertStringContainsString("'env'", $this->source);
-        $this->assertStringContainsString("'autodetect'", $this->source);
-        $this->assertStringContainsString("'off'", $this->source);
+        // Self-dev source values come from SelfDevResolver
+        // DiagnoseCommand delegates to resolver for self-dev detection
+        $this->assertStringContainsString('SelfDevResolver', $this->source);
+        $this->assertStringContainsString("getSource()", $this->source);
     }
 
-    public function test_env_detection_uses_service_provider(): void
+    public function test_uses_self_dev_resolver(): void
     {
-        $this->assertStringContainsString("ServiceProvider::hasEnv('SELF_DEV_MODE')", $this->source);
-        $this->assertStringContainsString("ServiceProvider::getEnv('SELF_DEV_MODE')", $this->source);
+        $this->assertStringContainsString('SelfDevResolver', $this->source);
+        $this->assertStringContainsString('SelfDevResolver::make()', $this->source);
     }
 
     // ─── Source Inspection: Output Formats ───────────────────────────

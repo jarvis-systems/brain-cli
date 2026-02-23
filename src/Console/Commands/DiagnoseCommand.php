@@ -5,23 +5,18 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Kernel\CommandKernel;
+use BrainCLI\Services\SelfDev\SelfDevResolver;
 use BrainCLI\ServiceProvider;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
 class DiagnoseCommand extends Command
 {
-    /**
-     * @var string
-     */
     protected $signature = 'diagnose
         {--json : JSON output (default)}
         {--human : Human-readable output}
     ';
 
-    /**
-     * @var string
-     */
     protected $description = 'Diagnose Brain environment and self-dev mode';
 
     public function handle(): int
@@ -49,56 +44,24 @@ class DiagnoseCommand extends Command
         return 0;
     }
 
-    /**
-     * Build the full diagnostic payload.
-     *
-     * @return array<string, mixed>
-     */
     private function buildDiagnosis(): array
     {
-        $projectRoot = Brain::projectDirectory();
-        $brainDirName = to_string(config('brain.dir', '.brain'));
-        $brainDirFullPath = Brain::workingDirectory();
-        $dotBrainPath = $projectRoot . DS . $brainDirName;
-
-        // Autodetect signals (match BrainIncludesTrait::isSelfDev() logic)
-        $nodeBrainInRoot = is_file($projectRoot . DS . 'node' . DS . 'Brain.php');
-        $nodeBrainInDotBrain = is_file($dotBrainPath . DS . 'node' . DS . 'Brain.php');
-        $dotBrainIsSymlink = is_link($dotBrainPath);
-        $dotBrainTarget = $dotBrainIsSymlink ? (readlink($dotBrainPath) ?: null) : null;
-
-        // ENV-based detection
-        $envHasSelfDev = ServiceProvider::hasEnv('SELF_DEV_MODE');
-        $envSelfDevValue = $envHasSelfDev ? ServiceProvider::getEnv('SELF_DEV_MODE') : null;
-
-        // Determine self-dev state and source
-        // Match BrainIncludesTrait::isSelfDev(): (autodetect) || (env positive)
-        $autodetectPositive = $nodeBrainInRoot && $nodeBrainInDotBrain;
-        $envPositive = $envHasSelfDev && $this->isTruthy($envSelfDevValue);
-
-        $selfDevMode = $autodetectPositive || $envPositive;
-
-        if ($envPositive) {
-            $selfDevSource = 'env';
-        } elseif ($autodetectPositive) {
-            $selfDevSource = 'autodetect';
-        } else {
-            $selfDevSource = 'off';
-        }
+        $resolver = SelfDevResolver::make();
+        $signals = $resolver->getSignals();
 
         return [
-            'self_dev_mode' => $selfDevMode,
-            'self_dev_source' => $selfDevSource,
+            'self_dev_mode' => $resolver->isEnabled(),
+            'self_dev_source' => $resolver->getSource(),
             'autodetect_signals' => [
-                'node_brain_php_in_root' => $nodeBrainInRoot,
-                'node_brain_php_in_dot_brain' => $nodeBrainInDotBrain,
-                'dot_brain_is_symlink' => $dotBrainIsSymlink,
-                'dot_brain_target' => $dotBrainTarget,
+                'node_brain_php_in_root' => $signals['node_brain_php_in_root'],
+                'node_brain_php_in_dot_brain' => $signals['node_brain_php_in_dot_brain'],
+                'dot_brain_is_symlink' => $signals['dot_brain_is_symlink'],
+                'dot_brain_target' => $signals['dot_brain_target'],
             ],
             'paths' => [
-                'project_root' => $projectRoot,
-                'brain_dir' => $brainDirFullPath,
-                'dot_brain_path' => $dotBrainPath,
+                'project_root' => Brain::projectDirectory(),
+                'brain_dir' => Brain::workingDirectory(),
+                'dot_brain_path' => $resolver->getEnvFilePath(),
             ],
             'modes' => [
                 'strict_mode' => Brain::getEnv('STRICT_MODE', 'not set'),
@@ -106,24 +69,13 @@ class DiagnoseCommand extends Command
                 'verbosity' => ServiceProvider::isDebug() ? 'debug' : 'normal',
             ],
             'version' => [
-                'root' => $this->readVersion($projectRoot . DS . 'composer.json'),
-                'core' => $this->readVersion($projectRoot . DS . 'core' . DS . 'composer.json'),
-                'cli' => $this->readVersion($projectRoot . DS . 'cli' . DS . 'composer.json'),
+                'root' => $this->readVersion(Brain::projectDirectory('composer.json')),
+                'core' => $this->readVersion(Brain::projectDirectory(['core', 'composer.json'])),
+                'cli' => $this->readVersion(Brain::projectDirectory(['cli', 'composer.json'])),
             ],
         ];
     }
 
-    /**
-     * Check if a value is truthy (matches varIsPositive logic).
-     */
-    private function isTruthy(mixed $value): bool
-    {
-        return in_array($value, [true, 1, '1', 'true'], true);
-    }
-
-    /**
-     * Read version from a composer.json file.
-     */
     private function readVersion(string $composerPath): string|null
     {
         if (!is_file($composerPath)) {
@@ -139,11 +91,23 @@ class DiagnoseCommand extends Command
         return null;
     }
 
-    /**
-     * Render diagnosis in human-readable format.
-     *
-     * @param  array<string, mixed>  $diagnosis
-     */
+    public function isTruthy(mixed $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['true', '1'], true);
+        }
+
+        return (bool) $value;
+    }
+
     private function renderHuman(array $diagnosis): void
     {
         $this->components->info('Brain Diagnostics');
