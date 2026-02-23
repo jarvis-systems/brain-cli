@@ -45,12 +45,12 @@ class OpenCodeClient extends ClientAbstract
 
     protected function getAgentsFolderParts(): string|array
     {
-        return [$this->folder(), 'agent'];
+        return [$this->folder(), 'agents'];
     }
 
     protected function getCommandsFolderParts(): string|array
     {
-        return [$this->folder(), 'command'];
+        return [$this->folder(), 'commands'];
     }
 
     /**
@@ -215,7 +215,7 @@ class OpenCodeClient extends ClientAbstract
             ->settingsBehavior(function (ProcessFactory $factory, array $settings) {
                 return [
                     'env' => [
-                        'QWEN_CODE_SYSTEM_SETTINGS_PATH'
+                        'OPENCODE_CONFIG'
                         => $this->temporalFile($settings, $this->settingsFile(), $factory->type->name),
                     ]
                 ];
