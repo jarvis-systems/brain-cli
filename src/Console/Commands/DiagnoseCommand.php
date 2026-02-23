@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Kernel\CommandKernel;
 use BrainCLI\ServiceProvider;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
@@ -21,6 +22,15 @@ class DiagnoseCommand extends Command
     protected $description = 'Diagnose Brain environment and self-dev mode';
 
     public function handle(): int
+    {
+        return CommandKernel::run(
+            fn () => $this->executeCommand(),
+            'diagnose',
+            fn (\Throwable $e) => $this->components->error($e->getMessage()),
+        );
+    }
+
+    protected function executeCommand(): int
     {
         $diagnosis = $this->buildDiagnosis();
 

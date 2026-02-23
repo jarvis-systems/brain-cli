@@ -32,4 +32,18 @@ class CommandKernelAdoptionTest extends TestCase
 
         $this->assertStringContainsString('CommandKernel::run(', $source);
     }
+
+    public function test_diagnose_command_uses_command_kernel(): void
+    {
+        $source = $this->readSource('Console/Commands/DiagnoseCommand.php');
+
+        $this->assertStringContainsString('CommandKernel::run(', $source);
+    }
+
+    public function test_status_command_uses_command_kernel(): void
+    {
+        $source = $this->readSource('Console/Commands/StatusCommand.php');
+
+        $this->assertStringContainsString('CommandKernel::run(', $source);
+    }
 }
