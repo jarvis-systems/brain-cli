@@ -177,7 +177,7 @@ HELP;
 
         if (! $contract['valid']) {
             $this->components->error($contract['error']);
-            $this->components->hint('Create isolated temp workdir or add .brain/test-workdir marker file.');
+            $this->components->warn('Create isolated temp workdir or add .brain/test-workdir marker file.');
 
             throw new CommandTerminatedException();
         }
