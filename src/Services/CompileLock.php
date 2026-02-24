@@ -21,6 +21,7 @@ class CompileLock
         'MISSING_TEST_MODE' => 'missing_test_mode',
         'NON_ISOLATED_WORKDIR' => 'non_isolated_workdir',
         'LEAKY_TEST_MODE' => 'leaky_test_mode',
+        'MARKER_IN_PROJECT_ROOT' => 'marker_in_project_root',
     ];
 
     private mixed $handle = null;
@@ -147,19 +148,21 @@ class CompileLock
             return false;
         }
 
-        $distTmp = $realWorkdir . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'tmp';
-        if (is_dir($distTmp) && realpath($distTmp) !== false) {
-            return true;
-        }
-
-        $parent = dirname($realWorkdir);
-        while ($parent !== $realWorkdir) {
-            $parentDistTmp = $parent . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'tmp';
-            if (is_dir($parentDistTmp) && realpath($parentDistTmp) !== false) {
-                return true;
+        $parent = $realWorkdir;
+        while (true) {
+            $distTmp = $parent . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'tmp';
+            if (is_dir($distTmp) && realpath($distTmp) !== false) {
+                $realDistTmp = realpath($distTmp);
+                if ($realWorkdir === $realDistTmp || str_starts_with($realWorkdir, $realDistTmp . DIRECTORY_SEPARATOR)) {
+                    return true;
+                }
             }
-            $realWorkdir = $parent;
-            $parent = dirname($parent);
+
+            $nextParent = dirname($parent);
+            if ($nextParent === $parent) {
+                break;
+            }
+            $parent = $nextParent;
         }
 
         return false;
@@ -172,26 +175,30 @@ class CompileLock
         return is_file($markerFile);
     }
 
+    public static function isBrainProjectRoot(string $workdir): bool
+    {
+        $realWorkdir = realpath($workdir);
+        if ($realWorkdir === false) {
+            return false;
+        }
+
+        $projectRoot = self::findProjectRoot($workdir);
+
+        return $projectRoot !== null && $realWorkdir === $projectRoot;
+    }
+
     public static function isIsolatedWorkdir(string $workdir): bool
     {
         $underTemp = self::isUnderTempDir($workdir);
         $underDistTmp = self::isUnderDistTmp($workdir);
         $hasMarker = self::hasTestModeMarker($workdir);
-        $isProjectRoot = self::findProjectRoot($workdir) !== null;
+        $isProjectRoot = self::isBrainProjectRoot($workdir);
 
-        if ($underTemp && $hasMarker) {
-            return true;
+        if ($isProjectRoot) {
+            return false;
         }
 
-        if ($underDistTmp && $hasMarker) {
-            return true;
-        }
-
-        if ($isProjectRoot && $hasMarker) {
-            return true;
-        }
-
-        return false;
+        return ($underTemp || $underDistTmp) && $hasMarker;
     }
 
     /**
@@ -203,6 +210,8 @@ class CompileLock
         $isTestMode = self::isTestMode();
         $isSourceCi = self::isTestModeSourceCi();
         $isIsolated = self::isIsolatedWorkdir($workdir);
+        $isProjectRoot = self::isBrainProjectRoot($workdir);
+        $hasMarker = self::hasTestModeMarker($workdir);
 
         if (! $isPhpUnit && ! $isTestMode) {
             return [
@@ -222,11 +231,27 @@ class CompileLock
             ];
         }
 
+        if ($isPhpUnit) {
+            return [
+                'valid' => true,
+                'code' => null,
+                'reason' => null,
+                'hint' => null,
+            ];
+        }
+
+        if ($isProjectRoot && $hasMarker) {
+            return [
+                'valid' => false,
+                'code' => self::ERROR_CODES['NOLOCK_FORBIDDEN'],
+                'reason' => self::ERROR_CODES['MARKER_IN_PROJECT_ROOT'],
+                'hint' => 'Marker file in project root is a misconfiguration. Remove ' . basename(self::TESTMODE_MARKER) . ' or run from isolated temp directory.',
+            ];
+        }
+
         if (! $isIsolated) {
             $underTemp = self::isUnderTempDir($workdir);
             $underDistTmp = self::isUnderDistTmp($workdir);
-            $hasMarker = self::hasTestModeMarker($workdir);
-            $isProjectRoot = self::findProjectRoot($workdir) !== null;
 
             $reason = self::ERROR_CODES['NON_ISOLATED_WORKDIR'];
             $hintParts = [];
@@ -234,8 +259,8 @@ class CompileLock
             if (! $hasMarker) {
                 $hintParts[] = basename(self::TESTMODE_MARKER) . ' marker file';
             }
-            if (! $underTemp && ! $underDistTmp && ! $isProjectRoot) {
-                $hintParts[] = 'workdir under system temp, dist/tmp, or project root';
+            if (! $underTemp && ! $underDistTmp) {
+                $hintParts[] = 'workdir under system temp or dist/tmp';
             }
 
             return [
@@ -262,7 +287,7 @@ class CompileLock
         $underTemp = self::isUnderTempDir($workdir);
         $underDistTmp = self::isUnderDistTmp($workdir);
         $hasMarker = self::hasTestModeMarker($workdir);
-        $isProjectRoot = self::findProjectRoot($workdir) !== null;
+        $isProjectRoot = self::isBrainProjectRoot($workdir);
         $isIsolated = self::isIsolatedWorkdir($workdir);
         $contract = self::validateTestModeContract($workdir);
 
@@ -273,11 +298,14 @@ class CompileLock
         if ($isTestMode && ! $isPhpUnit && ! $isSourceCi) {
             $reasons[] = 'leaky_test_mode';
         }
-        if (! $isIsolated) {
+        if (! $isPhpUnit && $isProjectRoot && $hasMarker) {
+            $reasons[] = 'marker_in_project_root';
+        }
+        if (! $isPhpUnit && ! $isIsolated && ! ($isProjectRoot && $hasMarker)) {
             if (! $hasMarker) {
                 $reasons[] = 'missing_marker';
             }
-            if (! $underTemp && ! $underDistTmp && ! $isProjectRoot) {
+            if (! $underTemp && ! $underDistTmp) {
                 $reasons[] = 'workdir_not_isolated';
             }
         }

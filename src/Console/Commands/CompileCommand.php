@@ -29,6 +29,15 @@ class CompileCommand extends CommandBridgeAbstract
 
     protected array $compiledFilesAndDirectories = [];
 
+    protected ?string $originalCwd = null;
+
+    public function handle(): int
+    {
+        $this->originalCwd = getcwd() ?: null;
+
+        return parent::handle();
+    }
+
     public function getHelp(): string
     {
         return parent::getHelp() . <<<'HELP'
@@ -172,7 +181,7 @@ HELP;
             throw new CommandTerminatedException();
         }
 
-        $workdir = Brain::workingDirectory();
+        $workdir = $this->originalCwd ?? Brain::workingDirectory();
         $contract = CompileLock::validateTestModeContract($workdir);
 
         if (! $contract['valid']) {

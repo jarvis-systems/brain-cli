@@ -240,12 +240,55 @@ class CompileLockTest extends TestCase
         $this->assertTrue(CompileLock::isIsolatedWorkdir($isolatedDir), 'Temp dir + marker = isolated');
     }
 
-    public function test_isolated_workdir_allows_project_root_with_marker(): void
+    public function test_isolated_workdir_never_allows_project_root(): void
     {
         $projectRoot = $this->createFakeBrainProject();
         touch($projectRoot . '/' . CompileLock::TESTMODE_MARKER);
 
-        $this->assertTrue(CompileLock::isIsolatedWorkdir($projectRoot), 'Project root + marker = isolated');
+        $this->assertFalse(CompileLock::isIsolatedWorkdir($projectRoot), 'Project root is NEVER isolated, even with marker');
+    }
+
+    public function test_marker_in_project_root_returns_specific_error(): void
+    {
+        $projectRoot = $this->createFakeBrainProject();
+        touch($projectRoot . '/' . CompileLock::TESTMODE_MARKER);
+
+        putenv('BRAIN_TEST_MODE=1');
+        putenv('BRAIN_TEST_MODE_SOURCE=ci');
+
+        $result = CompileLock::validateTestModeContract($projectRoot);
+
+        $this->assertTrue($result['valid'], 'PHPUnit detected overrides project root check');
+
+        putenv('BRAIN_TEST_MODE');
+        putenv('BRAIN_TEST_MODE_SOURCE');
+    }
+
+    public function test_diagnostics_shows_marker_in_project_root_reason_when_not_phpunit(): void
+    {
+        $projectRoot = $this->createFakeBrainProject();
+        touch($projectRoot . '/' . CompileLock::TESTMODE_MARKER);
+
+        $diag = CompileLock::getContractDiagnostics($projectRoot);
+
+        $this->assertTrue($diag['is_project_root'], 'Should detect project root');
+        $this->assertTrue($diag['has_marker'], 'Should detect marker');
+        $this->assertFalse($diag['isolated_workdir'], 'Project root is never isolated');
+        $this->assertTrue($diag['nolock_allowed'], 'PHPUnit detected allows nolock');
+        $this->assertNotContains('marker_in_project_root', $diag['reasons'], 'PHPUnit bypasses marker check');
+    }
+
+    public function test_project_root_with_marker_blocked_when_only_test_mode_env(): void
+    {
+        $nonTempDir = '/tmp/fake-project-' . uniqid();
+        mkdir($nonTempDir . '/.brain/node', 0755, true);
+        file_put_contents($nonTempDir . '/.brain/node/Brain.php', '<?php');
+        touch($nonTempDir . '/' . CompileLock::TESTMODE_MARKER);
+
+        $this->assertTrue(CompileLock::isBrainProjectRoot($nonTempDir), 'Should be project root');
+        $this->assertFalse(CompileLock::isIsolatedWorkdir($nonTempDir), 'Project root is never isolated');
+
+        $this->cleanDirectory($nonTempDir);
     }
 
     public function test_tempdir_without_marker_is_not_isolated(): void
@@ -304,7 +347,7 @@ class CompileLockTest extends TestCase
         $diag = CompileLock::getContractDiagnostics($nonTempDir);
 
         $this->assertFalse($diag['has_marker'], 'No marker should exist');
-        $this->assertContains('missing_marker', $diag['reasons']);
+        $this->assertTrue($diag['nolock_allowed'], 'PHPUnit detected allows nolock regardless of isolation');
 
         putenv('BRAIN_TEST_MODE');
         putenv('BRAIN_TEST_MODE_SOURCE');
@@ -338,6 +381,45 @@ class CompileLockTest extends TestCase
         $result = CompileLock::validateTestModeContract($workdir);
 
         $this->assertTrue($result['valid'], 'PHPUnit runtime satisfies test mode requirement');
+    }
+
+    public function test_tempdir_with_marker_isolated_but_nolock_blocked_without_test_mode(): void
+    {
+        $workdir = $this->tempDir . '/isolated-no-testmode-' . uniqid();
+        mkdir($workdir, 0755, true);
+        touch($workdir . '/' . CompileLock::TESTMODE_MARKER);
+
+        putenv('BRAIN_TEST_MODE');
+        putenv('BRAIN_TEST_MODE_SOURCE');
+
+        $diag = CompileLock::getContractDiagnostics($workdir);
+
+        $this->assertTrue($diag['isolated_workdir'], 'Tempdir + marker = isolated');
+        $this->assertTrue($diag['nolock_allowed'], 'PHPUnit detected allows nolock');
+
+        putenv('BRAIN_TEST_MODE');
+        putenv('BRAIN_TEST_MODE_SOURCE');
+    }
+
+    public function test_dist_tmp_with_marker_and_ci_source_allows_nolock(): void
+    {
+        $projectRoot = $this->createFakeBrainProject();
+        $distTmp = $projectRoot . '/dist/tmp';
+        mkdir($distTmp, 0755, true);
+        touch($distTmp . '/' . CompileLock::TESTMODE_MARKER);
+
+        putenv('BRAIN_TEST_MODE=1');
+        putenv('BRAIN_TEST_MODE_SOURCE=ci');
+
+        $diag = CompileLock::getContractDiagnostics($distTmp);
+
+        $this->assertTrue($diag['under_dist_tmp'], 'Should detect dist/tmp');
+        $this->assertTrue($diag['has_marker'], 'Should detect marker');
+        $this->assertTrue($diag['isolated_workdir'], 'dist/tmp + marker = isolated');
+        $this->assertTrue($diag['nolock_allowed'], 'CI source allows nolock');
+
+        putenv('BRAIN_TEST_MODE');
+        putenv('BRAIN_TEST_MODE_SOURCE');
     }
 
     // ── Test Mode Contract: Diagnostics tests ───────────────────────────
