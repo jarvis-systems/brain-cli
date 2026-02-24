@@ -56,6 +56,6 @@ class DatabaseManager
             return is_dir($path) ? rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'credentials.sqlite' : $path;
         }
 
-        return Brain::workingDirectory('Memory/credentials.sqlite');
+        return Brain::workingDirectory('memory/credentials.sqlite');
     }
 }
