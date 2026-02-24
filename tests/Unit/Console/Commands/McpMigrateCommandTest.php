@@ -23,9 +23,9 @@ class McpMigrateCommandTest extends TestCase
         ) ?: '';
     }
 
-    public function test_command_signature_is_migrate(): void
+    public function test_command_signature_is_mcp_migrate(): void
     {
-        $this->assertStringContainsString("'migrate'", $this->source);
+        $this->assertStringContainsString("'mcp:migrate'", $this->source);
     }
 
     public function test_command_extends_illuminate_command(): void

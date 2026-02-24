@@ -9,9 +9,9 @@ use BrainCLI\Database\Migrations\MigrationRunner;
 
 class McpMigrateCommand extends Command
 {
-    protected $signature = 'migrate';
+    protected $signature = 'mcp:migrate';
 
-    protected $description = 'Run MCPC database migrations';
+    protected $description = 'Run MCP credentials database migrations';
 
     public function handle(): int
     {
