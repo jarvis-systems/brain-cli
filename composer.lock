@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3cbd5527ed693206a59ee3e399f5b69c",
+    "content-hash": "24301018ce21de9f11d6b0421ce05d72",
     "packages": [
         {
             "name": "bfg/attributes",
@@ -3147,17 +3147,11 @@
         },
         {
             "name": "jarvis-brain/core",
-            "version": "v0.4.0",
-            "source": {
-                "type": "git",
-                "url": "git@github.com:jarvis-systems/brain-core.git",
-                "reference": "552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d"
-            },
+            "version": "v0.5.0",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/jarvis-systems/brain-core/zipball/552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d",
-                "reference": "552cc2c3c8e3a7fa8270f0c4d0a4c63adbc52b6d",
-                "shasum": ""
+                "type": "path",
+                "url": "../core",
+                "reference": "ee5749246a82bcb8695a0a1c1dd8425f40fe4dc5"
             },
             "require": {
                 "bfg/dto": "^1.9",
@@ -3233,7 +3227,10 @@
                 "core",
                 "jarvis"
             ],
-            "time": "2026-02-23T03:26:34+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "justinrainbow/json-schema",
