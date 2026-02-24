@@ -11,7 +11,7 @@ class McpMigrateCommand extends Command
 {
     protected $signature = 'mcp:migrate';
 
-    protected $description = 'Run MCP credentials database migrations';
+    protected $description = 'Repair MCP credentials database schema (auto-runs on bootstrap)';
 
     public function handle(): int
     {

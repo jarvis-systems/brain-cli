@@ -6,26 +6,24 @@ use Composer\Script\Event;
 use Illuminate\Events\Dispatcher;
 use BrainCLI\Foundation\Application as McpApplication;
 use BrainCLI\Database\DatabaseManager;
-use BrainCLI\Database\Migrations\MigrationRunner;
 
 class Hooks
 {
     public static function postInstall(Event $event): void
     {
-        self::runMigrations($event, 'Brain installed, execute migrations');
+        self::bootstrapDatabase($event, 'Brain installed');
     }
 
     public static function postUpdate(Event $event): void
     {
-        self::runMigrations($event, 'Brain updated, execute migrations');
+        self::bootstrapDatabase($event, 'Brain updated');
     }
 
-    private static function runMigrations(Event $event, string $msg): void
+    private static function bootstrapDatabase(Event $event, string $msg): void
     {
         $io = $event->getIO();
-        $io->write("<info>[BRAIN]</info> {$msg}...");
+        $io->write("<info>[BRAIN]</info> {$msg}, initializing database...");
 
-        // Guarantee Composer autoload (helpers/functions) is present
         $autoload = getcwd() . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
         if (file_exists($autoload)) {
             require_once $autoload;
@@ -41,8 +39,7 @@ class Hooks
 
         $events = new Dispatcher($container);
         DatabaseManager::boot($container, $events);
-        MigrationRunner::run();
 
-        $io->write("<info>[BRAIN]</info> Migrations complete ✅");
+        $io->write("<info>[BRAIN]</info> Database ready ✅");
     }
 }

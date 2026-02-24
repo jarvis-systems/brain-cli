@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Database;
 
 use BrainCLI\Core;
+use BrainCLI\Database\Migrations\MigrationRunner;
 use BrainCLI\Support\Brain;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Events\Dispatcher;
@@ -44,20 +45,17 @@ class DatabaseManager
         $capsule->setEventDispatcher($events);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
+
+        MigrationRunner::run();
     }
 
     public static function databasePath(): string
     {
         $path = getenv('MCPC_DB_PATH');
         if ($path && $path !== '') {
-            return is_dir($path) ? rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mcpc.sqlite' : $path;
+            return is_dir($path) ? rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'credentials.sqlite' : $path;
         }
 
-        $home = rtrim((string) getenv('HOME'), DIRECTORY_SEPARATOR);
-        if ($home === '') {
-            $home = getcwd();
-        }
-
-        return $home . DIRECTORY_SEPARATOR . '.mcpc' . DIRECTORY_SEPARATOR . 'mcpc.sqlite';
+        return Brain::workingDirectory('Memory/credentials.sqlite');
     }
 }
