@@ -129,6 +129,72 @@ class CompileLock
     }
 
     /**
+     * Check if test mode is active.
+     *
+     * Test mode is required for --no-lock to prevent accidental use in production.
+     */
+    public static function isTestMode(): bool
+    {
+        $testMode = getenv('BRAIN_TEST_MODE');
+
+        return in_array($testMode, [true, 1, '1', 'true'], true);
+    }
+
+    /**
+     * Check if running under PHPUnit.
+     */
+    public static function isPhpUnit(): bool
+    {
+        return defined('PHPUnit_RUNNING') || class_exists(\PHPUnit\Framework\TestCase::class, false);
+    }
+
+    /**
+     * Check if working directory is an isolated test directory.
+     *
+     * An isolated directory is either:
+     * - Under system temp directory
+     * - Contains .brain/test-workdir marker file
+     */
+    public static function isIsolatedWorkdir(string $workdir): bool
+    {
+        $tempDir = sys_get_temp_dir();
+        $realWorkdir = realpath($workdir);
+        $realTempDir = realpath($tempDir);
+
+        if ($realWorkdir !== false && $realTempDir !== false && str_starts_with($realWorkdir, $realTempDir)) {
+            return true;
+        }
+
+        $markerFile = $workdir . DIRECTORY_SEPARATOR . '.brain' . DIRECTORY_SEPARATOR . 'test-workdir';
+
+        return is_file($markerFile);
+    }
+
+    /**
+     * Validate test mode contract for --no-lock usage.
+     *
+     * @return array{valid: bool, error: string|null}
+     */
+    public static function validateTestModeContract(string $workdir): array
+    {
+        if (! self::isTestMode() && ! self::isPhpUnit()) {
+            return [
+                'valid' => false,
+                'error' => 'BRAIN_TEST_MODE=1 is required for --no-lock. This flag is restricted to isolated test environments only.',
+            ];
+        }
+
+        if (! self::isIsolatedWorkdir($workdir)) {
+            return [
+                'valid' => false,
+                'error' => 'Working directory must be under system temp or contain .brain/test-workdir marker. Isolated workdir required for --no-lock.',
+            ];
+        }
+
+        return ['valid' => true, 'error' => null];
+    }
+
+    /**
      * Walk up from $startDir looking for a Brain project root.
      *
      * A project root is identified by the presence of

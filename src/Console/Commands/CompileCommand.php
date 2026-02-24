@@ -152,6 +152,9 @@ HELP;
      *
      * Under paranoid/strict modes, --no-lock is blocked unless
      * BRAIN_ALLOW_NO_LOCK=1 is explicitly set in environment.
+     *
+     * Additionally, BRAIN_TEST_MODE=1 is required for --no-lock
+     * to prevent accidental use in production.
      */
     private function enforceNoLockPolicy(): void
     {
@@ -165,6 +168,16 @@ HELP;
             $this->components->warn(
                 'Set BRAIN_ALLOW_NO_LOCK=1 in environment to override.'
             );
+
+            throw new CommandTerminatedException();
+        }
+
+        $workdir = Brain::workingDirectory();
+        $contract = CompileLock::validateTestModeContract($workdir);
+
+        if (! $contract['valid']) {
+            $this->components->error($contract['error']);
+            $this->components->hint('Create isolated temp workdir or add .brain/test-workdir marker file.');
 
             throw new CommandTerminatedException();
         }
