@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrainCLI\Console\Commands;
 
+use BrainCLI\Console\Traits\SelfDevGateTrait;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 
@@ -13,7 +14,9 @@ use function Illuminate\Support\php_binary;
 
 class InitCommand extends Command
 {
-    protected $signature = 'init {--composer=composer : The composer binary to use}';
+    use SelfDevGateTrait;
+
+    protected $signature = 'init {--composer=composer : The composer binary to use} {--scaffold : Scaffold default MCPs after bootstrap}';
 
     protected $description = 'Initialize Brain';
 
@@ -23,6 +26,10 @@ class InitCommand extends Command
 
         if (is_dir($workingDir)) {
             $this->components->error("The brain already initialized in this directory: {$workingDir}");
+            return ERROR;
+        }
+
+        if ($this->option('scaffold') && ! $this->requireSelfDev()) {
             return ERROR;
         }
 
@@ -65,11 +72,18 @@ class InitCommand extends Command
             );
         });
 
+        if ($result !== OK) {
+            return ERROR;
+        }
 
-        if (! $result) {
+        if ($this->option('scaffold')) {
             foreach (to_array(config('brain.mcp.default', [])) as $name) {
                 $this->call('make:mcp', compact('name'));
             }
+
+            $this->components->info('Bootstrap + scaffold complete.');
+        } else {
+            $this->components->info('Bootstrap complete. To scaffold defaults: enable SELF_DEV_MODE and run: brain init --scaffold');
         }
 
         return OK;

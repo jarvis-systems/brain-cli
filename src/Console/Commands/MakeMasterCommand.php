@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Console\Traits\SelfDevGateTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -13,6 +14,7 @@ class MakeMasterCommand extends Command
 {
     use StubGeneratorTrait;
     use HelpersTrait;
+    use SelfDevGateTrait;
 
     protected $signature = 'make:master {name} {--force : Overwrite existing files}';
 
@@ -20,6 +22,10 @@ class MakeMasterCommand extends Command
 
     public function handle(): int
     {
+        if (! $this->requireSelfDev()) {
+            return ERROR;
+        }
+
         $this->checkWorkingDir();
 
         return $this->generateFile(

@@ -51,6 +51,16 @@ class MakeScriptCommandTest extends TestCase
         $this->assertStringContainsString('use HelpersTrait', $this->source);
     }
 
+    public function test_uses_self_dev_gate_trait(): void
+    {
+        $this->assertStringContainsString('use SelfDevGateTrait', $this->source);
+    }
+
+    public function test_requires_self_dev_before_execution(): void
+    {
+        $this->assertStringContainsString('requireSelfDev()', $this->source);
+    }
+
     public function test_handle_returns_int(): void
     {
         $this->assertStringContainsString('public function handle(): int', $this->source);

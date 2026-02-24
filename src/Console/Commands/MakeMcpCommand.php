@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Traits\HelpersTrait;
+use BrainCLI\Console\Traits\SelfDevGateTrait;
 use BrainCLI\Console\Traits\StubGeneratorTrait;
 use BrainCLI\Models\Credential;
 use BrainCLI\Support\Brain;
@@ -19,6 +20,7 @@ class MakeMcpCommand extends Command
 {
     use StubGeneratorTrait;
     use HelpersTrait;
+    use SelfDevGateTrait;
 
     protected $signature = 'make:mcp 
         {name} 
@@ -39,6 +41,10 @@ class MakeMcpCommand extends Command
      */
     public function handle(): int
     {
+        if (! $this->requireSelfDev()) {
+            return ERROR;
+        }
+
         $this->checkWorkingDir();
 
         $this->addDefaultConstants();
