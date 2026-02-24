@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "kill_switch_env": "BRAIN_DISABLE_MCP",
+  "allowed": [
+    "docs",
+    "diagnose",
+    "status",
+    "list",
+    "list:includes",
+    "list:masters",
+    "memory:status"
+  ],
+  "never": [
+    "compile",
+    "init",
+    "make:*",
+    "memory:hygiene",
+    "release:prepare",
+    "update",
+    "add",
+    "detail",
+    "board",
+    "lab",
+    "run",
+    "meeting",
+    "custom-run",
+    "mcp:migrate"
+  ],
+  "clients": {
+    "claude": {"enabled": true, "categories": ["DEFAULT_READONLY", "OPTIONAL_READONLY"]},
+    "codex": {"enabled": true, "categories": ["DEFAULT_READONLY"]},
+    "opencode": {"enabled": true, "categories": ["DEFAULT_READONLY", "OPTIONAL_READONLY"]},
+    "gemini": {"enabled": true, "categories": ["DEFAULT_READONLY"]},
+    "qwen": {"enabled": true, "categories": ["DEFAULT_READONLY"]}
+  },
+  "_comment": "MCP v1 is READ-ONLY. Compile integration requires explicit GO."
+}
