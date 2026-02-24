@@ -14,11 +14,13 @@ class EnvOverrideTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         putenv(self::TEST_VAR_NAME . '=test_value_12345');
+        putenv('BRAIN_ALLOW_NO_LOCK=1');
     }
 
     public static function tearDownAfterClass(): void
     {
         putenv(self::TEST_VAR_NAME);
+        putenv('BRAIN_ALLOW_NO_LOCK');
     }
 
     public function testGetenvReturnsProcessEnvValue(): void
@@ -41,7 +43,7 @@ class EnvOverrideTest extends TestCase
             $exitCode = 0;
             $brainBin = self::PROJECT_ROOT . '/cli/bin/brain';
             exec(
-                'WEB_RESEARCH_MASTER_MODEL=' . escapeshellarg($testModel) . ' php ' . escapeshellarg($brainBin) . ' compile opencode 2>&1',
+                'WEB_RESEARCH_MASTER_MODEL=' . escapeshellarg($testModel) . ' php ' . escapeshellarg($brainBin) . ' compile opencode --no-lock 2>&1',
                 $output,
                 $exitCode
             );
@@ -62,7 +64,7 @@ class EnvOverrideTest extends TestCase
             }
             $brainBin = self::PROJECT_ROOT . '/cli/bin/brain';
             exec(
-                'php ' . escapeshellarg($brainBin) . ' compile opencode >/dev/null 2>&1'
+                'php ' . escapeshellarg($brainBin) . ' compile opencode --no-lock >/dev/null 2>&1'
             );
         }
     }
@@ -87,7 +89,7 @@ class EnvOverrideTest extends TestCase
             $brainBin = self::PROJECT_ROOT . '/cli/bin/brain';
 
             exec(
-                'STRICT_MODE=standard COGNITIVE_LEVEL=standard php ' . escapeshellarg($brainBin) . ' compile claude 2>&1',
+                'STRICT_MODE=standard COGNITIVE_LEVEL=standard php ' . escapeshellarg($brainBin) . ' compile claude --no-lock 2>&1',
                 $output,
                 $exitCode
             );
@@ -108,7 +110,7 @@ class EnvOverrideTest extends TestCase
             }
             $brainBin = self::PROJECT_ROOT . '/cli/bin/brain';
             exec(
-                'STRICT_MODE=paranoid COGNITIVE_LEVEL=exhaustive php ' . escapeshellarg($brainBin) . ' compile claude >/dev/null 2>&1'
+                'STRICT_MODE=paranoid COGNITIVE_LEVEL=exhaustive php ' . escapeshellarg($brainBin) . ' compile claude --no-lock >/dev/null 2>&1'
             );
         }
     }
@@ -125,7 +127,7 @@ class EnvOverrideTest extends TestCase
             $brainBin = self::PROJECT_ROOT . '/cli/bin/brain';
 
             exec(
-                'STRICT_MODE=paranoid COGNITIVE_LEVEL=exhaustive php ' . escapeshellarg($brainBin) . ' compile claude 2>&1',
+                'STRICT_MODE=paranoid COGNITIVE_LEVEL=exhaustive php ' . escapeshellarg($brainBin) . ' compile claude --no-lock 2>&1',
                 $output,
                 $exitCode
             );
