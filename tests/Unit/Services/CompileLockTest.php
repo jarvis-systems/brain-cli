@@ -227,7 +227,7 @@ class CompileLockTest extends TestCase
 
     // ── Test Mode Contract: Isolation tests ─────────────────────────────
 
-    public function test_isolated_workdir_requires_both_tempdir_and_marker(): void
+    public function test_isolated_workdir_requires_tempdir_and_marker(): void
     {
         $isolatedDir = $this->tempDir . '/isolated-' . uniqid();
         mkdir($isolatedDir, 0755, true);
@@ -240,10 +240,12 @@ class CompileLockTest extends TestCase
         $this->assertTrue(CompileLock::isIsolatedWorkdir($isolatedDir), 'Temp dir + marker = isolated');
     }
 
-    public function test_marker_in_non_tempdir_is_not_isolated(): void
+    public function test_isolated_workdir_allows_project_root_with_marker(): void
     {
-        $nonTempDir = '/Users/test/project';
-        $this->assertFalse(CompileLock::isIsolatedWorkdir($nonTempDir), 'Non-temp dir never isolated');
+        $projectRoot = $this->createFakeBrainProject();
+        touch($projectRoot . '/' . CompileLock::TESTMODE_MARKER);
+
+        $this->assertTrue(CompileLock::isIsolatedWorkdir($projectRoot), 'Project root + marker = isolated');
     }
 
     public function test_tempdir_without_marker_is_not_isolated(): void
@@ -352,6 +354,7 @@ class CompileLockTest extends TestCase
         $this->assertArrayHasKey('phpunit_detected', $diag);
         $this->assertArrayHasKey('under_temp_dir', $diag);
         $this->assertArrayHasKey('under_dist_tmp', $diag);
+        $this->assertArrayHasKey('is_project_root', $diag);
         $this->assertArrayHasKey('has_marker', $diag);
         $this->assertArrayHasKey('isolated_workdir', $diag);
         $this->assertArrayHasKey('nolock_allowed', $diag);
