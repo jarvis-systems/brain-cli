@@ -14,19 +14,21 @@ namespace BrainCLI\Services;
 class CompileLock
 {
     private const LOCK_FILE = 'compile.lock';
+    public const TESTMODE_MARKER = '.brain-testmode.marker';
 
-    /** @var resource|null */
+    private const ERROR_CODES = [
+        'NOLOCK_FORBIDDEN' => 'no-lock forbidden',
+        'MISSING_TEST_MODE' => 'missing_test_mode',
+        'NON_ISOLATED_WORKDIR' => 'non_isolated_workdir',
+        'LEAKY_TEST_MODE' => 'leaky_test_mode',
+    ];
+
     private mixed $handle = null;
 
     public function __construct(
         private readonly string $lockDir,
     ) {}
 
-    /**
-     * Acquire exclusive compile lock (non-blocking).
-     *
-     * Returns true if lock acquired, false if another process holds it.
-     */
     public function acquire(): bool
     {
         $lockPath = $this->lockPath();
@@ -49,7 +51,6 @@ class CompileLock
 
         $this->handle = $handle;
 
-        // Write lock metadata for observability
         ftruncate($this->handle, 0);
         rewind($this->handle);
         fwrite($this->handle, json_encode([
@@ -62,9 +63,6 @@ class CompileLock
         return true;
     }
 
-    /**
-     * Release the compile lock.
-     */
     public function release(): void
     {
         if ($this->handle !== null) {
@@ -77,8 +75,6 @@ class CompileLock
     }
 
     /**
-     * Read lock holder metadata (PID, timestamp).
-     *
      * @return array{pid: int, started_at: string, timestamp: int}|null
      */
     public function getHolderInfo(): ?array
@@ -100,23 +96,11 @@ class CompileLock
         return is_array($data) ? $data : null;
     }
 
-    /**
-     * Check if lock file exists (does not verify if actively held).
-     */
     public function exists(): bool
     {
         return is_file($this->lockPath());
     }
 
-    /**
-     * Check whether --no-lock flag is allowed under current strict mode.
-     *
-     * Under "paranoid" or "strict" modes, --no-lock is blocked
-     * unless BRAIN_ALLOW_NO_LOCK override is explicitly set.
-     *
-     * @param  string|null  $strictMode       Current STRICT_MODE value
-     * @param  mixed        $allowOverride    BRAIN_ALLOW_NO_LOCK env value
-     */
     public static function isNoLockAllowed(?string $strictMode, mixed $allowOverride): bool
     {
         $restricted = in_array($strictMode, ['paranoid', 'strict'], true);
@@ -128,11 +112,6 @@ class CompileLock
         return in_array($allowOverride, [true, 1, '1', 'true'], true);
     }
 
-    /**
-     * Check if test mode is active.
-     *
-     * Test mode is required for --no-lock to prevent accidental use in production.
-     */
     public static function isTestMode(): bool
     {
         $testMode = getenv('BRAIN_TEST_MODE');
@@ -140,66 +119,153 @@ class CompileLock
         return in_array($testMode, [true, 1, '1', 'true'], true);
     }
 
-    /**
-     * Check if running under PHPUnit.
-     */
+    public static function isTestModeSourceCi(): bool
+    {
+        $source = getenv('BRAIN_TEST_MODE_SOURCE');
+
+        return $source === 'ci';
+    }
+
     public static function isPhpUnit(): bool
     {
         return defined('PHPUnit_RUNNING') || class_exists(\PHPUnit\Framework\TestCase::class, false);
     }
 
-    /**
-     * Check if working directory is an isolated test directory.
-     *
-     * An isolated directory is either:
-     * - Under system temp directory
-     * - Contains .brain/test-workdir marker file
-     */
-    public static function isIsolatedWorkdir(string $workdir): bool
+    public static function isUnderTempDir(string $workdir): bool
     {
         $tempDir = sys_get_temp_dir();
         $realWorkdir = realpath($workdir);
         $realTempDir = realpath($tempDir);
 
-        if ($realWorkdir !== false && $realTempDir !== false && str_starts_with($realWorkdir, $realTempDir)) {
-            return true;
+        return $realWorkdir !== false && $realTempDir !== false && str_starts_with($realWorkdir, $realTempDir);
+    }
+
+    public static function isUnderDistTmp(string $workdir): bool
+    {
+        $realWorkdir = realpath($workdir);
+        if ($realWorkdir === false) {
+            return false;
         }
 
-        $markerFile = $workdir . DIRECTORY_SEPARATOR . '.brain' . DIRECTORY_SEPARATOR . 'test-workdir';
+        $distTmp = $realWorkdir . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'tmp';
+        $realDistTmp = realpath($distTmp);
+
+        return $realDistTmp !== false && str_starts_with($realWorkdir, $realDistTmp);
+    }
+
+    public static function hasTestModeMarker(string $workdir): bool
+    {
+        $markerFile = $workdir . DIRECTORY_SEPARATOR . self::TESTMODE_MARKER;
 
         return is_file($markerFile);
     }
 
-    /**
-     * Validate test mode contract for --no-lock usage.
-     *
-     * @return array{valid: bool, error: string|null}
-     */
-    public static function validateTestModeContract(string $workdir): array
+    public static function isIsolatedWorkdir(string $workdir): bool
     {
-        if (! self::isTestMode() && ! self::isPhpUnit()) {
-            return [
-                'valid' => false,
-                'error' => 'BRAIN_TEST_MODE=1 is required for --no-lock. This flag is restricted to isolated test environments only.',
-            ];
-        }
+        $underTemp = self::isUnderTempDir($workdir);
+        $underDistTmp = self::isUnderDistTmp($workdir);
+        $hasMarker = self::hasTestModeMarker($workdir);
 
-        if (! self::isIsolatedWorkdir($workdir)) {
-            return [
-                'valid' => false,
-                'error' => 'Working directory must be under system temp or contain .brain/test-workdir marker. Isolated workdir required for --no-lock.',
-            ];
-        }
-
-        return ['valid' => true, 'error' => null];
+        return ($underTemp || $underDistTmp) && $hasMarker;
     }
 
     /**
-     * Walk up from $startDir looking for a Brain project root.
-     *
-     * A project root is identified by the presence of
-     * {brainDirName}/node/Brain.php in the directory.
+     * @return array{valid: bool, code: string|null, reason: string|null, hint: string|null}
      */
+    public static function validateTestModeContract(string $workdir): array
+    {
+        $isPhpUnit = self::isPhpUnit();
+        $isTestMode = self::isTestMode();
+        $isSourceCi = self::isTestModeSourceCi();
+        $isIsolated = self::isIsolatedWorkdir($workdir);
+
+        if (! $isPhpUnit && ! $isTestMode) {
+            return [
+                'valid' => false,
+                'code' => self::ERROR_CODES['NOLOCK_FORBIDDEN'],
+                'reason' => self::ERROR_CODES['MISSING_TEST_MODE'],
+                'hint' => 'Set BRAIN_TEST_MODE=1 and run under PHPUnit, or use CI with BRAIN_TEST_MODE_SOURCE=ci.',
+            ];
+        }
+
+        if ($isTestMode && ! $isPhpUnit && ! $isSourceCi) {
+            return [
+                'valid' => false,
+                'code' => self::ERROR_CODES['NOLOCK_FORBIDDEN'],
+                'reason' => self::ERROR_CODES['LEAKY_TEST_MODE'],
+                'hint' => 'BRAIN_TEST_MODE=1 requires either PHPUnit runtime or BRAIN_TEST_MODE_SOURCE=ci.',
+            ];
+        }
+
+        if (! $isIsolated) {
+            $underTemp = self::isUnderTempDir($workdir);
+            $underDistTmp = self::isUnderDistTmp($workdir);
+            $hasMarker = self::hasTestModeMarker($workdir);
+
+            $reason = self::ERROR_CODES['NON_ISOLATED_WORKDIR'];
+            $hintParts = [];
+
+            if (! $underTemp && ! $underDistTmp) {
+                $hintParts[] = 'workdir under system temp or dist/tmp';
+            }
+            if (! $hasMarker) {
+                $hintParts[] = basename(self::TESTMODE_MARKER) . ' marker file';
+            }
+
+            return [
+                'valid' => false,
+                'code' => self::ERROR_CODES['NOLOCK_FORBIDDEN'],
+                'reason' => $reason,
+                'hint' => 'Requires: ' . implode(' AND ', $hintParts) . '.',
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'code' => null,
+            'reason' => null,
+            'hint' => null,
+        ];
+    }
+
+    public static function getContractDiagnostics(string $workdir): array
+    {
+        $isPhpUnit = self::isPhpUnit();
+        $isTestMode = self::isTestMode();
+        $isSourceCi = self::isTestModeSourceCi();
+        $underTemp = self::isUnderTempDir($workdir);
+        $underDistTmp = self::isUnderDistTmp($workdir);
+        $hasMarker = self::hasTestModeMarker($workdir);
+        $isIsolated = $underTemp || $underDistTmp;
+        $contract = self::validateTestModeContract($workdir);
+
+        $reasons = [];
+        if (! $isPhpUnit && ! $isTestMode) {
+            $reasons[] = 'missing_test_mode';
+        }
+        if ($isTestMode && ! $isPhpUnit && ! $isSourceCi) {
+            $reasons[] = 'leaky_test_mode';
+        }
+        if (! ($underTemp || $underDistTmp)) {
+            $reasons[] = 'workdir_not_isolated';
+        }
+        if (! $hasMarker) {
+            $reasons[] = 'missing_marker';
+        }
+
+        return [
+            'test_mode_enabled' => $isTestMode,
+            'test_mode_source_ci' => $isSourceCi,
+            'phpunit_detected' => $isPhpUnit,
+            'under_temp_dir' => $underTemp,
+            'under_dist_tmp' => $underDistTmp,
+            'has_marker' => $hasMarker,
+            'isolated_workdir' => $isIsolated && $hasMarker,
+            'nolock_allowed' => $contract['valid'],
+            'reasons' => $reasons,
+        ];
+    }
+
     public static function findProjectRoot(string $startDir, string $brainDirName = '.brain'): ?string
     {
         $dir = realpath($startDir);

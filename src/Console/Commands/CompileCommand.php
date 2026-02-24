@@ -176,8 +176,10 @@ HELP;
         $contract = CompileLock::validateTestModeContract($workdir);
 
         if (! $contract['valid']) {
-            $this->components->error($contract['error']);
-            $this->components->warn('Create isolated temp workdir or add .brain/test-workdir marker file.');
+            $this->components->error(
+                "code={$contract['code']} reason={$contract['reason']}"
+            );
+            $this->components->warn($contract['hint']);
 
             throw new CommandTerminatedException();
         }

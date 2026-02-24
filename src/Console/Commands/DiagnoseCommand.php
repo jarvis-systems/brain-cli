@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Console\Kernel\CommandKernel;
+use BrainCLI\Services\CompileLock;
 use BrainCLI\Services\SelfDev\SelfDevResolver;
 use BrainCLI\ServiceProvider;
 use BrainCLI\Support\Brain;
@@ -74,6 +75,7 @@ class DiagnoseCommand extends Command
                 'cognitive_level' => Brain::getEnv('COGNITIVE_LEVEL', 'not set'),
                 'verbosity' => ServiceProvider::isDebug() ? 'debug' : 'normal',
             ],
+            'test_mode_contract' => CompileLock::getContractDiagnostics(Brain::workingDirectory()),
             'version' => [
                 'root' => $this->readVersion(Brain::projectDirectory('composer.json')),
                 'core' => $this->readVersion(Brain::projectDirectory(['core', 'composer.json'])),
@@ -150,6 +152,24 @@ class DiagnoseCommand extends Command
         $this->components->info('Modes');
         foreach ($diagnosis['modes'] as $key => $value) {
             $this->components->twoColumnDetail($key, (string) $value);
+        }
+        $this->newLine();
+
+        $this->components->info('Test Mode Contract');
+        $tmc = $diagnosis['test_mode_contract'];
+        $this->components->twoColumnDetail(
+            'nolock_allowed',
+            $tmc['nolock_allowed'] ? '<fg=green>YES</>' : '<fg=red>NO</>'
+        );
+        $this->components->twoColumnDetail('phpunit_detected', $tmc['phpunit_detected'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('test_mode_enabled', $tmc['test_mode_enabled'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('test_mode_source_ci', $tmc['test_mode_source_ci'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('under_temp_dir', $tmc['under_temp_dir'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('under_dist_tmp', $tmc['under_dist_tmp'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('has_marker', $tmc['has_marker'] ? 'YES' : 'NO');
+        $this->components->twoColumnDetail('isolated_workdir', $tmc['isolated_workdir'] ? 'YES' : 'NO');
+        if (! empty($tmc['reasons'])) {
+            $this->components->twoColumnDetail('block_reasons', implode(', ', $tmc['reasons']));
         }
         $this->newLine();
 
