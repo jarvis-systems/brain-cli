@@ -55,6 +55,21 @@ class DiagnoseCommandTest extends TestCase
 
     // ─── Source Inspection: Diagnosis Payload Structure ──────────────
 
+    public function test_diagnosis_has_self_hosting_key(): void
+    {
+        $this->assertStringContainsString("'self_hosting'", $this->source);
+    }
+
+    public function test_diagnosis_has_brain_dir_is_symlink_key(): void
+    {
+        $this->assertStringContainsString("'brain_dir_is_symlink'", $this->source);
+    }
+
+    public function test_diagnosis_has_brain_dir_target_key(): void
+    {
+        $this->assertStringContainsString("'brain_dir_target'", $this->source);
+    }
+
     public function test_diagnosis_has_self_dev_mode_key(): void
     {
         $this->assertStringContainsString("'self_dev_mode'", $this->source);
@@ -96,6 +111,15 @@ class DiagnoseCommandTest extends TestCase
         $this->assertStringContainsString("'root'", $this->source);
         $this->assertStringContainsString("'core'", $this->source);
         $this->assertStringContainsString("'cli'", $this->source);
+    }
+
+    // ─── Source Inspection: Self-Hosting Detection ───────────────────────
+
+    public function test_self_hosting_is_symlink_and_target_dot(): void
+    {
+        // self_hosting = brain_dir_is_symlink && brain_dir_target === '.'
+        $this->assertStringContainsString('$isSelfHosting', $this->source);
+        $this->assertStringContainsString('$isSymlink && $symlinkTarget === \'', $this->source);
     }
 
     // ─── Source Inspection: Self-Dev Detection Sources ───────────────

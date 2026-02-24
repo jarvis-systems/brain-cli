@@ -48,15 +48,21 @@ class DiagnoseCommand extends Command
     {
         $resolver = SelfDevResolver::make();
         $signals = $resolver->getSignals();
+        $isSymlink = $signals['dot_brain_is_symlink'];
+        $symlinkTarget = $signals['dot_brain_target'];
+        $isSelfHosting = $isSymlink && $symlinkTarget === '.';
 
         return [
+            'self_hosting' => $isSelfHosting,
             'self_dev_mode' => $resolver->isEnabled(),
             'self_dev_source' => $resolver->getSource(),
+            'brain_dir_is_symlink' => $isSymlink,
+            'brain_dir_target' => $symlinkTarget,
             'autodetect_signals' => [
                 'node_brain_php_in_root' => $signals['node_brain_php_in_root'],
                 'node_brain_php_in_dot_brain' => $signals['node_brain_php_in_dot_brain'],
-                'dot_brain_is_symlink' => $signals['dot_brain_is_symlink'],
-                'dot_brain_target' => $signals['dot_brain_target'],
+                'dot_brain_is_symlink' => $isSymlink,
+                'dot_brain_target' => $symlinkTarget,
             ],
             'paths' => [
                 'project_root' => Brain::projectDirectory(),
@@ -114,10 +120,18 @@ class DiagnoseCommand extends Command
         $this->newLine();
 
         $this->components->twoColumnDetail(
+            'Self-hosting',
+            $diagnosis['self_hosting'] ? '<fg=green>YES</>' : 'NO'
+        );
+        $this->components->twoColumnDetail(
             'Self-dev mode',
             $diagnosis['self_dev_mode'] ? '<fg=green>ACTIVE</>' : 'OFF'
         );
         $this->components->twoColumnDetail('Source', $diagnosis['self_dev_source']);
+        $this->components->twoColumnDetail(
+            'Brain dir symlink',
+            $diagnosis['brain_dir_is_symlink'] ? 'YES → ' . $diagnosis['brain_dir_target'] : 'NO'
+        );
         $this->newLine();
 
         $this->components->info('Autodetect Signals');
