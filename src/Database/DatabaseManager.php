@@ -13,11 +13,14 @@ use Illuminate\Container\Container;
 
 class DatabaseManager
 {
+    private const LEGACY_DB_NAME = 'credentials.sqlite';
+    private const CANON_DB_NAME = 'brain.sqlite';
+
     public static function boot(Container $container, Dispatcher $events): void
     {
         $capsule = new Capsule($container);
 
-        $dbPath = self::databasePath();
+        $dbPath = self::resolveDatabasePath();
 
         if (!is_dir(dirname($dbPath))) {
             mkdir(dirname($dbPath), 0777, true);
@@ -51,11 +54,33 @@ class DatabaseManager
 
     public static function databasePath(): string
     {
-        $path = getenv('MCPC_DB_PATH');
-        if ($path && $path !== '') {
-            return is_dir($path) ? rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'credentials.sqlite' : $path;
+        return self::resolveDatabasePath();
+    }
+
+    private static function resolveDatabasePath(): string
+    {
+        $envPath = getenv('MCPC_DB_PATH');
+        if ($envPath && $envPath !== '') {
+            return is_dir($envPath)
+                ? rtrim($envPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . self::CANON_DB_NAME
+                : $envPath;
         }
 
-        return Brain::workingDirectory('memory/credentials.sqlite');
+        $memoryDir = Brain::workingDirectory('memory');
+        $canonPath = $memoryDir . DIRECTORY_SEPARATOR . self::CANON_DB_NAME;
+        $legacyPath = $memoryDir . DIRECTORY_SEPARATOR . self::LEGACY_DB_NAME;
+
+        if (file_exists($canonPath)) {
+            return $canonPath;
+        }
+
+        if (file_exists($legacyPath)) {
+            if (!rename($legacyPath, $canonPath)) {
+                throw new \RuntimeException("Failed to migrate legacy DB: {$legacyPath} → {$canonPath}");
+            }
+            return $canonPath;
+        }
+
+        return $canonPath;
     }
 }
