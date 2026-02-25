@@ -18,6 +18,7 @@ use BrainCLI\Console\Commands\McpPolicyCommand;
 use BrainCLI\Console\Commands\McpAllowlistCommand;
 use BrainCLI\Console\Commands\McpListCommand;
 use BrainCLI\Console\Commands\McpDescribeCommand;
+use BrainCLI\Console\Commands\McpGuardrailsCommand;
 use BrainCLI\Console\Commands\McpCallCommand;
 use BrainCLI\Console\Commands\McpDocsSearchCommand;
 use BrainCLI\Console\Commands\McpDiagnoseCommand;
@@ -75,6 +76,7 @@ class ServiceProvider
         McpAllowlistCommand::class,
         McpListCommand::class,
         McpDescribeCommand::class,
+        McpGuardrailsCommand::class,
         McpCallCommand::class,
         McpDocsSearchCommand::class,
         McpDiagnoseCommand::class,

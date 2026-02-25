@@ -112,7 +112,7 @@ class McpCallCommand extends Command
                 'message' => $message,
                 'code' => $code,
                 'reason' => 'cli_error',
-                'hint' => 'Check command arguments or registry state.'
+                'hint' => 'Run: brain mcp:list ; brain mcp:describe --server=' . ($this->option('server') ?: '<id>')
             ],
         ];
         $this->outputResult($output);
