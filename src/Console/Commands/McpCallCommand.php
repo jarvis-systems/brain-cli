@@ -8,7 +8,7 @@ use BrainCLI\Support\Brain;
 use BrainCore\Contracts\McpCall\McpCallRequest;
 use BrainCore\Services\McpCall\McpCallExecutor;
 use BrainCore\Services\McpRegistry\FileRegistryResolver;
-use BrainCore\Services\McpToolPolicy\FilePolicyResolver;
+use BrainCore\Services\McpExternalToolsPolicy\FileExternalToolsPolicyResolver;
 use BrainCLI\Services\McpRegistryValidator;
 use BrainCLI\Exceptions\CommandTerminatedException;
 use Illuminate\Console\Command;
@@ -56,7 +56,7 @@ class McpCallCommand extends Command
         $cliPackageDir = Brain::localDirectory();
 
         $registryResolver = new FileRegistryResolver($projectRoot, $cliPackageDir);
-        $policyResolver = new FilePolicyResolver($projectRoot, $cliPackageDir);
+        $policyResolver = new FileExternalToolsPolicyResolver($projectRoot, $cliPackageDir);
         
         // 1. Validation before execution
         try {
