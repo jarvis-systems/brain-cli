@@ -12,6 +12,8 @@ use BrainCLI\Enums\Agent;
 use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\LockFileFactory;
 use BrainCLI\Support\Brain;
+use BrainCore\Services\McpRegistry\FileRegistryResolver;
+use BrainCore\Services\McpToolPolicy\FilePolicyResolver;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
@@ -108,14 +110,33 @@ abstract class CommandBridgeAbstract extends Command
             $nodeFolderName = $fo . (! empty($path) ? DS . $path : '');
         }
 
+        if ($path === 'Mcp' && ! $vendor) {
+            return $this->getMcpRegistryFiles();
+        }
+
         if (! is_dir($dir . $nodeFolderName)) {
             return [];
         }
+
         $files = File::allFiles($dir . $nodeFolderName);
-        return array_filter(array_map(function ($file) use ($vendor, $dir, $fo) {
+
+        if ($path === '' && ! $vendor) {
+            $files = array_filter($files, function ($file) {
+                $pathname = $file->getPathname();
+                return ! str_contains($pathname, DS . 'Mcp' . DS);
+            });
+        }
+
+        $result = array_filter(array_map(function ($file) use ($vendor, $dir, $fo) {
             $path = str_replace($dir . $fo . DS, '', $file->getPathname());
             return $this->getWorkingFile($path, $vendor);
         }, $files));
+
+        if ($path === '' && ! $vendor) {
+            $result = array_merge($result, $this->getMcpRegistryFiles());
+        }
+
+        return $result;
     }
 
     /**
@@ -166,6 +187,87 @@ abstract class CommandBridgeAbstract extends Command
             return null;
         }
         return $projectPathToNodes . "::" . $resultFormat;
+    }
+
+    /**
+     * Get MCP files based on canonical registry.
+     *
+     * @return array<string>
+     */
+    protected function getMcpRegistryFiles(): array
+    {
+        $policyResolver = new FilePolicyResolver(Brain::projectDirectory(), Brain::localDirectory());
+        if (! $policyResolver->isEnabled()) {
+            return [];
+        }
+
+        $registryResolver = new FileRegistryResolver(Brain::projectDirectory(), Brain::localDirectory());
+        try {
+            $registry = $registryResolver->resolve();
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'MCP_REGISTRY_MISSING') {
+                $this->components->error("code=MCP_REGISTRY_MISSING reason=registry_file_not_found");
+                throw new CommandTerminatedException();
+            }
+            throw $e;
+        }
+
+        $files = [];
+        foreach ($registry->servers as $server) {
+            if (! $server['enabled']) {
+                continue;
+            }
+
+            $file = $this->getMcpFileByClass($server['class']);
+            if ($file) {
+                $files[] = $file;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * Map MCP class to its project file path and format.
+     */
+    protected function getMcpFileByClass(string $class): ?string
+    {
+        if (! class_exists($class)) {
+            $this->ensureRootAutoloader();
+        }
+
+        if (! class_exists($class)) {
+            return null;
+        }
+
+        try {
+            $ref = new \ReflectionClass($class);
+            $path = $ref->getFileName();
+            if (! $path) {
+                return null;
+            }
+
+            $projectRoot = Brain::projectDirectory();
+            $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $path);
+
+            return $relativePath . '::json';
+        } catch (\Throwable $e) {
+            Brain::debugException($e, 'brain-debug:getMcpFileByClass');
+            return null;
+        }
+    }
+
+    /**
+     * Ensure the root autoloader is loaded for project class access.
+     */
+    protected function ensureRootAutoloader(): void
+    {
+        $projectRoot = Brain::projectDirectory();
+        $rootAutoloader = $projectRoot . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+
+        if (is_file($rootAutoloader)) {
+            require_once $rootAutoloader;
+        }
     }
 
     /**
@@ -344,7 +446,7 @@ abstract class CommandBridgeAbstract extends Command
                     }
                 } else {
                     $agents[] = Agent::fromEnabled(
-                        $this->components->choice('Select agent for compilation', Agent::list(), Agent::list()[0]->value)
+                        $this->components->choice('Select agent for compilation', Agent::list(), Agent::cases()[0]->value)
                     );
                 }
             } catch (Throwable $t) {
