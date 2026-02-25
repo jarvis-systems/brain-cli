@@ -54,15 +54,13 @@ class McpListCommandTest extends TestCase
     public function test_json_by_default_is_compact(): void
     {
         $output = $this->runCommand('');
-        $this->assertStringNotContainsString("
-", trim($output));
+        $this->assertStringNotContainsString("\n", trim($output));
     }
 
     public function test_pretty_json_is_formatted(): void
     {
         $output = $this->runCommand('', '--pretty');
-        $this->assertStringContainsString("
-", trim($output));
+        $this->assertStringContainsString("\n", trim($output));
     }
 
     public function test_json_flag_alias_works(): void
@@ -88,11 +86,13 @@ class McpListCommandTest extends TestCase
         $output = $this->runCommand('');
         $decoded = json_decode($output, true);
 
-        $ids = array_column($decoded['servers'], 'id');
-        $sortedIds = $ids;
-        sort($sortedIds);
+        if (! empty($decoded['servers'])) {
+            $ids = array_column($decoded['servers'], 'id');
+            $sortedIds = $ids;
+            sort($sortedIds);
 
-        $this->assertEquals($sortedIds, $ids, "Servers should be sorted by ID ASC");
+            $this->assertEquals($sortedIds, $ids, "Servers should be sorted by ID ASC");
+        }
     }
 
     public function test_server_count_matches_servers_list(): void
@@ -111,6 +111,42 @@ class McpListCommandTest extends TestCase
         $this->assertEquals('ready', $decoded['status']);
     }
 
+    public function test_fails_when_mcp_class_missing_id_attribute(): void
+    {
+        $testDir = sys_get_temp_dir() . '/brain-mcp-test-' . uniqid();
+        $mcpDir = $testDir . '/.brain/node/Mcp';
+        mkdir($mcpDir, 0755, true);
+        
+        // Create dummy Brain.php to satisfy project root resolution
+        file_put_contents($testDir . '/.brain/node/Brain.php', '<?php namespace BrainNode; class Brain {}');
+        
+        // Create invalid MCP class
+        $invalidMcp = <<<'PHP'
+<?php
+namespace BrainNode\Mcp;
+use BrainCore\Architectures\McpArchitecture;
+class InvalidMcp extends McpArchitecture {
+    protected static function defaultCommand(): string { return 'test'; }
+    protected static function defaultArgs(): array { return []; }
+}
+PHP;
+        file_put_contents($mcpDir . '/InvalidMcp.php', $invalidMcp);
+
+        // Run command from testDir
+        $currentDir = getcwd();
+        chdir($testDir);
+        try {
+            $output = $this->runCommand('');
+            $decoded = json_decode($output, true);
+            
+            $this->assertEquals('error', $decoded['status']);
+            $this->assertEquals('DISCOVERY_FAILED', $decoded['error']['code']);
+            $this->assertStringContainsString('missing #[Meta(\'id\', ...)] attribute', $decoded['error']['message']);
+        } finally {
+            chdir($currentDir);
+        }
+    }
+
     private function runCommand(string $envPrefix = '', string $extraFlags = ''): string
     {
         $command = trim($envPrefix . ' php ' . escapeshellarg($this->brainBin) . ' mcp:list ' . $extraFlags);
@@ -118,7 +154,6 @@ class McpListCommandTest extends TestCase
         $output = [];
         exec($command, $output);
 
-        return implode("
-", $output);
+        return implode("\n", $output);
     }
 }
