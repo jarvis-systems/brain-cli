@@ -7,6 +7,7 @@ namespace BrainCLI\Console\Commands;
 use BrainCLI\Support\Brain;
 use BrainCore\Contracts\McpCall\McpCallRequest;
 use BrainCore\Services\McpCall\McpCallExecutor;
+use BrainCore\Services\McpCall\McpInputValidator;
 use BrainCore\Services\McpRegistry\FileRegistryResolver;
 use BrainCore\Services\McpExternalToolsPolicy\FileExternalToolsPolicyResolver;
 use BrainCLI\Services\McpRegistryValidator;
@@ -25,6 +26,7 @@ class McpCallCommand extends Command
         {--input= : The tool input as a JSON string (default: "{}")}
         {--json : Output as JSON (default)}
         {--pretty : Pretty print the JSON output}
+        {--trace : Include deterministic request_id and redaction status}
     ';
 
     protected $description = 'Call an MCP server tool through Brain (gated, safe)';
@@ -39,6 +41,7 @@ class McpCallCommand extends Command
         $serverId = $this->option('server');
         $tool = $this->option('tool');
         $inputRaw = $this->option('input') ?? '{}';
+        $trace = $this->option('trace');
 
         if (! $serverId || ! $tool) {
             $this->outputError('Missing required options --server and --tool', 'MISSING_ARGUMENTS');
@@ -48,7 +51,7 @@ class McpCallCommand extends Command
         try {
             $input = json_decode($inputRaw, true, flags: JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
-            $this->outputError('Invalid JSON in --input: ' . $e->getMessage(), 'INVALID_INPUT');
+            $this->outputError('Input must be valid JSON.', 'MCP_CALL_INVALID_INPUT', 'invalid_json', 'Pass --input=\'{"key":"value"}\'');
             return 1;
         }
 
@@ -62,10 +65,20 @@ class McpCallCommand extends Command
         try {
             $registry = $registryResolver->resolve();
             (new McpRegistryValidator())->validate($registry);
+            
+            // 2. Schema preflight validation
+            (new McpInputValidator($registryResolver, $projectRoot))->validate($serverId, $tool, $input);
+
         } catch (RuntimeException $e) {
             if (str_contains($e->getMessage(), 'code=MCP_REGISTRY_INVALID') || $e->getMessage() === 'MCP_REGISTRY_MISSING') {
                  $this->outputError($e->getMessage(), 'REGISTRY_VALIDATION_FAILED');
                  return 1;
+            }
+            
+            if (str_contains($e->getMessage(), 'code=MCP_CALL_INVALID_INPUT')) {
+                // Preflight validation failed
+                $this->outputResultFromException($e, $serverId, $tool);
+                return 1;
             }
             throw $e;
         }
@@ -74,7 +87,7 @@ class McpCallCommand extends Command
 
         try {
             $request = new McpCallRequest($serverId, $tool, $input);
-            $result = $executor->execute($request);
+            $result = $executor->execute($request, $trace);
             
             $this->outputResult($result->toStableArray());
             
@@ -96,23 +109,53 @@ class McpCallCommand extends Command
             $jsonOptions |= JSON_PRETTY_PRINT;
         }
 
+        // Key sorting is handled by McpCallResult DTO, but we sort top-level here too for safety
+        ksort($output);
+
         $this->line((string) json_encode($output, $jsonOptions));
+    }
+
+    /**
+     * Parse structured error message from exception.
+     */
+    private function outputResultFromException(RuntimeException $e, string $serverId, string $tool): void
+    {
+        $msg = $e->getMessage();
+        preg_match('/code=([^ ]+) reason=([^ ]+) message="([^"]+)" hint="([^"]+)"/', $msg, $m);
+        
+        if ($m) {
+            $output = [
+                'ok' => false,
+                'server' => $serverId,
+                'tool' => $tool,
+                'error' => [
+                    'code' => $m[1],
+                    'reason' => $m[2],
+                    'message' => $m[3],
+                    'hint' => $m[4],
+                ],
+            ];
+            $this->outputResult($output);
+        } else {
+            $this->outputError($msg, 'UNKNOWN_VALIDATION_ERROR');
+        }
     }
 
     /**
      * Output a structured error as JSON.
      */
-    private function outputError(string $message, string $code): void
+    private function outputError(string $message, string $code, string $reason = 'cli_error', ?string $hint = null): void
     {
+        $serverId = $this->option('server') ?: 'unknown';
         $output = [
             'ok' => false,
-            'server' => $this->option('server') ?? 'unknown',
-            'tool' => $this->option('tool') ?? 'unknown',
+            'server' => $serverId,
+            'tool' => $this->option('tool') ?: 'unknown',
             'error' => [
                 'message' => $message,
                 'code' => $code,
-                'reason' => 'cli_error',
-                'hint' => 'Run: brain mcp:list ; brain mcp:describe --server=' . ($this->option('server') ?: '<id>')
+                'reason' => $reason,
+                'hint' => $hint ?: "Run: brain mcp:list ; brain mcp:describe --server={$serverId}"
             ],
         ];
         $this->outputResult($output);
