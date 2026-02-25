@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
-class McpListCommandTest extends TestCase
+class McpDescribeCommandTest extends TestCase
 {
     private LaravelApplication $laravel;
 
@@ -23,40 +23,54 @@ class McpListCommandTest extends TestCase
         ServiceProvider::bootApplication($this->laravel);
     }
 
-    public function test_mcp_list_returns_json(): void
+    public function test_mcp_describe_missing_server_fails(): void
     {
-        $command = $this->laravel->make(\BrainCLI\Console\Commands\McpListCommand::class);
+        $command = $this->laravel->make(\BrainCLI\Console\Commands\McpDescribeCommand::class);
         $command->setLaravel($this->laravel);
         $output = new BufferedOutput();
         
         $command->run(
-            new ArrayInput(['--json' => true]),
+            new ArrayInput([]),
             $output
         );
 
         $out = $output->fetch();
-        $this->assertJson($out);
         $data = json_decode($out, true);
-        $this->assertArrayHasKey('enabled', $data);
-        $this->assertArrayHasKey('servers', $data);
+        $this->assertEquals('MISSING_ARGUMENT', $data['error']['code']);
     }
 
-    public function test_mcp_list_honors_kill_switch(): void
+    public function test_mcp_describe_unknown_server_fails(): void
+    {
+        $command = $this->laravel->make(\BrainCLI\Console\Commands\McpDescribeCommand::class);
+        $command->setLaravel($this->laravel);
+        $output = new BufferedOutput();
+        
+        $command->run(
+            new ArrayInput(['--server' => 'unknown-server']),
+            $output
+        );
+
+        $out = $output->fetch();
+        $data = json_decode($out, true);
+        $this->assertEquals('MCP_SERVER_NOT_FOUND', $data['error']['code']);
+    }
+
+    public function test_mcp_describe_honors_kill_switch(): void
     {
         putenv('BRAIN_DISABLE_MCP=true');
         
-        $command = $this->laravel->make(\BrainCLI\Console\Commands\McpListCommand::class);
+        $command = $this->laravel->make(\BrainCLI\Console\Commands\McpDescribeCommand::class);
         $command->setLaravel($this->laravel);
         $output = new BufferedOutput();
         
         $command->run(
-            new ArrayInput(['--json' => true]),
+            new ArrayInput(['--server' => 'vector-task']),
             $output
         );
 
         $out = $output->fetch();
         $data = json_decode($out, true);
-        $this->assertFalse($data['enabled']);
+        $this->assertEquals('MCP_DISABLED', $data['error']['code']);
         
         putenv('BRAIN_DISABLE_MCP');
     }
