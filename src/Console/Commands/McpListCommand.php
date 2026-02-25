@@ -8,6 +8,8 @@ use BrainCLI\Support\Brain;
 use BrainCore\Attributes\Meta;
 use BrainCore\Contracts\McpToolPolicy\McpToolPolicyResolver;
 use BrainCore\Services\McpToolPolicy\FilePolicyResolver;
+use BrainCore\Contracts\McpRegistry\McpRegistryResolver;
+use BrainCore\Services\McpRegistry\FileRegistryResolver;
 use BrainCore\Architectures\McpArchitecture;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -18,9 +20,10 @@ class McpListCommand extends Command
     protected $signature = 'mcp:list
         {--json : JSON output (default)}
         {--pretty : Pretty print JSON}
+        {--scan : Perform runtime reflection scan (discovery-only, non-canonical)}
     ';
 
-    protected $description = 'List available MCP servers and their status';
+    protected $description = 'List available MCP servers and their status (registry-driven)';
 
     private const SCHEMA_VERSION = '1.0.0';
 
@@ -31,31 +34,46 @@ class McpListCommand extends Command
      */
     public function handle(): int
     {
-        $resolver = $this->createResolver();
-
-        $status = 'ready';
-        $servers = [];
-
-        if (! $resolver->isEnabled()) {
-            $status = 'disabled';
-        } else {
-            try {
-                $servers = $this->discoverServers();
-            } catch (RuntimeException $e) {
-                // Return structured error in JSON if discovery fails (e.g. missing Meta ID)
-                $this->outputError($e->getMessage(), 'DISCOVERY_FAILED');
-                return 1;
-            }
-        }
+        $policyResolver = $this->createPolicyResolver();
+        $registryResolver = $this->createRegistryResolver();
 
         $output = [
+            'enabled' => $policyResolver->isEnabled(),
+            'kill_switch_env' => 'BRAIN_DISABLE_MCP',
+            'resolved_registry_path' => 'none',
+            'servers' => [],
+            'summary' => ['total' => 0, 'enabled' => 0],
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $status,
-            'servers' => $servers,
-            'summary' => [
-                'server_count' => count($servers),
-            ],
         ];
+
+        if (! $output['enabled']) {
+            $this->outputJson($output);
+            return 0;
+        }
+
+        try {
+            if ($this->option('scan')) {
+                $servers = $this->discoverServersByScan();
+            } else {
+                $registry = $registryResolver->resolve();
+                $output['resolved_registry_path'] = $this->formatPath($registry->resolvedPath);
+                $servers = $this->formatRegistryServers($registry->servers);
+            }
+
+            $output['servers'] = $servers;
+            $output['summary'] = [
+                'total' => count($servers),
+                'enabled' => count(array_filter($servers, fn($s) => $s['enabled'])),
+            ];
+
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() === 'MCP_REGISTRY_MISSING') {
+                $this->outputError('MCP registry file not found', 'MCP_REGISTRY_MISSING');
+            } else {
+                $this->outputError($e->getMessage(), 'DISCOVERY_FAILED');
+            }
+            return 1;
+        }
 
         $this->outputJson($output);
 
@@ -65,7 +83,7 @@ class McpListCommand extends Command
     /**
      * Create the MCP tool policy resolver.
      */
-    private function createResolver(): McpToolPolicyResolver
+    private function createPolicyResolver(): McpToolPolicyResolver
     {
         $projectRoot = Brain::projectDirectory();
         $cliPackageDir = Brain::localDirectory();
@@ -74,11 +92,40 @@ class McpListCommand extends Command
     }
 
     /**
-     * Discover MCP servers using reflection.
+     * Create the MCP registry resolver.
+     */
+    private function createRegistryResolver(): McpRegistryResolver
+    {
+        $projectRoot = Brain::projectDirectory();
+        $cliPackageDir = Brain::localDirectory();
+
+        return new FileRegistryResolver($projectRoot, $cliPackageDir);
+    }
+
+    /**
+     * Format registry servers for output.
+     */
+    private function formatRegistryServers(array $registryServers): array
+    {
+        $servers = array_map(function ($s) {
+            return [
+                'id' => $s['id'],
+                'enabled' => $s['enabled'],
+            ];
+        }, $registryServers);
+
+        // Deterministic sorting by ID ASC
+        usort($servers, fn($a, $b) => strcmp($a['id'], $b['id']));
+
+        return $servers;
+    }
+
+    /**
+     * Discover MCP servers using reflection (legacy scan mode).
      * 
      * @return array
      */
-    private function discoverServers(): array
+    private function discoverServersByScan(): array
     {
         $mcpDir = Brain::nodeDirectory('Mcp');
         
@@ -94,15 +141,12 @@ class McpListCommand extends Command
                 continue;
             }
 
-            // We assume the standard namespace for discovery
             $className = 'BrainNode\\Mcp\\' . $file->getBasename('.php');
 
-            // Hardened approach: Ensure root autoloader is available
             if (! class_exists($className)) {
                 $this->ensureRootAutoloader();
             }
 
-            // Fallback: If still not found, include it once if it's within the project node directory
             if (! class_exists($className)) {
                 @include_once $file->getRealPath();
             }
@@ -119,11 +163,10 @@ class McpListCommand extends Command
             
             $servers[] = [
                 'id' => $id,
-                'enabled' => $this->isServerEnabled($className, $id),
+                'enabled' => $this->isServerEnabledByClass($className, $id),
             ];
         }
 
-        // Deterministic sorting by ID ASC
         usort($servers, fn($a, $b) => strcmp($a['id'], $b['id']));
 
         return $servers;
@@ -138,8 +181,6 @@ class McpListCommand extends Command
         $rootAutoloader = $projectRoot . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
         
         if (is_file($rootAutoloader)) {
-            // Check if this autoloader is already loaded by comparing realpaths
-            // But usually require_once is enough.
             require_once $rootAutoloader;
         }
     }
@@ -170,21 +211,43 @@ class McpListCommand extends Command
     /**
      * Determine if a server is enabled based on its class definition.
      */
-    private function isServerEnabled(string $className, string $id): bool
+    private function isServerEnabledByClass(string $className, string $id): bool
     {
-        // Built-in/Core servers are always enabled if MCP is enabled globally
         $builtIn = ['vector-task', 'vector-memory', 'sequential-thinking', 'context7'];
         
         if (in_array($id, $builtIn, true)) {
             return true;
         }
 
-        // External/Optional servers check
         if (method_exists($className, 'disableByDefault') && $className::disableByDefault()) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Format path for consistent output.
+     */
+    private function formatPath(?string $path): string
+    {
+        if ($path === null) {
+            return 'none';
+        }
+
+        $cwd = getcwd();
+
+        if ($cwd !== false && str_starts_with($path, $cwd)) {
+            return '.' . substr($path, strlen($cwd));
+        }
+
+        $home = getenv('HOME');
+
+        if ($home !== false && str_starts_with($path, $home)) {
+            return '~' . substr($path, strlen($home));
+        }
+
+        return $path;
     }
 
     /**

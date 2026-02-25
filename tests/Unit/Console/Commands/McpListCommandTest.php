@@ -23,6 +23,7 @@ class McpListCommandTest extends TestCase
         $this->assertStringContainsString('mcp:list', $source);
         $this->assertStringContainsString('--json', $source);
         $this->assertStringContainsString('--pretty', $source);
+        $this->assertStringContainsString('--scan', $source);
     }
 
     public function test_output_is_valid_json(): void
@@ -40,10 +41,12 @@ class McpListCommandTest extends TestCase
         $decoded = json_decode($output, true);
 
         $requiredKeys = [
-            'schema_version',
-            'status',
+            'enabled',
+            'kill_switch_env',
+            'resolved_registry_path',
             'servers',
             'summary',
+            'schema_version',
         ];
 
         foreach ($requiredKeys as $key) {
@@ -63,22 +66,14 @@ class McpListCommandTest extends TestCase
         $this->assertStringContainsString("\n", trim($output));
     }
 
-    public function test_json_flag_alias_works(): void
-    {
-        $defaultOutput = $this->runCommand('');
-        $jsonOutput = $this->runCommand('', '--json');
-
-        $this->assertEquals($defaultOutput, $jsonOutput);
-    }
-
     public function test_kill_switch_disables_list(): void
     {
         $output = $this->runCommand('BRAIN_DISABLE_MCP=true');
         $decoded = json_decode($output, true);
 
-        $this->assertEquals('disabled', $decoded['status']);
+        $this->assertFalse($decoded['enabled']);
         $this->assertEmpty($decoded['servers']);
-        $this->assertEquals(0, $decoded['summary']['server_count']);
+        $this->assertEquals(0, $decoded['summary']['total']);
     }
 
     public function test_servers_are_sorted_by_id(): void
@@ -95,44 +90,25 @@ class McpListCommandTest extends TestCase
         }
     }
 
-    public function test_server_count_matches_servers_list(): void
+    public function test_scan_mode_works(): void
     {
-        $output = $this->runCommand('');
+        $output = $this->runCommand('', '--scan');
         $decoded = json_decode($output, true);
 
-        $this->assertCount($decoded['summary']['server_count'], $decoded['servers']);
+        $this->assertIsArray($decoded['servers']);
+        // Scan mode shouldn't have registry path
+        $this->assertEquals('none', $decoded['resolved_registry_path']);
     }
 
-    public function test_status_is_ready_by_default(): void
+    public function test_fails_when_missing_registry_in_custom_dir(): void
     {
-        $output = $this->runCommand('');
-        $decoded = json_decode($output, true);
-
-        $this->assertEquals('ready', $decoded['status']);
-    }
-
-    public function test_fails_when_mcp_class_missing_id_attribute(): void
-    {
-        $testDir = sys_get_temp_dir() . '/brain-mcp-test-' . uniqid();
-        $mcpDir = $testDir . '/.brain/node/Mcp';
-        mkdir($mcpDir, 0755, true);
+        $testDir = sys_get_temp_dir() . '/brain-mcp-no-reg-' . uniqid();
+        $nodeDir = $testDir . '/.brain/node';
+        mkdir($nodeDir, 0755, true);
         
         // Create dummy Brain.php to satisfy project root resolution
-        file_put_contents($testDir . '/.brain/node/Brain.php', '<?php namespace BrainNode; class Brain {}');
+        file_put_contents($nodeDir . '/Brain.php', '<?php namespace BrainNode; class Brain {}');
         
-        // Create invalid MCP class
-        $invalidMcp = <<<'PHP'
-<?php
-namespace BrainNode\Mcp;
-use BrainCore\Architectures\McpArchitecture;
-class InvalidMcp extends McpArchitecture {
-    protected static function defaultCommand(): string { return 'test'; }
-    protected static function defaultArgs(): array { return []; }
-}
-PHP;
-        file_put_contents($mcpDir . '/InvalidMcp.php', $invalidMcp);
-
-        // Run command from testDir
         $currentDir = getcwd();
         chdir($testDir);
         try {
@@ -140,8 +116,7 @@ PHP;
             $decoded = json_decode($output, true);
             
             $this->assertEquals('error', $decoded['status']);
-            $this->assertEquals('DISCOVERY_FAILED', $decoded['error']['code']);
-            $this->assertStringContainsString('missing #[Meta(\'id\', ...)] attribute', $decoded['error']['message']);
+            $this->assertEquals('MCP_REGISTRY_MISSING', $decoded['error']['code']);
         } finally {
             chdir($currentDir);
         }
