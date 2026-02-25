@@ -15,6 +15,10 @@ use BrainCLI\Console\Commands\MakeCommandCommand;
 use BrainCLI\Console\Commands\MakeIncludeCommand;
 use BrainCLI\Console\Commands\MakeMasterCommand;
 use BrainCLI\Console\Commands\McpPolicyCommand;
+use BrainCLI\Console\Commands\McpAllowlistCommand;
+use BrainCLI\Console\Commands\McpListCommand;
+use BrainCLI\Console\Commands\McpDocsSearchCommand;
+use BrainCLI\Console\Commands\McpDiagnoseCommand;
 use BrainCLI\Console\Commands\MemoryHygieneCommand;
 use BrainCLI\Console\Commands\MemoryStatusCommand;
 use BrainCLI\Console\Commands\MakeMcpCommand;
@@ -66,6 +70,10 @@ class ServiceProvider
         MakeCommandCommand::class,
         ListIncludesCommand::class,
         McpPolicyCommand::class,
+        McpAllowlistCommand::class,
+        McpListCommand::class,
+        McpDocsSearchCommand::class,
+        McpDiagnoseCommand::class,
         MemoryHygieneCommand::class,
         MemoryStatusCommand::class,
         ReadinessCheckCommand::class,
