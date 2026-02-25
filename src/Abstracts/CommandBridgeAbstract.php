@@ -11,6 +11,7 @@ use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Enums\Agent;
 use BrainCLI\Exceptions\CommandTerminatedException;
 use BrainCLI\Services\LockFileFactory;
+use BrainCLI\Services\McpRegistryValidator;
 use BrainCLI\Support\Brain;
 use BrainCore\Services\McpRegistry\FileRegistryResolver;
 use BrainCore\Services\McpToolPolicy\FilePolicyResolver;
@@ -204,11 +205,21 @@ abstract class CommandBridgeAbstract extends Command
         $registryResolver = new FileRegistryResolver(Brain::projectDirectory(), Brain::localDirectory());
         try {
             $registry = $registryResolver->resolve();
+            
+            // Validate registry classes before compilation/listing
+            (new McpRegistryValidator())->validate($registry);
+            
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'MCP_REGISTRY_MISSING') {
                 $this->components->error("code=MCP_REGISTRY_MISSING reason=registry_file_not_found");
                 throw new CommandTerminatedException();
             }
+            
+            if (str_contains($e->getMessage(), 'code=MCP_REGISTRY_INVALID')) {
+                $this->components->error($e->getMessage());
+                throw new CommandTerminatedException();
+            }
+            
             throw $e;
         }
 
