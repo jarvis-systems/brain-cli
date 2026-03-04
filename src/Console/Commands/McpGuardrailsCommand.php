@@ -16,10 +16,9 @@ use Illuminate\Console\Command;
 /**
  * MCP Guardrails Command provides a runtime governance snapshot.
  */
-class McpGuardrailsCommand extends Command
+class McpGuardrailsCommand extends McpCommandAbstract
 {
     protected $signature = 'mcp:guardrails
-        {--json : Output as JSON (default)}
         {--pretty : Pretty print JSON}
     ';
 
@@ -40,10 +39,17 @@ class McpGuardrailsCommand extends Command
         $policyResolver = new FilePolicyResolver($projectRoot, $cliPackageDir);
 
         $isEnabled = $policyResolver->isEnabled();
+        $budget = \BrainCore\Services\McpCall\McpCallBudget::create($projectRoot);
 
         $output = [
             'enabled' => $isEnabled,
             'kill_switch_env' => 'BRAIN_DISABLE_MCP',
+            'call_budget' => [
+                'limit' => $budget->getLimit(),
+                'remaining' => $budget->getRemaining(),
+                'budget_type' => 'logical',
+                'storage_path' => $this->formatPath($budget->getStoragePath()),
+            ],
             'registry' => [
                 'resolved_path' => 'none',
                 'servers_enabled' => 0,
@@ -85,42 +91,5 @@ class McpGuardrailsCommand extends Command
         $this->outputResult($output);
 
         return 0;
-    }
-
-    /**
-     * Format path for consistent output.
-     */
-    private function formatPath(?string $path): string
-    {
-        if ($path === null) {
-            return 'none';
-        }
-
-        $cwd = getcwd();
-
-        if ($cwd !== false && str_starts_with($path, $cwd)) {
-            return '.' . substr($path, strlen($cwd));
-        }
-
-        $home = getenv('HOME');
-
-        if ($home !== false && str_starts_with($path, $home)) {
-            return '~' . substr($path, strlen($home));
-        }
-
-        return $path;
-    }
-
-    /**
-     * Output the result as JSON.
-     */
-    private function outputResult(array $output): void
-    {
-        $jsonOptions = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
-        if ($this->option('pretty')) {
-            $jsonOptions |= JSON_PRETTY_PRINT;
-        }
-
-        $this->line((string) json_encode($output, $jsonOptions));
     }
 }

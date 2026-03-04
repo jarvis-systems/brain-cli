@@ -11,6 +11,8 @@ use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Dto\Compile\SkillInfo;
 use BrainCLI\Dto\Compile\Puzzle;
+use BrainCLI\Enums\CompiledData\Format;
+use BrainCLI\Services\Mcp\BuiltinMcpServers;
 use BrainCLI\Services\SchemaGenerator;
 use BrainCLI\Support\Brain;
 use Illuminate\Support\Collection;
@@ -127,10 +129,11 @@ trait CompileTrait
     {
         $filePath = Brain::projectDirectory($filePath);
         $this->compiledFilesAndDirectories[] = $filePath;
-        return !! file_put_contents(
+        return !!file_put_contents(
             $filePath,
             $this->createBrainContent(
-                $brain, is_file($filePath) ? file_get_contents($filePath) : null
+                $brain,
+                is_file($filePath) ? file_get_contents($filePath) : null
             ),
         );
     }
@@ -146,11 +149,14 @@ trait CompileTrait
         $this->compiledFilesAndDirectories[] = $filePath;
         $old = is_file($filePath) ? file_get_contents($filePath) : null;
         $old = $old && Dto::isJson($old) ? json_decode($old, true) : $old;
+        if (BuiltinMcpServers::isEnabled()) {
+            $mcp = $mcp->merge($this->getCanonicalMcpServers());
+        }
         $content = $this->createMcpContent($mcp, $brain, $old);
         if (is_array($content)) {
             $content = json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
-        return !! file_put_contents($filePath, $content);
+        return !!file_put_contents($filePath, $content);
     }
 
     /**
@@ -169,7 +175,7 @@ trait CompileTrait
             if (is_array($content)) {
                 $content = json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             }
-            return !! file_put_contents($filePath, $content);
+            return !!file_put_contents($filePath, $content);
         }
         return true;
     }
@@ -215,7 +221,7 @@ trait CompileTrait
 
                 $this->compiledFilesAndDirectories[] = $file;
 
-                if (! file_put_contents($file, $content)) {
+                if (!file_put_contents($file, $content)) {
                     return false;
                 }
             }
@@ -261,7 +267,7 @@ trait CompileTrait
 
             $this->compiledFilesAndDirectories[] = $file;
 
-            if (! file_put_contents($file, $content)) {
+            if (!file_put_contents($file, $content)) {
                 return false;
             }
         }
@@ -273,7 +279,7 @@ trait CompileTrait
      */
     protected function generateSkillsFiles(string $folder, Collection $skills, Data $brain): bool
     {
-        if ($skills->isEmpty() || ! method_exists($this, 'createSkillContent')) {
+        if ($skills->isEmpty() || !method_exists($this, 'createSkillContent')) {
             return true;
         }
 
@@ -303,13 +309,13 @@ trait CompileTrait
             }
 
             $fileDir = dirname($file);
-            if (! is_dir($fileDir) && ! mkdir($fileDir, 0755, true)) {
+            if (!is_dir($fileDir) && !mkdir($fileDir, 0755, true)) {
                 return false;
             }
 
             $this->compiledFilesAndDirectories[] = $file;
 
-            if (! file_put_contents($file, $content)) {
+            if (!file_put_contents($file, $content)) {
                 return false;
             }
         }
@@ -347,6 +353,31 @@ trait CompileTrait
     }
 
     /**
+     * Get canonical MCP servers array (brain-tools + registry servers).
+     *
+     * @return \Illuminate\Support\Collection<int, Data>
+     */
+    protected function getCanonicalMcpServers(): Collection
+    {
+        $brainToolDto = Data::fromAssoc([
+            'id' => 'brain-tools-mcp',
+            'file' => 'none',
+            'class' => 'none',
+            'meta' => [
+                'id' => 'brain-tools',
+            ],
+            'namespace' => 'Mcp',
+            'namespaceType' => 'Mcp',
+            'classBasename' => 'none',
+            'format' => Format::JSON,
+            'structure' => BuiltinMcpServers::getBrainToolsEntry($this->agent()->value),
+        ]);
+
+        return (new Collection())
+            ->push($brainToolDto);
+    }
+
+    /**
      * @param  Collection<int, Data>  $mcp
      * @return non-empty-string|array<string, mixed>
      */
@@ -378,13 +409,13 @@ trait CompileTrait
 
         $pinsFile = Brain::projectDirectory('pins.json');
 
-        if (! is_file($pinsFile)) {
+        if (!is_file($pinsFile)) {
             return [];
         }
 
         $data = json_decode((string) file_get_contents($pinsFile), true);
 
-        if (! is_array($data)) {
+        if (!is_array($data)) {
             return [];
         }
 
@@ -405,7 +436,7 @@ trait CompileTrait
      */
     protected function applyPins(array $server, array $pins): array
     {
-        if (empty($pins) || ! isset($server['args'][0]) || ! is_string($server['args'][0])) {
+        if (empty($pins) || !isset($server['args'][0]) || !is_string($server['args'][0])) {
             return $server;
         }
 
@@ -427,7 +458,7 @@ trait CompileTrait
         $path = trim(to_string(str_replace([
             Brain::nodeDirectory($from, true),
             Brain::nodeDirectory($from),
-            DS.basename($file)
+            DS . basename($file)
         ], '', $file)), DS);
 
         $path = array_map(function ($part) {

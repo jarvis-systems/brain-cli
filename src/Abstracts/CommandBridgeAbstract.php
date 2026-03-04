@@ -58,7 +58,7 @@ abstract class CommandBridgeAbstract extends Command
             }
             $this->line(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             return OK;
-        }, 'bridge', fn (Throwable $e) => $this->components->error("Unexpected error: " . $e->getMessage()));
+        }, 'bridge', fn (Throwable $e) => throw $e);
     }
 
     abstract protected function handleBridge(): int|array;
@@ -313,7 +313,8 @@ abstract class CommandBridgeAbstract extends Command
             ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
 
-        $process = (new Process($command, Brain::projectDirectory(), Brain::allEnv()))
+
+        $process = (new Process($command, Brain::projectDirectory(), Brain::rawEnv()))
             ->setTimeout(null)
             ->mustRun();
 

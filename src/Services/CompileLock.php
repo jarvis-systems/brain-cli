@@ -290,6 +290,7 @@ class CompileLock
         $isProjectRoot = self::isBrainProjectRoot($workdir);
         $isIsolated = self::isIsolatedWorkdir($workdir);
         $contract = self::validateTestModeContract($workdir);
+        $projectRoot = self::findProjectRoot($workdir);
 
         $reasons = [];
         if (! $isPhpUnit && ! $isTestMode) {
@@ -311,6 +312,9 @@ class CompileLock
         }
 
         return [
+            'original_cwd' => $workdir,
+            'project_root' => $projectRoot,
+            'cwd_matches_project_root' => $projectRoot !== null && realpath($workdir) === $projectRoot,
             'test_mode_enabled' => $isTestMode,
             'test_mode_source_ci' => $isSourceCi,
             'phpunit_detected' => $isPhpUnit,
@@ -321,6 +325,22 @@ class CompileLock
             'isolated_workdir' => $isIsolated,
             'nolock_allowed' => $contract['valid'],
             'reasons' => $reasons,
+        ];
+    }
+
+    public static function getCwdDiagnostics(string $originalCwd, ?string $projectRoot = null): array
+    {
+        $brainDirName = '.brain';
+        $resolvedProjectRoot = $projectRoot ?? self::findProjectRoot($originalCwd, $brainDirName);
+
+        $realOriginalCwd = realpath($originalCwd);
+        $realProjectRoot = $resolvedProjectRoot !== null ? realpath($resolvedProjectRoot) : false;
+
+        return [
+            'original_cwd' => $originalCwd,
+            'project_root' => $resolvedProjectRoot,
+            'cwd_matches_project_root' => $realOriginalCwd !== false && $realProjectRoot !== false && $realOriginalCwd === $realProjectRoot,
+            'chdir_performed' => false,
         ];
     }
 

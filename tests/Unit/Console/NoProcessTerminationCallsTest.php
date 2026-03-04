@@ -18,6 +18,7 @@ class NoProcessTerminationCallsTest extends TestCase
      */
     private const ALLOWLIST = [
         'Services/ProcessFactory.php' => 'POSIX signal handlers (exit(128 + $signal))',
+        'Console/Commands/McpServeCommand.php' => 'Signal handler for graceful shutdown',
         'Console/AiCommands/RunCommand.php' => 'AI command lifecycle',
         'Console/AiCommands/CustomRunCommand.php' => 'AI command lifecycle',
         'Console/AiCommands/Lab/Prompts/CommandLinePrompt.php' => 'Lab/Prompts component',

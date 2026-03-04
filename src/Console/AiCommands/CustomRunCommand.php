@@ -61,6 +61,11 @@ class CustomRunCommand extends CommandBridgeAbstract
     protected array $processingPath = [];
 
     /**
+     * @var array<int, string>
+     */
+    protected array $originEnvNames = [];
+
+    /**
      * Format error context for improved error messages.
      *
      * Provides detailed context including the processing path, input preview,
@@ -83,20 +88,12 @@ class CustomRunCommand extends CommandBridgeAbstract
         protected array $data,
         protected string $filename,
     ) {
+        $dataEnv = (isset($this->data['env']) && is_array($this->data['env']) ? $this->data['env'] : []);
+        $this->originEnvNames = array_keys($dataEnv);
         $this->originName = $this->callName;
         $this->callName = $this->variablesDetectString($this->data['name'] ?? $this->callName);
-//        $excludeEnvList = Brain::projectDirectory('.env');
-//        list($excludeEnvList, $excludeEnvListExists) = file_exists($excludeEnvList) ? [file($excludeEnvList, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), true] : [[], false];
-        $this->data['env'] = array_merge(
-            Brain::allEnv(),
-//            array_filter(Brain::allEnv(), function ($key) use ($excludeEnvList, $excludeEnvListExists) {
-//                if (! $excludeEnvListExists) {
-//                    return true;
-//                }
-//                return ! in_array($key, $excludeEnvList);
-//            }),
-            (isset($this->data['env']) && is_array($this->data['env']) ? $this->data['env'] : [])
-        );
+
+        $this->data['env'] = array_merge(Brain::allEnv(), $dataEnv);
         $this->data['_file'] = $this->filename;
         $this->data['_date'] = date('Y-m-d');
         $this->data['_datetime'] = date('Y-m-d H:i:s');
@@ -208,13 +205,13 @@ class CustomRunCommand extends CommandBridgeAbstract
             && is_array($this->data['env'])
             && count($this->data['env']);
 
+        $this->data['env']['BRAIN_AI_CONFIG'] = $this->grabEnvForClient();
+
         if ($compileNeeded && ! $this->option('dump')) {
             $this->callSilent(new CompileCommand($this->data['env']), [
                 'agent' => $this->agent->value,
             ]);
         }
-
-        $this->data['env']['BRAIN_AI_AGENT_NAME'] = $this->filename;
 
         $type = Type::customDetect($this->data);
 
@@ -1888,6 +1885,17 @@ class CustomRunCommand extends CommandBridgeAbstract
     public function __unset(string $name): void
     {
         unset($this->data[$name]);
+    }
+
+    private function grabEnvForClient(): string
+    {
+        $env = [];
+        foreach ($this->data['env'] as $key => $value) {
+            if (in_array($key, $this->originEnvNames, true)) {
+                $env[$key] = (string) $value;
+            }
+        }
+        return json_encode($env, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }
 

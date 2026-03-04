@@ -16,12 +16,12 @@ use BrainCLI\Console\Commands\MakeIncludeCommand;
 use BrainCLI\Console\Commands\MakeMasterCommand;
 use BrainCLI\Console\Commands\McpPolicyCommand;
 use BrainCLI\Console\Commands\McpAllowlistCommand;
+use BrainCLI\Console\Commands\McpBudgetResetCommand;
 use BrainCLI\Console\Commands\McpListCommand;
 use BrainCLI\Console\Commands\McpDescribeCommand;
 use BrainCLI\Console\Commands\McpGuardrailsCommand;
 use BrainCLI\Console\Commands\McpCallCommand;
-use BrainCLI\Console\Commands\McpDocsSearchCommand;
-use BrainCLI\Console\Commands\McpDiagnoseCommand;
+use BrainCLI\Console\Commands\McpServeCommand;
 use BrainCLI\Console\Commands\MemoryHygieneCommand;
 use BrainCLI\Console\Commands\MemoryStatusCommand;
 use BrainCLI\Console\Commands\MakeMcpCommand;
@@ -31,6 +31,11 @@ use BrainCLI\Console\Commands\MakeScriptCommand;
 use BrainCLI\Console\Commands\MakeSkillCommand;
 use BrainCLI\Console\Commands\ScriptCommand;
 use BrainCLI\Console\Commands\StatusCommand;
+use BrainCLI\Console\Commands\MspCallCommand;
+use BrainCLI\Console\Commands\MspListCommand;
+use BrainCLI\Console\Commands\ToolsDiagnoseCommand;
+use BrainCLI\Console\Commands\ToolsDocsSearchCommand;
+use BrainCLI\Console\Commands\ToolsListMastersCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Database\DatabaseManager;
 use BrainCLI\Foundation\Application as LaravelApplication;
@@ -74,16 +79,21 @@ class ServiceProvider
         ListIncludesCommand::class,
         McpPolicyCommand::class,
         McpAllowlistCommand::class,
+        McpBudgetResetCommand::class,
         McpListCommand::class,
         McpDescribeCommand::class,
         McpGuardrailsCommand::class,
         McpCallCommand::class,
-        McpDocsSearchCommand::class,
-        McpDiagnoseCommand::class,
+        McpServeCommand::class,
         MemoryHygieneCommand::class,
         MemoryStatusCommand::class,
         ReadinessCheckCommand::class,
         ReleasePrepareCommand::class,
+//        ToolsDocsSearchCommand::class,
+//        ToolsDiagnoseCommand::class,
+//        ToolsListMastersCommand::class,
+//        MspCallCommand::class,
+//        MspListCommand::class,
     ];
 
     /**
@@ -182,7 +192,7 @@ class ServiceProvider
             $provider->register();
         } catch (\Throwable $e) {
             if (static::isDebug()) {
-                error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
+                error_log("[brain-debug] " . get_class($e) . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
             $status = $e->getCode() ?: ERROR;
         }
@@ -192,7 +202,7 @@ class ServiceProvider
                 $status = $app->run();
             } catch (\Throwable $e) {
                 if (static::isDebug()) {
-                    error_log('[brain-debug] ' . get_class($e) . ': ' . $e->getMessage());
+                    error_log("[brain-debug] " . get_class($e) . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
                 }
                 $status = $e->getCode() ?: ERROR;
             }
@@ -225,6 +235,18 @@ class ServiceProvider
         return putenv("$name=$value");
     }
 
+
+    public static function rawEnv(string|null $findName = null): array
+    {
+        $envs = [];
+        foreach (getenv() as $key => $value) {
+            if ($findName !== null && ! str_starts_with($key, $findName)) {
+                continue;
+            }
+            $envs[$key] = $value;
+        }
+        return $envs;
+    }
     public static function allEnv(string|null $findName = null): array
     {
         $envs = [];
