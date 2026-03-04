@@ -20,8 +20,12 @@ class DiagnoseCommand extends Command
 
     protected $description = 'Diagnose Brain environment and self-dev mode';
 
+    protected ?string $originalCwd = null;
+
     public function handle(): int
     {
+        $this->originalCwd = getcwd() ?: null;
+
         return CommandKernel::run(
             fn () => $this->executeCommand(),
             'diagnose',
@@ -53,7 +57,18 @@ class DiagnoseCommand extends Command
         $symlinkTarget = $signals['dot_brain_target'];
         $isSelfHosting = $isSymlink && $symlinkTarget === '.';
 
+        $brainDirName = to_string(config('brain.dir', '.brain'));
+        $projectRoot = $this->originalCwd !== null
+            ? CompileLock::findProjectRoot($this->originalCwd, $brainDirName)
+            : null;
+
+        $cwdDiagnostics = CompileLock::getCwdDiagnostics($this->originalCwd ?? '', $projectRoot);
+
         return [
+            'original_cwd' => $this->originalCwd,
+            'project_root' => $projectRoot,
+            'cwd_matches_project_root' => $cwdDiagnostics['cwd_matches_project_root'],
+            'chdir_performed' => false,
             'self_hosting' => $isSelfHosting,
             'self_dev_mode' => $resolver->isEnabled(),
             'self_dev_source' => $resolver->getSource(),
@@ -75,7 +90,7 @@ class DiagnoseCommand extends Command
                 'cognitive_level' => Brain::getEnv('COGNITIVE_LEVEL', 'not set'),
                 'verbosity' => ServiceProvider::isDebug() ? 'debug' : 'normal',
             ],
-            'test_mode_contract' => CompileLock::getContractDiagnostics(Brain::workingDirectory()),
+            'test_mode_contract' => CompileLock::getContractDiagnostics($this->originalCwd ?? Brain::workingDirectory()),
             'version' => [
                 'root' => $this->readVersion(Brain::projectDirectory('composer.json')),
                 'core' => $this->readVersion(Brain::projectDirectory(['core', 'composer.json'])),
@@ -121,6 +136,17 @@ class DiagnoseCommand extends Command
         $this->components->info('Brain Diagnostics');
         $this->newLine();
 
+        $this->components->info('CWD Determinism');
+        $this->components->twoColumnDetail('original_cwd', $diagnosis['original_cwd'] ?? 'unknown');
+        $this->components->twoColumnDetail('project_root', $diagnosis['project_root'] ?? 'not found');
+        $this->components->twoColumnDetail(
+            'cwd_matches_project_root',
+            $diagnosis['cwd_matches_project_root'] ? '<fg=green>YES</>' : '<fg=yellow>NO</>'
+        );
+        $this->components->twoColumnDetail('chdir_performed', $diagnosis['chdir_performed'] ? 'YES' : '<fg=green>NO</>');
+        $this->newLine();
+
+        $this->components->info('Self-hosting');
         $this->components->twoColumnDetail(
             'Self-hosting',
             $diagnosis['self_hosting'] ? '<fg=green>YES</>' : 'NO'

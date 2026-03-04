@@ -9,11 +9,11 @@ use BrainCore\Services\McpToolPolicy\FilePolicyResolver;
 use Illuminate\Console\Command;
 use RuntimeException;
 
-class McpPolicyCommand extends Command
+class McpPolicyCommand extends McpCommandAbstract
 {
     protected $signature = 'mcp:policy
-        {--json : JSON output (default)}
         {--diagnostics : Include additional diagnostic flags}
+        {--pretty : Pretty print JSON}
     ';
 
     protected $description = 'Inspect MCP tool policy state (safe, no lists)';
@@ -38,14 +38,11 @@ class McpPolicyCommand extends Command
 
             $this->assertNoForbiddenContent($output);
 
-            $this->line((string) json_encode(
-                $output,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-            ));
+            $this->outputResult($output);
 
             return 0;
         } catch (RuntimeException $e) {
-            $this->components->error('Policy validation failed');
+            $this->outputError('Policy validation failed: ' . $e->getMessage(), 'POLICY_VALIDATION_FAILED');
 
             return 1;
         }
@@ -82,58 +79,6 @@ class McpPolicyCommand extends Command
         }
 
         return $output;
-    }
-
-    private function createResolver(): McpToolPolicyResolver
-    {
-        $projectRoot = $this->detectProjectRoot();
-        $cliPackageDir = dirname(__DIR__, 2);
-
-        return new FilePolicyResolver($projectRoot, $cliPackageDir);
-    }
-
-    private function detectProjectRoot(): string
-    {
-        $dir = getcwd() ?: '.';
-
-        for ($i = 0; $i < 5; $i++) {
-            if (is_file($dir . '/.brain-config/mcp-tools.allowlist.json')
-                || is_file($dir . '/.brain/config/mcp-tools.allowlist.json')
-            ) {
-                return $dir;
-            }
-
-            $parent = dirname($dir);
-
-            if ($parent === $dir) {
-                break;
-            }
-
-            $dir = $parent;
-        }
-
-        return getcwd() ?: '.';
-    }
-
-    private function formatPath(?string $path): string
-    {
-        if ($path === null) {
-            return 'none';
-        }
-
-        $cwd = getcwd();
-
-        if ($cwd !== false && str_starts_with($path, $cwd)) {
-            return '.' . substr($path, strlen($cwd));
-        }
-
-        $home = getenv('HOME');
-
-        if ($home !== false && str_starts_with($path, $home)) {
-            return '~' . substr($path, strlen($home));
-        }
-
-        return $path;
     }
 
     private function countEnabledClients(array $clients): int

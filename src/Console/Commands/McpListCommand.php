@@ -16,10 +16,9 @@ use Illuminate\Console\Command;
 /**
  * MCP List Command lists available MCP servers and their allowed tools.
  */
-class McpListCommand extends Command
+class McpListCommand extends McpCommandAbstract
 {
     protected $signature = 'mcp:list
-        {--json : JSON output (default)}
         {--pretty : Pretty print JSON}
     ';
 
@@ -45,8 +44,8 @@ class McpListCommand extends Command
         );
 
         $isEnabled = $policyResolver->isEnabled();
-        
-        if (! $isEnabled) {
+
+        if (!$isEnabled) {
             $this->outputResult([
                 'enabled' => false,
                 'kill_switch_env' => 'BRAIN_DISABLE_MCP',
@@ -61,8 +60,23 @@ class McpListCommand extends Command
         }
 
         try {
+            $policy = $externalToolsPolicyResolver->resolve();
+            if ($policy->enabled && $policy->resolvedPath) {
+                $policyData = json_decode(file_get_contents($policy->resolvedPath), true, flags: JSON_THROW_ON_ERROR);
+                $registryData = null;
+                try {
+                    $registry = $registryResolver->resolve();
+                    if ($registry->resolvedPath) {
+                        $registryData = json_decode(file_get_contents($registry->resolvedPath), true, flags: JSON_THROW_ON_ERROR);
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore missing registry for policy validation purposes here 
+                }
+                (new \BrainCore\Services\McpExternalToolsPolicy\McpExternalToolsPolicyValidator())->validate($policyData, $registryData);
+            }
+
             $data = $discoveryService->listServers();
-            
+
             $output = array_merge([
                 'enabled' => true,
                 'kill_switch_env' => 'BRAIN_DISABLE_MCP',
@@ -75,34 +89,5 @@ class McpListCommand extends Command
             $this->outputError($e->getMessage(), 'DISCOVERY_FAILED');
             return 1;
         }
-    }
-
-    /**
-     * Output the result as JSON.
-     */
-    private function outputResult(array $output): void
-    {
-        $jsonOptions = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
-        if ($this->option('pretty')) {
-            $jsonOptions |= JSON_PRETTY_PRINT;
-        }
-
-        $this->line((string) json_encode($output, $jsonOptions));
-    }
-
-    /**
-     * Output a structured error as JSON.
-     */
-    private function outputError(string $message, string $code): void
-    {
-        $output = [
-            'enabled' => true,
-            'status' => 'error',
-            'error' => [
-                'message' => $message,
-                'code' => $code,
-            ],
-        ];
-        $this->outputResult($output);
     }
 }

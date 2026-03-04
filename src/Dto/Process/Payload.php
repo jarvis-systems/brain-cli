@@ -29,49 +29,49 @@ use Closure;
  */
 class Payload extends Dto
 {
-    protected Closure|null $defaultOptionsCallback = null;
+    protected mixed $defaultOptionsCallback = null;
 
     public function __construct(
         #[CommandPayloadMap(['notUsed' => ['program', 'update'], 'required' => true])]
-        protected string|array|Closure|null $install = null,
+        protected mixed $install = null,
         #[CommandPayloadMap(['notUsed' => ['program', 'install'], 'required' => true])]
-        protected string|array|Closure|null $update = null,
+        protected mixed $update = null,
         #[CommandPayloadMap(['notUsed' => ['program', 'update', 'install'], 'required' => true])]
-        protected string|array|Closure|null $program = null,
+        protected mixed $program = null,
 
         #[CommandPayloadMap(['used' => ['program'], 'notUsed' => ['systemAppend']])]
-        protected Closure|null $system = null,
+        protected mixed $system = null,
         #[CommandPayloadMap(['used' => ['program'], 'notUsed' => ['system']])]
-        protected Closure|null $systemAppend = null,
+        protected mixed $systemAppend = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $resume = null,
+        protected mixed $resume = null,
         #[CommandPayloadMap(['used' => ['program']])]
-        protected string|array|Closure|null $continue = null,
+        protected mixed $continue = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $prompt = null,
+        protected mixed $prompt = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $ask = null,
+        protected mixed $ask = null,
         #[CommandPayloadMap(['used' => ['program', 'ask']])]
-        protected string|array|Closure|null $json = null,
+        protected mixed $json = null,
         #[CommandPayloadMap(['used' => ['program']])]
-        protected string|array|Closure|null $yolo = null,
+        protected mixed $yolo = null,
         #[CommandPayloadMap(['used' => ['program', 'ask']])]
-        protected Closure|null $schema = null,
+        protected mixed $schema = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $allowTools = null,
+        protected mixed $allowTools = null,
         #[CommandPayloadMap(['used' => ['program'], 'notUsed' => ['allowTools']])]
-        protected string|array|Closure|null $noMcp = null,
+        protected mixed $noMcp = null,
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $model = null,
+        protected mixed $model = null,
         #[CommandPayloadMap(['used' => ['program']])]
-        protected Closure|null $settings = null,
+        protected mixed $settings = null,
 
         #[CommandPayloadMap(['used' => ['program']])]
-        protected string|array|Closure|null $append = null,
+        protected mixed $append = null,
     ) {
     }
 

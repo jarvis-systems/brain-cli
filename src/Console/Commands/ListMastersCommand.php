@@ -11,7 +11,7 @@ use Symfony\Component\Yaml\Yaml;
 
 class ListMastersCommand extends CommandBridgeAbstract
 {
-    protected $signature = 'list:masters {agent=claude : Agent for which compilation}';
+    protected $signature = 'list:masters {agent=claude : Agent for which compilation} {--json : Output as JSON}';
 
     protected $description = 'List all available subagent masters for a given agent';
 
@@ -27,40 +27,7 @@ class ListMastersCommand extends CommandBridgeAbstract
             return ERROR;
         }
 
-        $filename = getenv('BRAIN_AI_AGENT_NAME');
-
-        if ($filename) {
-            $file = Brain::workingDirectory(['agents', $filename]);
-            if (is_file($file)) {
-                if (str_ends_with($filename, '.yaml') || str_ends_with($filename, '.yml')) {
-                    if ($content = file_get_contents($file)) {
-                        $hash = md5($filename);
-                        $data = Yaml::parse($content, Yaml::PARSE_CUSTOM_TAGS);
-                        if (! isset($data['id'])) {
-                            $data['id'] = $hash;
-                        }
-                        if (! isset($data['args'])) {
-                            $data['args'] = [];
-                        }
-                        $callName = pathinfo($filename, PATHINFO_FILENAME);
-                        if ($data && is_array($data) && isset($data['client']) && $data['client']) {
-                            $obj = $this->laravel->make(CustomRunCommand::class, compact(
-                                'callName', 'data', 'filename'
-                            ))->getData();
-
-                            if (isset($obj['env'])) {
-                                // set environment variables
-                                foreach ($obj['env'] as $key => $value) {
-                                    putenv("{$key}={$value}");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        $files = $this->convertFiles($workingFiles, 'meta', $obj['env'] ?? []);
+        $files = $this->convertFiles($workingFiles, 'meta', Brain::allEnv());
         $json = [];
 
         foreach ($files as $file) {
@@ -68,11 +35,25 @@ class ListMastersCommand extends CommandBridgeAbstract
             $json[$id] = $file['meta']['description'] ?? 'N/A';
         }
 
-        if (! $json) {
-            $this->components->warn('No masters found.');
+        ksort($json);
+
+        if (!$json) {
+            $this->components->warn('No enabled masters found.');
             return ERROR;
         }
-        return $json;
+
+        if ($this->option('json')) {
+            return $json;
+        }
+
+        $table = [];
+        foreach ($json as $id => $desc) {
+            $table[] = [$id, $desc];
+        }
+
+        $this->table(['ID', 'Description'], $table);
+
+        return OK;
     }
 }
 

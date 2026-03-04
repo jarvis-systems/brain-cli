@@ -7,17 +7,28 @@ namespace BrainCLI\Console\Commands;
 use Illuminate\Console\Command;
 use BrainCLI\Database\Migrations\MigrationRunner;
 
-class McpMigrateCommand extends Command
+class McpMigrateCommand extends McpCommandAbstract
 {
-    protected $signature = 'mcp:migrate';
+    protected $signature = 'mcp:migrate
+        {--pretty : Pretty print JSON}
+    ';
 
     protected $description = 'Repair MCP credentials database schema (auto-runs on bootstrap)';
 
     public function handle(): int
     {
-        MigrationRunner::run();
-        $this->components->info('Database migrations completed.');
+        try {
+            MigrationRunner::run();
+            
+            $this->outputResult([
+                'ok' => true,
+                'message' => 'Database migrations completed.',
+            ]);
 
-        return self::SUCCESS;
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->outputError($e->getMessage(), 'MIGRATION_FAILED');
+            return 1;
+        }
     }
 }

@@ -36,6 +36,11 @@ class Core
         return $default;
     }
 
+    
+    public function rawEnv(string|null $findName = null): array
+    {
+        return ServiceProvider::rawEnv($findName);
+    }
     public function allEnv(string|null $findName = null): array
     {
         return ServiceProvider::allEnv($findName);
@@ -89,7 +94,11 @@ class Core
     public function projectDirectory(string|array $path = '', bool $relative = false): string
     {
         if (! $relative) {
-            $result = getcwd();
+            $result = $this->findProjectRoot();
+
+            if (! $result) {
+                $result = getcwd();
+            }
 
             if (! $result) {
                 throw new \RuntimeException('Unable to determine the current working directory.');
@@ -101,6 +110,36 @@ class Core
         $path = is_array($path) ? implode(DS, array_filter($path)) : $path;
         return $result
             . (! empty($path) ? ($relative ? '' : DS) . ltrim($path, DS) : '');
+    }
+
+    protected function findProjectRoot(): ?string
+    {
+        $dir = getcwd();
+
+        if ($dir === false) {
+            return null;
+        }
+
+        while (true) {
+            $candidate = $dir . DS
+                . to_string(config('brain.dir', '.brain')) . DS
+                . 'node' . DS
+                . 'Brain.php';
+
+            if (is_file($candidate)) {
+                return $dir;
+            }
+
+            $parent = dirname($dir);
+
+            if ($parent === $dir) {
+                break;
+            }
+
+            $dir = $parent;
+        }
+
+        return null;
     }
 
     public function localDirectory(string|array $path = ''): string

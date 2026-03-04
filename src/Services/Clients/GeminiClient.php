@@ -50,6 +50,14 @@ class GeminiClient extends ClientAbstract
         if (isset($brain->meta['model']) && $brain->meta['model'] !== 'opus') {
             $settings['model'] = $brain->meta['model'];
         }
+        $settings['experimental'] = [
+            'enableAgents' => true, // Enable agent support (Doc)
+            'codebaseInvestigatorSettings' => [
+                'enabled' => true, // Enable codebase investigator tool (Doc)
+                'maxNumTurns' => 20, // Maximum number of turns for codebase investigator (Doc)
+                'model' => 'gemini-3-flash'
+            ]
+        ];
         return $settings;
     }
 
@@ -61,7 +69,10 @@ class GeminiClient extends ClientAbstract
         return $this->generateWithYamlHeader([
             'name' => $info->name,
             'description' => $info->description,
-            'color' => $info->color,
+            'model' => 'gemini-3-flash', //$info->model,
+            'kind' => 'local',
+            'temperature' => 0.2,
+            'max_turns' => 10,
         ], $agent->structure);
     }
 

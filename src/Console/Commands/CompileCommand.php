@@ -18,6 +18,7 @@ class CompileCommand extends CommandBridgeAbstract
         {agent=exists : Agent for which compilation or all exists agents}
         {--show-variables : Show available variables for compilation}
         {--json : Output in JSON format}
+        {--contract : Output stable JSON contract (ok, compiled_surfaces, project_root - no absolute paths)}
         {--human : Human-readable output (default)}
         {--no-lock : Skip compile lock (unsafe, for emergency only)}
         {--diff : Preview compilation changes without keeping them (backup/compile/diff/restore)}
@@ -31,11 +32,48 @@ class CompileCommand extends CommandBridgeAbstract
 
     protected ?string $originalCwd = null;
 
+    protected ?string $projectRoot = null;
+
     public function handle(): int
     {
         $this->originalCwd = getcwd() ?: null;
 
+        $brainDirName = to_string(config('brain.dir', '.brain'));
+        $this->projectRoot = $this->originalCwd !== null
+            ? CompileLock::findProjectRoot($this->originalCwd, $brainDirName)
+            : null;
+
+        if (! $this->option('no-lock')) {
+            $this->enforceWorkdirContract();
+        }
+
         return parent::handle();
+    }
+
+    private function enforceWorkdirContract(): void
+    {
+        if ($this->originalCwd === null || $this->projectRoot === null) {
+            return;
+        }
+
+        $realOriginalCwd = realpath($this->originalCwd);
+        $realProjectRoot = realpath($this->projectRoot);
+
+        if ($realOriginalCwd === false || $realProjectRoot === false) {
+            return;
+        }
+
+        if ($realOriginalCwd !== $realProjectRoot) {
+            $this->components->error(
+                "code=WRONG_WORKDIR reason=original_cwd_differs_from_project_root"
+            );
+            $relativeProjectRoot = basename($this->projectRoot);
+            $this->components->warn(
+                "cd {$relativeProjectRoot} && brain compile"
+            );
+
+            throw new CommandTerminatedException();
+        }
     }
 
     public function getHelp(): string
@@ -67,6 +105,10 @@ HELP;
     {
         if ($this->option('diff')) {
             return $this->handleDiff();
+        }
+
+        if ($this->option('contract')) {
+            return $this->handleContract();
         }
 
         $lock = $this->acquireCompileLock();
@@ -121,6 +163,108 @@ HELP;
         } finally {
             $lock?->release();
         }
+    }
+
+    private const CLIENT_SURFACES = ['.claude', '.codex', '.gemini', '.qwen', '.opencode'];
+
+    private function handleContract(): int
+    {
+        $lock = $this->acquireCompileLock();
+
+        try {
+            $agents = $this->detectAgents();
+            $allSuccess = true;
+            $surfaceDirs = [];
+            $mcpArtifactPath = null;
+
+            foreach ($agents as $agent) {
+                $this->initFor($agent);
+
+                if ($this->argument('agent') === 'exists' && $agent->depended()) {
+                    continue;
+                }
+
+                $result = $this->compilingProcess();
+
+                if ($result !== OK) {
+                    $allSuccess = false;
+                }
+
+                foreach ($this->compiledFilesAndDirectories as $path) {
+                    $extracted = $this->extractTopLevel($path);
+
+                    if ($extracted === null) {
+                        continue;
+                    }
+
+                    if ($extracted === '.mcp.json') {
+                        $mcpArtifactPath = '.mcp.json';
+                        continue;
+                    }
+
+                    if (in_array($extracted, self::CLIENT_SURFACES, true) && ! in_array($extracted, $surfaceDirs, true)) {
+                        $surfaceDirs[] = $extracted;
+                    }
+                }
+            }
+
+            sort($surfaceDirs);
+
+            $projectRoot = $this->projectRoot ?? getcwd() ?: '.';
+            $projectName = basename($projectRoot);
+
+            $contract = [
+                'ok' => $allSuccess,
+                'compiled_surfaces' => $surfaceDirs,
+                'project_root' => $projectName,
+                'agents_compiled' => count($agents),
+            ];
+
+            if ($mcpArtifactPath !== null) {
+                $contract['mcp_artifact_path'] = $mcpArtifactPath;
+            }
+
+            echo json_encode(
+                $contract,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            ) . PHP_EOL;
+
+            return $allSuccess ? OK : ERROR;
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    private function extractTopLevel(string $path): ?string
+    {
+        $projectRoot = $this->projectRoot ?? getcwd();
+
+        if ($projectRoot === false) {
+            return null;
+        }
+
+        $realPath = realpath($path);
+        $realRoot = realpath($projectRoot);
+
+        if ($realPath === false || $realRoot === false) {
+            if (preg_match('#^' . preg_quote($projectRoot, '#') . '/(\.[^/]+)#', $path, $m)) {
+                return $m[1];
+            }
+
+            return null;
+        }
+
+        if (! str_starts_with($realPath, $realRoot)) {
+            return null;
+        }
+
+        $relative = ltrim(substr($realPath, strlen($realRoot)), '/');
+
+        if (preg_match('#^(\.[^/]+)#', $relative, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -185,8 +329,14 @@ HELP;
         $contract = CompileLock::validateTestModeContract($workdir);
 
         if (! $contract['valid']) {
+            $cwdDiag = CompileLock::getCwdDiagnostics($workdir, $this->projectRoot);
+            $cwdInfo = '';
+            if (! $cwdDiag['cwd_matches_project_root'] && $cwdDiag['project_root'] !== null) {
+                $cwdInfo = " original_cwd={$workdir} project_root={$cwdDiag['project_root']}";
+            }
+
             $this->components->error(
-                "code={$contract['code']} reason={$contract['reason']}"
+                "code={$contract['code']} reason={$contract['reason']}{$cwdInfo}"
             );
             $this->components->warn($contract['hint']);
 

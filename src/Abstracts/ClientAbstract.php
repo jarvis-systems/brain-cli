@@ -12,6 +12,7 @@ use BrainCLI\Abstracts\Traits\Client\ProcessTrait;
 use BrainCLI\Dto\Compile\CommandInfo;
 use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Dto\Process\Payload;
+use BrainCLI\Services\Mcp\ClientToolingRouter;
 use BrainCLI\Services\ProcessFactory;
 
 abstract class ClientAbstract implements ClientContract
@@ -21,13 +22,55 @@ abstract class ClientAbstract implements ClientContract
     use CompileTrait;
     use HelpersTrait;
 
+    protected ClientToolingRouter $tooling;
+
     /**
      * Constructor of the ClientAbstract class.
      */
     public function __construct(
         protected CommandBridgeAbstract $command,
+        ?ClientToolingRouter $tooling = null,
     ) {
-        //
+        $this->tooling = $tooling ?? new ClientToolingRouter(new \BrainCLI\Services\Mcp\BrainMcpBridge());
+    }
+
+    /**
+     * Search Brain documentation.
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    public function searchDocs(array $arguments): array
+    {
+        return $this->tooling->docsSearch($arguments);
+    }
+
+    /**
+     * Get Brain diagnostics.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDiagnostics(): array
+    {
+        return $this->tooling->diagnose();
+    }
+
+    /**
+     * List available masters.
+     *
+     * @return array<string, mixed>
+     */
+    public function listMasters(?string $agent = null): array
+    {
+        return $this->tooling->listMasters($agent);
+    }
+
+    /**
+     * Check if MCP bridge mode is enabled.
+     */
+    public function isMcpBridgeEnabled(): bool
+    {
+        return \BrainCLI\Services\Mcp\BrainMcpBridge::isEnabled();
     }
 
     /**

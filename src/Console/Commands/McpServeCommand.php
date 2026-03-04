@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BrainCLI\Console\Commands;
 
 use BrainCLI\Services\Mcp\McpToolSchema;
+use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
 use Illuminate\Container\Container;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -499,18 +500,17 @@ class McpServeCommand extends Command
                         ],
                     ];
                 }
-                $resolveResult = $this->resolveEffectiveAgentId();
-                if ($resolveResult !== null) {
+                if (! $this->effectiveAgentId) {
                     return [
                         'error' => [
-                            'code' => $resolveResult['code'],
-                            'reason' => $resolveResult['reason'],
-                            'message' => $resolveResult['message'],
+                            'code' => -32602,
+                            'reason' => 'INVALID_INPUT',
+                            'message' => 'Agent ID is required for this tool.',
                         ],
                     ];
                 }
                 $inputArgs = [
-                    'agent' => $this->effectiveAgentId ?? 'claude',
+                    'agent' => $this->effectiveAgentId,
                     '--json' => true,
                 ];
                 break;
@@ -553,12 +553,12 @@ class McpServeCommand extends Command
                     ],
                 ],
             ];
-        } catch (\Throwable) {
+        } catch (\Throwable $t) {
             return [
                 'error' => [
                     'code' => -32603,
                     'reason' => 'EXECUTION_ERROR',
-                    'message' => 'Execution failed. Check input arguments.',
+                    'message' => 'Execution failed. Error: ' . $t->getMessage(),
                 ],
             ];
         }

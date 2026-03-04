@@ -107,6 +107,7 @@ class OpenCodeClient extends ClientAbstract
     {
         $settings = is_array($old) ? $old : [];
         $settings['mcp'] = [];
+
         foreach ($mcp as $file) {
             $server = $file->structure;
             if (is_array($server)) {
@@ -115,6 +116,10 @@ class OpenCodeClient extends ClientAbstract
                     $server['type'] = 'local';
                     $server['command'] = [$server['command'], ...$server['args']];
                     unset($server['args']);
+                    if (isset($server['env'])) {
+                        $server['environment'] = $server['env'];
+                        unset($server['env']);
+                    }
                 } else {
                     $server['type'] = 'remote';
                 }
@@ -132,56 +137,10 @@ class OpenCodeClient extends ClientAbstract
         return $this->generateWithYamlHeader([
             'description' => $info->description,
             'mode' => 'subagent',
-            'model' => $this->translateModelForClient($info->model),
+            'model' => $info->model,
             'name' => $info->name,
             'temperature' => $info->meta['temperature'] ?? 0.3,
         ], $agent->structure);
-    }
-
-    /**
-     * Translate model alias to full client-specific model ID.
-     *
-     * OpenCode requires full model IDs like "anthropic/claude-sonnet-4-5"
-     * instead of aliases like "sonnet". This method resolves aliases using
-     * the OpenCodeModels enum's alias() mapping.
-     *
-     * Claude aliases (sonnet, haiku, opus) are mapped to OpenCode equivalents
-     * by prefixing with "claude-" (claude-sonnet, claude-haiku, claude-opus).
-     *
-     * Enterprise strictness: Unknown bare aliases (without "/") throw InvalidModelIdException.
-     * This prevents silent pass-through of invalid model IDs to compiled artifacts.
-     *
-     * @param string|null $model Model alias or full ID from ENV/Meta
-     * @return string|null Full model ID for OpenCode, or null if not set
-     * @throws InvalidModelIdException If model is a bare alias that cannot be resolved
-     */
-    protected function translateModelForClient(string|null $model): string|null
-    {
-        if ($model === null || $model === '') {
-            return null;
-        }
-
-        if (str_contains($model, '/')) {
-            return $model;
-        }
-
-        $translated = OpenCodeModels::byAlias($model);
-
-        if ($translated !== null) {
-            return $translated->value;
-        }
-
-        $claudeAliases = ['sonnet', 'haiku', 'opus'];
-        if (in_array($model, $claudeAliases, true)) {
-            $prefixedAlias = 'claude-' . $model;
-            $translated = OpenCodeModels::byAlias($prefixedAlias);
-
-            if ($translated !== null) {
-                return $translated->value;
-            }
-        }
-
-        throw InvalidModelIdException::forOpenCode($model);
     }
 
     /**
@@ -195,7 +154,7 @@ class OpenCodeClient extends ClientAbstract
             'content' => $this->generateWithYamlHeader([
                 //'agent' => 'plane',
                 'description' => $info->description,
-                'model' => $this->translateModelForClient($info->meta['model'] ?? null),
+                'model' => $info->meta['model'] ?? null,
             ], $command->structure),
         ];
     }
