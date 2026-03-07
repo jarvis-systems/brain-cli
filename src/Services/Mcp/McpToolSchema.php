@@ -98,49 +98,20 @@ final class McpToolSchema
                 continue;
             }
 
-            $mcpName = $name === 'keywords' ? 'extract-keywords' : $name;
-
-            $schema[$mcpName] = [
-                'type' => self::mapType($config['type'], $mcpName),
-            ];
-
-            if (isset(self::DOCS_SEARCH_DESCRIPTIONS[$mcpName])) {
-                $schema[$mcpName]['description'] = self::DOCS_SEARCH_DESCRIPTIONS[$mcpName];
-            }
-
-            if ($config['has_default'] && $mcpName !== 'extract-keywords') {
-                $schema[$mcpName]['default'] = $config['default'];
-            }
-
-            if (isset(self::DOCS_SEARCH_ENUMS[$mcpName])) {
-                $schema[$mcpName]['enum'] = self::DOCS_SEARCH_ENUMS[$mcpName];
-            }
-        }
-
-        uksort($schema, 'strcasecmp');
-
-        return $schema;
-    }
-
-    /**
-     * Canonical list_masters schema derived from ListMastersCommand.
-     *
-     * @return array<string, array{type: string, description?: string, default?: mixed}>
-     */
-    public static function listMasters(): array
-    {
-        $schema = [];
-
-        $commandArgs = CommandSignatureIntrospector::extractArguments(ListMastersCommand::class);
-
-        foreach ($commandArgs as $name => $config) {
             $schema[$name] = [
-                'type' => 'string',
-                'description' => 'Agent type (claude, codex, gemini, qwen)',
+                'type' => self::mapType($config['type'], $name),
             ];
 
-            if ($config['has_default']) {
+            if (isset(self::DOCS_SEARCH_DESCRIPTIONS[$name])) {
+                $schema[$name]['description'] = self::DOCS_SEARCH_DESCRIPTIONS[$name];
+            }
+
+            if ($config['has_default'] && $name !== 'extract-keywords') {
                 $schema[$name]['default'] = $config['default'];
+            }
+
+            if (isset(self::DOCS_SEARCH_ENUMS[$name])) {
+                $schema[$name]['enum'] = self::DOCS_SEARCH_ENUMS[$name];
             }
         }
 
@@ -167,41 +138,6 @@ final class McpToolSchema
     public static function docsSearchOptionNames(): array
     {
         $names = array_keys(self::docsSearch());
-        sort($names);
-        return $names;
-    }
-
-    /**
-     * Get option names for list_masters (alphabetically sorted).
-     *
-     * @return list<string>
-     */
-    public static function listMastersOptionNames(): array
-    {
-        $names = array_keys(self::listMasters());
-        sort($names);
-        return $names;
-    }
-
-    /**
-     * Get the introspected option names from DocsCommand (for drift detection).
-     *
-     * @return list<string>
-     */
-    public static function getDocsCommandOptionNames(): array
-    {
-        return CommandSignatureIntrospector::getOptionNames(DocsCommand::class);
-    }
-
-    /**
-     * Get the introspected argument names from ListMastersCommand (for drift detection).
-     *
-     * @return list<string>
-     */
-    public static function getListMastersCommandArgumentNames(): array
-    {
-        $args = CommandSignatureIntrospector::extractArguments(ListMastersCommand::class);
-        $names = array_keys($args);
         sort($names);
         return $names;
     }

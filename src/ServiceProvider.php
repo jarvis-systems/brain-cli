@@ -14,35 +14,14 @@ use BrainCLI\Console\Commands\ListMastersCommand;
 use BrainCLI\Console\Commands\MakeCommandCommand;
 use BrainCLI\Console\Commands\MakeIncludeCommand;
 use BrainCLI\Console\Commands\MakeMasterCommand;
-use BrainCLI\Console\Commands\McpPolicyCommand;
-use BrainCLI\Console\Commands\McpAllowlistCommand;
-use BrainCLI\Console\Commands\McpBudgetResetCommand;
-use BrainCLI\Console\Commands\McpListCommand;
-use BrainCLI\Console\Commands\McpDescribeCommand;
-use BrainCLI\Console\Commands\McpGuardrailsCommand;
-use BrainCLI\Console\Commands\McpCallCommand;
 use BrainCLI\Console\Commands\McpServeCommand;
-use BrainCLI\Console\Commands\MemoryHygieneCommand;
-use BrainCLI\Console\Commands\MemoryStatusCommand;
 use BrainCLI\Console\Commands\MakeMcpCommand;
-use BrainCLI\Console\Commands\ReadinessCheckCommand;
-use BrainCLI\Console\Commands\ReleasePrepareCommand;
 use BrainCLI\Console\Commands\MakeScriptCommand;
 use BrainCLI\Console\Commands\MakeSkillCommand;
 use BrainCLI\Console\Commands\ScriptCommand;
-use BrainCLI\Console\Commands\StatusCommand;
-use BrainCLI\Console\Commands\MspCallCommand;
-use BrainCLI\Console\Commands\MspListCommand;
-use BrainCLI\Console\Commands\ToolsDiagnoseCommand;
-use BrainCLI\Console\Commands\ToolsDocsSearchCommand;
-use BrainCLI\Console\Commands\ToolsListMastersCommand;
 use BrainCLI\Console\Commands\UpdateCommand;
 use BrainCLI\Database\DatabaseManager;
 use BrainCLI\Foundation\Application as LaravelApplication;
-use BrainCLI\Services\Clients\ClaudeClient;
-use BrainCLI\Services\Clients\CodexClient;
-use BrainCLI\Services\Clients\GeminiClient;
-use BrainCLI\Services\Clients\QwenClient;
 use BrainCLI\Support\Brain;
 use Dotenv\Dotenv;
 use Dotenv\Repository\Adapter\PutenvAdapter;
@@ -64,8 +43,6 @@ class ServiceProvider
         InitCommand::class,
         DocsCommand::class,
         DiagnoseCommand::class,
-        //BrainCommand::class,
-        StatusCommand::class,
         ScriptCommand::class,
         UpdateCommand::class,
         CompileCommand::class,
@@ -77,23 +54,7 @@ class ServiceProvider
         MakeIncludeCommand::class,
         MakeCommandCommand::class,
         ListIncludesCommand::class,
-        McpPolicyCommand::class,
-        McpAllowlistCommand::class,
-        McpBudgetResetCommand::class,
-        McpListCommand::class,
-        McpDescribeCommand::class,
-        McpGuardrailsCommand::class,
-        McpCallCommand::class,
         McpServeCommand::class,
-        MemoryHygieneCommand::class,
-        MemoryStatusCommand::class,
-        ReadinessCheckCommand::class,
-        ReleasePrepareCommand::class,
-//        ToolsDocsSearchCommand::class,
-//        ToolsDiagnoseCommand::class,
-//        ToolsListMastersCommand::class,
-//        MspCallCommand::class,
-//        MspListCommand::class,
     ];
 
     /**

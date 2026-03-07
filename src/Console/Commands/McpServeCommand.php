@@ -15,6 +15,7 @@ class McpServeCommand extends Command
 {
     protected $signature = 'mcp:serve
         {--agent= : Agent ID for routing (e.g., claude, codex, gemini, qwen)}
+        {--working-dir= : Optional working directory for commands (defaults to current dir)}
     ';
 
     protected $description = 'Start brain-tools MCP server over stdio (stdin/stdout JSON-RPC)';
@@ -64,6 +65,16 @@ class McpServeCommand extends Command
 
     public function handle(): int
     {
+        if ($this->option('working-dir')) {
+            $dir = $this->option('working-dir');
+            if (is_string($dir) && is_dir($dir)) {
+                chdir($dir);
+            } else {
+                $this->writeError(null, -32602, 'INVALID_INPUT', 'Invalid working directory specified.');
+                return 1;
+            }
+        }
+
         $resolveResult = $this->resolveEffectiveAgentId();
         if ($resolveResult !== null) {
             $this->writeError(null, $resolveResult['code'], $resolveResult['reason'], $resolveResult['message']);

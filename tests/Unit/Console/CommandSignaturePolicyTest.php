@@ -115,21 +115,6 @@ class CommandSignaturePolicyTest extends TestCase
         );
     }
 
-    public function test_mcp_migrate_is_namespaced(): void
-    {
-        $signatures = $this->extractSignatures();
-
-        $found = false;
-        foreach ($signatures as $file => $sig) {
-            if (str_contains($sig, 'mcp:migrate')) {
-                $found = true;
-                break;
-            }
-        }
-
-        $this->assertTrue($found, 'mcp:migrate command should exist');
-    }
-
     private function extractSignatures(): array
     {
         $signatures = [];

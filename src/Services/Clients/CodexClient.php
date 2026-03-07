@@ -65,7 +65,7 @@ class CodexClient extends ClientAbstract
 
     protected function getSkillsFolderParts(): string|array
     {
-        return ['.agents', 'skills'];
+        return [$this->folder(), 'skills'];
     }
 
     /**
@@ -101,10 +101,17 @@ class CodexClient extends ClientAbstract
 
         foreach ($mcp as $mcpFile) {
             $server = $mcpFile->structure;
+            $name = $mcpFile->meta['id'] ?? preg_replace('/(.*)-mcp/', '$1', $mcpFile->id);
             if (is_string($server)) {
-                $name = $mcpFile->meta['id'] ?? preg_replace('/(.*)-mcp/', '$1', $mcpFile->id);
                 $server = preg_replace('/\n\[(.*)]\n/', "\n[mcp_servers.{$name}.$1]\n", $server);
                 $tomls[] = "[mcp_servers.{$name}]\n" . $server;
+            } elseif(is_array($server)) {
+                $toml = "[mcp_servers.{$name}]\n";
+                foreach ($server as $key => $value) {
+                    $value = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $toml .= "$key = $value\n";
+                }
+                $tomls[] = rtrim($toml);
             }
         }
 

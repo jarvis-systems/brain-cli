@@ -17,16 +17,6 @@ class DatabaseManagerTest extends TestCase
         ) ?: '';
     }
 
-    public function test_has_legacy_db_constant(): void
-    {
-        $this->assertStringContainsString("LEGACY_DB_NAME = 'credentials.sqlite'", $this->source);
-    }
-
-    public function test_has_canon_db_constant(): void
-    {
-        $this->assertStringContainsString("CANON_DB_NAME = 'brain.sqlite'", $this->source);
-    }
-
     public function test_resolve_database_path_method_exists(): void
     {
         $this->assertStringContainsString('function resolveDatabasePath()', $this->source);

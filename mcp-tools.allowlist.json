@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "kill_switch_env": "BRAIN_DISABLE_MCP",
   "allowed": ["docs","diagnose","status","list","list:includes","list:masters","memory:status"],
-  "never": ["compile","init","make:*","memory:hygiene","release:prepare","update","add","detail","board","lab","run","meeting","custom-run","mcp:migrate"],
+  "never": ["compile","init","make:*","memory:hygiene","release:prepare","update","add","detail","board","lab","run","meeting","custom-run"],
   "clients": {
     "claude": {"enabled": true},
     "codex": {"enabled": true},

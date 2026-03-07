@@ -20,20 +20,13 @@ final class CommandSignatureIntrospector
      *
      * @param  class-string<Command>  $commandClass
      * @return array<string, array{type: string, default?: mixed, has_default: bool}>
+     * @throws \ReflectionException
      */
     public static function extractOptions(string $commandClass): array
     {
-        $cached = self::getFromCache($commandClass);
-
-        if ($cached !== null) {
-            return $cached['options'];
-        }
-
         $definition = CommandDefinitionProvider::getDefinition($commandClass);
 
         if ($definition !== null) {
-            self::storeToCache($commandClass, $definition);
-
             return $definition['options'];
         }
 
@@ -43,107 +36,12 @@ final class CommandSignatureIntrospector
             return [];
         }
 
-        $options = self::parseOptions($signature);
-
-        $data = [
-            'options' => $options,
-            'arguments' => self::parseArguments($signature),
-        ];
-        self::storeToCache($commandClass, $data);
-
-        return $options;
-    }
-
-    /**
-     * Extract arguments from a command's signature.
-     *
-     * @param  class-string<Command>  $commandClass
-     * @return array<string, array{type: string, default?: mixed, has_default: bool}>
-     */
-    public static function extractArguments(string $commandClass): array
-    {
-        $cached = self::getFromCache($commandClass);
-
-        if ($cached !== null) {
-            return $cached['arguments'];
-        }
-
-        $definition = CommandDefinitionProvider::getDefinition($commandClass);
-
-        if ($definition !== null) {
-            self::storeToCache($commandClass, $definition);
-
-            return $definition['arguments'];
-        }
-
-        $signature = self::getSignatureFromClass($commandClass);
-
-        if ($signature === null) {
-            return [];
-        }
-
-        $arguments = self::parseArguments($signature);
-
-        $data = [
-            'options' => self::parseOptions($signature),
-            'arguments' => $arguments,
-        ];
-        self::storeToCache($commandClass, $data);
-
-        return $arguments;
-    }
-
-    /**
-     * Get sorted option names.
-     *
-     * @param  class-string<Command>  $commandClass
-     * @return list<string>
-     */
-    public static function getOptionNames(string $commandClass): array
-    {
-        $options = self::extractOptions($commandClass);
-        $names = array_keys($options);
-        sort($names);
-        return $names;
-    }
-
-    /**
-     * Get from cache if valid.
-     *
-     * @param  class-string<Command>  $commandClass
-     * @return array{options: array<string, array{type: string, has_default: bool, default?: mixed}>, arguments: array<string, array{type: string, has_default: bool, default?: mixed}>}|null
-     */
-    private static function getFromCache(string $commandClass): ?array
-    {
-        $mtime = CommandDefinitionProvider::getFileMtime($commandClass);
-
-        if ($mtime === 0) {
-            return null;
-        }
-
-        return CommandSignatureCache::get($commandClass, $mtime);
-    }
-
-    /**
-     * Store to cache.
-     *
-     * @param  class-string<Command>  $commandClass
-     * @param  array{options: array<string, array{type: string, has_default: bool, default?: mixed}>, arguments: array<string, array{type: string, has_default: bool, default?: mixed}>}  $data
-     */
-    private static function storeToCache(string $commandClass, array $data): void
-    {
-        $mtime = CommandDefinitionProvider::getFileMtime($commandClass);
-
-        if ($mtime === 0) {
-            return;
-        }
-
-        CommandSignatureCache::set($commandClass, $mtime, $data);
-        CommandSignatureCache::persist();
+        return self::parseOptions($signature);
     }
 
     /**
      * Get signature string from class by parsing source file.
+     * @throws \ReflectionException
      */
     private static function getSignatureFromClass(string $commandClass): ?string
     {
@@ -221,37 +119,6 @@ final class CommandSignatureIntrospector
         }
 
         return $options;
-    }
-
-    /**
-     * Parse arguments from signature string.
-     *
-     * @return array<string, array{type: string, default?: mixed, has_default: bool}>
-     */
-    private static function parseArguments(string $signature): array
-    {
-        $arguments = [];
-
-        preg_match_all('/\{(\w+)(?:\?|\*)?(?:=([^:\}]*))?\s*(?::\s*([^\}]*))?\}/', $signature, $matches, PREG_SET_ORDER);
-
-        foreach ($matches as $match) {
-            $name = $match[1];
-            $defaultRaw = $match[2] ?? null;
-
-            $hasDefault = $defaultRaw !== null && $defaultRaw !== '';
-            $default = $hasDefault ? trim($defaultRaw) : null;
-
-            $arguments[$name] = [
-                'type' => 'string',
-                'has_default' => $hasDefault,
-            ];
-
-            if ($hasDefault && $default !== null) {
-                $arguments[$name]['default'] = $default;
-            }
-        }
-
-        return $arguments;
     }
 
     /**
