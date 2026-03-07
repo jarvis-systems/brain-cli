@@ -658,11 +658,17 @@ HELP;
 
         if ($this->option('update')) {
             $this->updateDocsSources();
+            $this->indexCache->load();
+            $this->indexCache->clear();
+            $this->indexCache->save();
             return 0;
         }
 
         if ($this->option('download')) {
             $this->downloadDocsSources();
+            $this->indexCache->load();
+            $this->indexCache->clear();
+            $this->indexCache->save();
             return 0;
         }
 
@@ -672,11 +678,17 @@ HELP;
         }
 
         if ($this->option('validate')) {
+            $this->indexCache->load();
+            $this->indexCache->clear();
+            $this->indexCache->save();
             $this->validateDocs();
             return 0;
         }
 
         if ($this->hasScaffoldOption()) {
+            $this->indexCache->load();
+            $this->indexCache->clear();
+            $this->indexCache->save();
             $this->scaffoldDocs();
             return 0;
         }
