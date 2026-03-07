@@ -34,7 +34,7 @@ class DatabaseManager
             'prefix' => '',
         ]);
 
-        $brainTaskDatabase = Brain::projectDirectory('memory/tasks.db', true);
+        $brainTaskDatabase = Brain::projectDirectory(['memory', 'tasks.db'], true);
 
         if (is_file($brainTaskDatabase)) {
             $capsule->addConnection([
@@ -65,6 +65,6 @@ class DatabaseManager
                 : $envPath;
         }
 
-        return Brain::workingDirectory(['memory', self::CANON_DB_NAME]);
+        return Brain::workingDirectory(['vendor', '__cache', self::CANON_DB_NAME]);
     }
 }

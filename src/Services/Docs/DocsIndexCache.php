@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BrainCLI\Services\Docs;
 
+use BrainCLI\Support\Brain;
+
 class DocsIndexCache
 {
     public const VERSION = 2;
@@ -62,9 +64,9 @@ class DocsIndexCache
 
     private int $gitCallsSaved = 0;
 
-    public function load(string $projectRoot): void
+    public function load(): void
     {
-        $this->cacheDir = rtrim($projectRoot, '/') . '/.work';
+        $this->cacheDir = Brain::workingDirectory(['vendor', '__cache']);
         $cacheFile = $this->cacheDir . '/' . self::CACHE_FILENAME;
 
         $this->entries = [];

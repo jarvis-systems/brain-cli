@@ -632,7 +632,7 @@ HELP;
         $this->checkWorkingDir();
 
         if ($this->option('clear-cache')) {
-            $this->indexCache->load(getcwd() ?: '.');
+            $this->indexCache->load();
             $this->indexCache->clear();
             $this->indexCache->save();
             $this->components->info('Docs index cache cleared.');
@@ -641,7 +641,7 @@ HELP;
         }
 
         if ($this->option('cache-stats')) {
-            $this->indexCache->load(getcwd() ?: '.');
+            $this->indexCache->load();
             $stats = $this->indexCache->getDetailedStats();
             $this->line(json_encode($stats, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
@@ -649,7 +649,7 @@ HELP;
         }
 
         if ($this->option('cache-health')) {
-            $this->indexCache->load(getcwd() ?: '.');
+            $this->indexCache->load();
             $health = $this->indexCache->getHealthReport();
             $this->line(json_encode($health, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
@@ -707,7 +707,7 @@ HELP;
         }
 
         $loadStart = (int) (microtime(true) * 1000);
-        $this->indexCache->load(getcwd() ?: '.');
+        $this->indexCache->load();
         $loadEnd = (int) (microtime(true) * 1000);
 
         if ($this->indexCache->getHealth() === DocsIndexCache::HEALTH_CORRUPT) {
