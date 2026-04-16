@@ -10,12 +10,12 @@ use BrainCore\Mcp\SseMcp;
 #[Meta('id', '{{ mcpId }}')]
 class {{ className }} extends SseMcp
 {
-    protected static function defaultUrl(): string
+    public static function defaultUrl(): string
     {
         return {{ source }};
     }
 
-    protected static function defaultHeaders(): array
+    public static function defaultHeaders(): array
     {
         return {{ parameters }};
     }

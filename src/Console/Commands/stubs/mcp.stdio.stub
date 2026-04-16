@@ -10,12 +10,12 @@ use BrainCore\Mcp\StdioMcp;
 #[Meta('id', '{{ mcpId }}')]
 class {{ className }} extends StdioMcp
 {
-    protected static function defaultCommand(): string
+    public static function defaultCommand(): string
     {
         return {{ source }};
     }
 
-    protected static function defaultArgs(): array
+    public static function defaultArgs(): array
     {
         return {{ parameters }};
     }

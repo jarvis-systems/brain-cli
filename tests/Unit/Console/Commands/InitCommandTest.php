@@ -50,6 +50,27 @@ class InitCommandTest extends TestCase
         $this->assertStringContainsString('brain init --scaffold', $this->source);
     }
 
+    public function test_post_bootstrap_steps_run_only_after_successful_create_project(): void
+    {
+        $resultCheckPosition = strpos($this->source, 'if ($result !== OK) {');
+        $envCopyPosition = strpos($this->source, "Creating .env file");
+        $aiRenamePosition = strpos($this->source, "Creating .ai folder");
+
+        $this->assertNotFalse($resultCheckPosition);
+        $this->assertNotFalse($envCopyPosition);
+        $this->assertNotFalse($aiRenamePosition);
+        $this->assertLessThan($envCopyPosition, $resultCheckPosition);
+        $this->assertLessThan($aiRenamePosition, $resultCheckPosition);
+    }
+
+    public function test_existing_project_ai_directory_is_merged_instead_of_blind_rename(): void
+    {
+        $this->assertStringContainsString('moveAiDirectory(', $this->source);
+        $this->assertStringContainsString('if (! file_exists($target)) {', $this->source);
+        $this->assertStringContainsString('if (is_file($targetPath)) {', $this->source);
+        $this->assertStringContainsString('return $this->removeDirectory($source);', $this->source);
+    }
+
     public function test_handle_returns_int(): void
     {
         $this->assertStringContainsString('public function handle(): int', $this->source);

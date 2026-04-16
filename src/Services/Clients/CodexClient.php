@@ -144,10 +144,10 @@ class CodexClient extends ClientAbstract
         return [
             'file' => ($info->insidePath ? str_replace(DS, '-', $info->insidePath) . '-' : '')
                 . $info->filename . '.md',
-            'content' => $this->generateWithYamlHeader([
-                'name' => $info->name,
-                'description' => $info->description,
-            ], $command->structure),
+            'content' => $this->generateWithYamlHeader(
+                $this->createCodexPromptHeader($info->description, $info->meta),
+                $command->structure,
+            ),
         ];
     }
 
@@ -248,6 +248,30 @@ class CodexClient extends ClientAbstract
                 'CODEX_HOME' => Brain::projectDirectory($this->folder())
             ],
         ];
+    }
+
+    /**
+     * Build YAML front matter for Codex custom prompts.
+     *
+     * Codex resolves prompt identity from the filename via /prompts:<filename>,
+     * so a legacy "name" field is misleading and no longer emitted.
+     *
+     * @param  array<string, mixed>  $meta
+     * @return array<string, string>
+     */
+    protected function createCodexPromptHeader(string $description, array $meta): array
+    {
+        $header = [
+            'description' => $description,
+        ];
+
+        $argumentHint = $meta['argument-hint'] ?? $meta['argument_hint'] ?? null;
+
+        if (is_string($argumentHint) && trim($argumentHint) !== '') {
+            $header['argument-hint'] = $argumentHint;
+        }
+
+        return $header;
     }
 
     /**

@@ -118,12 +118,38 @@ class ServiceProvider
 
         $events = new Dispatcher($laravel);
 
-        DatabaseManager::boot($laravel, $events);
+        if (static::shouldBootDatabase()) {
+            DatabaseManager::boot($laravel, $events);
+        }
 
         $app = new Application($laravel, $events, Brain::version());
         $app->setName('Brain CLI');
         $app->get('completion')->setHidden();
         return $app;
+    }
+
+    protected static function shouldBootDatabase(): bool
+    {
+        return static::currentCommandName() !== 'init';
+    }
+
+    protected static function currentCommandName(): ?string
+    {
+        $argv = $_SERVER['argv'] ?? [];
+
+        if (! is_array($argv)) {
+            return null;
+        }
+
+        foreach (array_slice($argv, 1) as $argument) {
+            if (! is_string($argument) || $argument === '' || str_starts_with($argument, '-')) {
+                continue;
+            }
+
+            return $argument;
+        }
+
+        return null;
     }
 
     protected static function loadEnv(): void

@@ -7,6 +7,9 @@ namespace BrainCLI\Console\Commands;
 use BrainCLI\Console\Traits\SelfDevGateTrait;
 use BrainCLI\Support\Brain;
 use Illuminate\Console\Command;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 use Symfony\Component\Process\Process;
 
@@ -58,6 +61,10 @@ class InitCommand extends Command
                 $this->output->write($output);
             });
 
+        if ($result !== OK) {
+            return ERROR;
+        }
+
         $this->components->task('Creating .env file', function () {
             return copy(
                 Brain::workingDirectory('.env.example'),
@@ -66,15 +73,11 @@ class InitCommand extends Command
         });
 
         $this->components->task('Creating .ai folder', function () {
-            return rename(
+            return $this->moveAiDirectory(
                 Brain::workingDirectory('.ai'),
                 Brain::projectDirectory('.ai')
             );
         });
-
-        if ($result !== OK) {
-            return ERROR;
-        }
 
         if ($this->option('scaffold')) {
             foreach (to_array(config('brain.mcp.default', [])) as $name) {
@@ -88,5 +91,78 @@ class InitCommand extends Command
 
         return OK;
     }
-}
 
+    protected function moveAiDirectory(string $source, string $target): bool
+    {
+        if (! is_dir($source)) {
+            return true;
+        }
+
+        if (! file_exists($target)) {
+            return rename($source, $target);
+        }
+
+        if (! is_dir($target)) {
+            return false;
+        }
+
+        foreach ($this->iterateDirectory($source) as $item) {
+            $relativePath = substr($item->getPathname(), strlen($source) + 1);
+            $targetPath = $target . DIRECTORY_SEPARATOR . $relativePath;
+
+            if ($item->isDir()) {
+                if (! is_dir($targetPath) && ! mkdir($targetPath, 0777, true) && ! is_dir($targetPath)) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $targetDirectory = dirname($targetPath);
+
+            if (! is_dir($targetDirectory) && ! mkdir($targetDirectory, 0777, true) && ! is_dir($targetDirectory)) {
+                return false;
+            }
+
+            if (is_file($targetPath)) {
+                continue;
+            }
+
+            if (! rename($item->getPathname(), $targetPath)) {
+                return false;
+            }
+        }
+
+        return $this->removeDirectory($source);
+    }
+
+    /**
+     * @return \Traversable<int, SplFileInfo>
+     */
+    protected function iterateDirectory(string $directory): \Traversable
+    {
+        return new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+    }
+
+    protected function removeDirectory(string $directory): bool
+    {
+        foreach ($this->iterateDirectory($directory) as $item) {
+            if ($item->isDir()) {
+                if (! rmdir($item->getPathname())) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (! unlink($item->getPathname())) {
+                return false;
+            }
+        }
+
+        return rmdir($directory);
+    }
+}
