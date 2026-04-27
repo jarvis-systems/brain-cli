@@ -157,7 +157,7 @@ class ClaudeClient extends ClientAbstract
                 'commands' => [
                     //'before' => Brain::isDebug() ? 'eval "$(curl -s http://localhost:8082/setup)"' : ''
                 ],
-                'command' => Brain::getEnv('CLAUDE_PROGRAM_PATH', 'claude')
+                'command' => [Brain::getEnv('CLAUDE_PROGRAM_PATH', 'claude'), '--chrome']
             ])
             ->resumeBehavior(function (ProcessFactory $factory, string $sessionId) {
                 return ['--resume', $sessionId];

@@ -916,7 +916,7 @@ HTML);
         return $response;
     }
 
-    public function reboot(string $msg = null, string $component = 'success'): void
+    public function reboot(?string $msg = null, string $component = 'success'): void
     {
         clear();
         $this->command->line('');

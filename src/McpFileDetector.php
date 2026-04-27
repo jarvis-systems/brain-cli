@@ -74,7 +74,7 @@ class McpFileDetector
         return $this->type ?: throw new \RuntimeException("No configuration file was found for Claude, Codex, Gemini, or Qwen.");
     }
 
-    public static function create(string $type = null): static
+    public static function create(?string $type = null): static
     {
         return new static($type);
     }

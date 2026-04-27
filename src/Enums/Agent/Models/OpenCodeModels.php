@@ -23,9 +23,10 @@ enum OpenCodeModels: string
     case SONNET = 'anthropic/claude-sonnet-4-5';
     case HAIKU = 'anthropic/claude-haiku-4-5';
     case Q3CP = 'lmstudio/qwen/qwen3.5-35b-a3b';
+    case Q36CP = 'lmstudio/qwen/qwen3.6-35b-a3b';
     case GLM46_FLASH = 'lmstudio/zai-org/glm-4.6v-flash';
     case GLM47_FLASH = 'lmstudio/zai-org/glm-4.7-flash';
-    case GEMMA4 = 'lmstudio/google/gemma-4-26b-a4b';
+    case GEMMA4 = 'lmstudio/google/gemma-4-31b';
     case DSCV2LI = 'lmstudio/deepseek-coder-v2-lite-instruct';
     case QWEN3_CODER = 'alibaba/qwen3-coder-480b-a35b-instruct';
 
@@ -74,9 +75,10 @@ enum OpenCodeModels: string
             self::QWEN3_CODER => 'Qwen3 Coder',
             self::GO_GEMINI3_PRO => 'Google Gemini-3-Pro',
             self::GO_GEMINI3_FLASH => 'Google Gemini-3-Flash',
-            self::GEMMA4 => 'Google Gemma-4-26b-A4B',
+            self::GEMMA4 => 'Google Gemma-4-31b',
             self::GLM46_FLASH => 'Z.AI GLM-4.6v Flash',
             self::GLM47_FLASH => 'Z.AI GLM-4.7 Flash',
+            self::Q36CP => 'Qwen3.6 Coder Plus',
         };
     }
 
@@ -110,7 +112,7 @@ enum OpenCodeModels: string
             self::GO_GEMINI3_PRO => 'Google Gemini-3-Pro is Google\'s professional-grade model for advanced coding and reasoning tasks.',
             self::GO_GEMINI3_FLASH => 'Google Gemini-3-Flash is Google\'s fast-access model for coding and reasoning tasks.',
             self::GEMMA4 => 'Google Gemma-4-26b-A4B is a powerful model optimized for coding and reasoning tasks, available through LM Studio.',
-            self::GLM46_FLASH, self::GLM47_FLASH => ''
+            self::GLM46_FLASH, self::GLM47_FLASH, self::Q36CP => ''
         };
     }
 
@@ -134,6 +136,7 @@ enum OpenCodeModels: string
             self::GEMMA4 => Brain::getEnv('OPENCODE_GEMMA4_SHARE', 0),
             self::GLM46_FLASH => Brain::getEnv('OPENCODE_GLM46_FLASH', 0),
             self::GLM47_FLASH => Brain::getEnv('OPENCODE_GLM47_FLASH', 0),
+            self::Q36CP => Brain::getEnv('OPENCODE_Q36CP_SHARE', 0),
         };
     }
 
@@ -163,7 +166,7 @@ enum OpenCodeModels: string
             self::Q3CP => [self::GPT52],
             self::DSCV2LI => [self::GH_GROK],
             self::QWEN3_CODER, self::GEMMA4 => [self::Q3CP],
-            self::GO_GEMINI3_PRO, self::GO_GEMINI3_FLASH , self::GLM46_FLASH, self::GLM47_FLASH => [self::OPUS],
+            self::GO_GEMINI3_PRO, self::GO_GEMINI3_FLASH , self::GLM46_FLASH, self::GLM47_FLASH, self::Q36CP => [self::OPUS],
         };
     }
 
@@ -199,6 +202,7 @@ enum OpenCodeModels: string
             self::GEMMA4 => ['gemma-4-26b-a4b', 'gemma4'],
             self::GLM46_FLASH => ['glm-4.6v-flash', 'glm-4.6-flash'],
             self::GLM47_FLASH => ['glm-4.7-flash', 'glm-4.7v-flash'],
+            self::Q36CP => ['qwen3.6-coder-plus', 'qwen3.6-cp', 'qwen3.6'],
         };
     }
 }
