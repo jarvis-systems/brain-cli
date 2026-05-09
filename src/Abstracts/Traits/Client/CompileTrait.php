@@ -12,6 +12,7 @@ use BrainCLI\Dto\Compile\Data;
 use BrainCLI\Dto\Compile\SkillInfo;
 use BrainCLI\Dto\Compile\Puzzle;
 use BrainCLI\Enums\CompiledData\Format;
+use BrainCLI\Services\Compile\NativeSkillCollector;
 use BrainCLI\Services\Mcp\BuiltinMcpServers;
 use BrainCLI\Services\SchemaGenerator;
 use BrainCLI\Support\Brain;
@@ -290,8 +291,10 @@ trait CompileTrait
         foreach ($skills as $skill) {
             $info = SkillInfo::fromAssoc([
                 'filename' => preg_replace('/(.*)-skill/', '$1', $skill->id),
-                'insidePath' => $this->insidePath($skill->file, 'Skills'),
-                'name' => $skill->meta['id'] ?? $skill->id,
+                'insidePath' => ($skill->meta['_native'] ?? false)
+                    ? ''
+                    : $this->insidePath($skill->file, 'Skills'),
+                'name' => $skill->meta['name'] ?? ($skill->meta['id'] ?? $skill->id),
                 'description' => $skill->meta['description'] ?? '',
                 'meta' => $skill->meta,
             ]);
@@ -299,7 +302,9 @@ trait CompileTrait
             $content = $this->createSkillContent($skill, $brain, $info);
 
             if (is_string($content)) {
-                $file = implode(DS, array_filter([$directory, $info->insidePath ?: null, $info->filename . '.md']));
+                $file = ($skill->meta['_native'] ?? false)
+                    ? implode(DS, [$directory, $info->filename, 'SKILL.md'])
+                    : implode(DS, array_filter([$directory, $info->insidePath ?: null, $info->filename . '.md']));
             } elseif (is_array($content)) {
                 $file = $content['file'] ?? throw new \RuntimeException('Skill content array must contain "file" key.');
                 $content = $content['content'] ?? throw new \RuntimeException('Skill content array must contain "content" key.');
@@ -318,9 +323,59 @@ trait CompileTrait
             if (!file_put_contents($file, $content)) {
                 return false;
             }
+
+            if (($skill->meta['_native'] ?? false) && !$this->copyNativeSkillResources($skill, $directory, $info, $file)) {
+                return false;
+            }
         }
 
         return true;
+    }
+
+    protected function copyNativeSkillResources(Data $skill, string $skillsDirectory, SkillInfo $info, string $skillFile): bool
+    {
+        $sourceDirectory = $skill->meta['_native_source_dir'] ?? null;
+
+        if (!is_string($sourceDirectory) || !is_dir($sourceDirectory)) {
+            $sourceDirectory = is_string($sourceDirectory)
+                ? Brain::projectDirectory($sourceDirectory)
+                : null;
+        }
+
+        if (!is_string($sourceDirectory) || !is_dir($sourceDirectory)) {
+            return true;
+        }
+
+        $targetDirectory = $this->nativeSkillResourceTargetDirectory($skillsDirectory, $info, $skillFile);
+        File::ensureDirectoryExists($targetDirectory);
+
+        foreach (File::allFiles($sourceDirectory) as $sourceFile) {
+            $relativePath = $sourceFile->getRelativePathname();
+
+            if ($relativePath === 'SKILL.md') {
+                continue;
+            }
+
+            $targetFile = $targetDirectory . DS . $relativePath;
+            File::ensureDirectoryExists(dirname($targetFile));
+
+            if (!copy($sourceFile->getPathname(), $targetFile)) {
+                return false;
+            }
+
+            $this->compiledFilesAndDirectories[] = $targetFile;
+        }
+
+        return true;
+    }
+
+    protected function nativeSkillResourceTargetDirectory(string $skillsDirectory, SkillInfo $info, string $skillFile): string
+    {
+        if (basename($skillFile) === 'SKILL.md') {
+            return dirname($skillFile);
+        }
+
+        return $skillsDirectory . DS . $info->filename;
     }
 
     /**
@@ -496,6 +551,14 @@ trait CompileTrait
             }
         }
 
+        $nativeSkills = (new NativeSkillCollector())->collect(
+            Brain::workingDirectory(['node', 'Skills']),
+            Brain::workingDirectory(relative: true)
+        );
+
+        $this->assertUniqueSkillNames([...$skills, ...$nativeSkills]);
+        $skills = [...$skills, ...$nativeSkills];
+
         if ($brain === null) {
             throw new \RuntimeException('Brain file not found in the provided files.');
         }
@@ -503,6 +566,27 @@ trait CompileTrait
         return Collect::fromAssoc(
             compact('agents', 'commands', 'mcp', 'skills', 'brain')
         );
+    }
+
+    /**
+     * @param  list<Data>  $skills
+     */
+    protected function assertUniqueSkillNames(array $skills): void
+    {
+        $seen = [];
+
+        foreach ($skills as $skill) {
+            $name = (string) ($skill->meta['name'] ?? $skill->meta['id'] ?? $skill->id);
+            $key = strtolower($name);
+
+            if (isset($seen[$key])) {
+                throw new \RuntimeException(
+                    "Duplicate skill name [{$name}] found in {$seen[$key]} and {$skill->file}."
+                );
+            }
+
+            $seen[$key] = $skill->file;
+        }
     }
 
     public function getCompiledFilesAndDirectories(): array

@@ -29,7 +29,9 @@ class MakeSkillCommandTest extends TestCase
     public function test_command_signature(): void
     {
         $this->assertStringContainsString("'make:skill", $this->source);
-        $this->assertStringContainsString('{name}', $this->source);
+        $this->assertStringContainsString('{name : Skill name}', $this->source);
+        $this->assertStringContainsString('--native', $this->source);
+        $this->assertStringContainsString('--description=', $this->source);
         $this->assertStringContainsString('--force', $this->source);
     }
 
@@ -56,6 +58,13 @@ class MakeSkillCommandTest extends TestCase
     public function test_requires_self_dev_before_execution(): void
     {
         $this->assertStringContainsString('requireSelfDev()', $this->source);
+    }
+
+    public function test_supports_native_skill_scaffold(): void
+    {
+        $this->assertStringContainsString('generateNativeSkill()', $this->source);
+        $this->assertStringContainsString('SKILL.md', $this->source);
+        $this->assertStringContainsString('node\', \'Skills\'', $this->source);
     }
 
     public function test_handle_returns_int(): void

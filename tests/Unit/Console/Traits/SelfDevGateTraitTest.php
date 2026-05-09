@@ -37,11 +37,12 @@ class SelfDevGateTraitTest extends TestCase
 
     public function test_trait_outputs_error_message(): void
     {
-        $this->assertStringContainsString('SELF_DEV_MODE required', $this->traitSource);
+        $this->assertStringContainsString('Self-hosting mode required', $this->traitSource);
     }
 
     public function test_trait_outputs_guidance_message(): void
     {
+        $this->assertStringContainsString('legacy SELF_DEV_MODE=true', $this->traitSource);
         $this->assertStringContainsString('SELF_DEV_MODE=true', $this->traitSource);
     }
 

@@ -16,8 +16,8 @@ trait SelfDevGateTrait
             return true;
         }
 
-        $this->components->error('SELF_DEV_MODE required for scaffolding.');
-        $this->components->info('Enable: set SELF_DEV_MODE=true in .brain/.env');
+        $this->components->error('Self-hosting mode required for scaffolding.');
+        $this->components->info('Use this in the Brain repo, or set legacy SELF_DEV_MODE=true in .brain/.env.');
         $this->components->info('Then re-run: brain ' . $this->getName());
 
         return false;

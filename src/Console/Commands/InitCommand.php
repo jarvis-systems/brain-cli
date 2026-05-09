@@ -86,7 +86,7 @@ class InitCommand extends Command
 
             $this->components->info('Bootstrap + scaffold complete.');
         } else {
-            $this->components->info('Bootstrap complete. To scaffold defaults: enable SELF_DEV_MODE and run: brain init --scaffold');
+            $this->components->info('Bootstrap complete. To scaffold defaults, run in a self-hosting Brain repo or set legacy SELF_DEV_MODE=true, then run: brain init --scaffold');
         }
 
         return OK;
