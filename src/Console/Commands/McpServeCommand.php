@@ -269,7 +269,7 @@ class McpServeCommand extends Command
             }
 
             if (is_numeric($value)) {
-                return strpos($value, '.') !== false ? (float) $value : (int) $value;
+                return str_contains($value, '.') ? (float) $value : (int) $value;
             }
 
             return match ($value) {

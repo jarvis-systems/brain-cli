@@ -79,9 +79,21 @@ final class McpToolSchema
     ];
 
     /**
+     * CLI option name → MCP option name renames for docs_search.
+     *
+     * Resolves the collision where CLI's --keywords (boolean for extract-top-10 mode)
+     * conflicts with MCP's keywords (array<string> for search keywords). The CLI flag
+     * is exposed in MCP under the renamed key 'extract-keywords'.
+     */
+    private const DOCS_SEARCH_RENAMES = [
+        'keywords' => 'extract-keywords',
+    ];
+
+    /**
      * Canonical docs_search schema derived from DocsCommand.
      *
      * @return array<string, array{type: string, description?: string, default?: mixed, enum?: array<string>}>
+     * @throws \ReflectionException
      */
     public static function docsSearch(): array
     {
@@ -98,20 +110,31 @@ final class McpToolSchema
                 continue;
             }
 
-            $schema[$name] = [
+            $mcpName = self::DOCS_SEARCH_RENAMES[$name] ?? $name;
+
+            // Preserve manual overrides: don't let introspector clobber declared types.
+            // Augment with enums when applicable, but never overwrite the declared type.
+            if (isset(self::DOCS_SEARCH_OVERRIDES[$mcpName])) {
+                if (isset(self::DOCS_SEARCH_ENUMS[$mcpName])) {
+                    $schema[$mcpName]['enum'] = self::DOCS_SEARCH_ENUMS[$mcpName];
+                }
+                continue;
+            }
+
+            $schema[$mcpName] = [
                 'type' => self::mapType($config['type'], $name),
             ];
 
-            if (isset(self::DOCS_SEARCH_DESCRIPTIONS[$name])) {
-                $schema[$name]['description'] = self::DOCS_SEARCH_DESCRIPTIONS[$name];
+            if (isset(self::DOCS_SEARCH_DESCRIPTIONS[$mcpName])) {
+                $schema[$mcpName]['description'] = self::DOCS_SEARCH_DESCRIPTIONS[$mcpName];
             }
 
-            if ($config['has_default'] && $name !== 'extract-keywords') {
-                $schema[$name]['default'] = $config['default'];
+            if ($config['has_default'] && $mcpName !== 'extract-keywords') {
+                $schema[$mcpName]['default'] = $config['default'];
             }
 
-            if (isset(self::DOCS_SEARCH_ENUMS[$name])) {
-                $schema[$name]['enum'] = self::DOCS_SEARCH_ENUMS[$name];
+            if (isset(self::DOCS_SEARCH_ENUMS[$mcpName])) {
+                $schema[$mcpName]['enum'] = self::DOCS_SEARCH_ENUMS[$mcpName];
             }
         }
 
@@ -134,6 +157,7 @@ final class McpToolSchema
      * Get option names for docs_search (alphabetically sorted).
      *
      * @return list<string>
+     * @throws \ReflectionException
      */
     public static function docsSearchOptionNames(): array
     {

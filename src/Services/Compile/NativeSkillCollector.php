@@ -33,6 +33,13 @@ class NativeSkillCollector
                 continue;
             }
 
+            // Skip hidden / staging folders (e.g. ".new-proposals" used by the
+            // skill proposal flow). Dot-prefixed names are reserved for the
+            // proposal pipeline and MUST NOT be picked up as compilable skills.
+            if (str_starts_with($entry, '.')) {
+                continue;
+            }
+
             $skillDirectory = $skillsRoot . DIRECTORY_SEPARATOR . $entry;
             $skillFile = $skillDirectory . DIRECTORY_SEPARATOR . 'SKILL.md';
 
