@@ -33,9 +33,11 @@ class NativeSkillCollector
                 continue;
             }
 
-            // Skip hidden / staging folders (e.g. ".new-proposals" used by the
-            // skill proposal flow). Dot-prefixed names are reserved for the
-            // proposal pipeline and MUST NOT be picked up as compilable skills.
+            // Skip hidden / staging folders. Dot-prefixed names under
+            // node/Skills/ are reserved for tooling-internal use and MUST NOT
+            // be picked up as compilable skills. Retained as defensive coding
+            // even though the proposal-staging folders were removed in the
+            // direct-write refactor of the skill flow.
             if (str_starts_with($entry, '.')) {
                 continue;
             }
