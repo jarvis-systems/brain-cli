@@ -25,7 +25,7 @@ class InitCommand extends Command
 
     public function handle(): int
     {
-        $workingDir = Brain::workingDirectory();
+        $workingDir = Brain::workingDirectory(deep: false);
 
         if (is_dir($workingDir)) {
             $this->components->error("The brain already initialized in this directory: {$workingDir}");
@@ -38,7 +38,7 @@ class InitCommand extends Command
 
         $composer = $this->option('composer');
         $brainFolder = to_string(config('brain.dir', '.brain'));
-        $projectFolder = Brain::projectDirectory();
+        $projectFolder = Brain::projectDirectory(deep: false);
 
         if ($composer === 'composer') {
             $command = [$composer];
@@ -67,15 +67,15 @@ class InitCommand extends Command
 
         $this->components->task('Creating .env file', function () {
             return copy(
-                Brain::workingDirectory('.env.example'),
-                Brain::workingDirectory('.env')
+                Brain::workingDirectory('.env.example', deep: false),
+                Brain::workingDirectory('.env', deep: false)
             );
         });
 
         $this->components->task('Creating .ai folder', function () {
             return $this->moveAiDirectory(
-                Brain::workingDirectory('.ai'),
-                Brain::projectDirectory('.ai')
+                Brain::workingDirectory('.ai', deep: false),
+                Brain::projectDirectory('.ai', deep: false)
             );
         });
 

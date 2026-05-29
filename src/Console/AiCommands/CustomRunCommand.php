@@ -93,7 +93,7 @@ class CustomRunCommand extends CommandBridgeAbstract
         $this->originName = $this->callName;
         $this->callName = $this->variablesDetectString($this->data['name'] ?? $this->callName);
 
-        $this->data['env'] = array_merge(Brain::allEnv(), $dataEnv);
+        $this->data['env'] = array_merge(Brain::rawEnv(), $dataEnv);
         $this->data['_file'] = $this->filename;
         $this->data['_date'] = date('Y-m-d');
         $this->data['_datetime'] = date('Y-m-d H:i:s');

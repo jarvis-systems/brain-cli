@@ -36,7 +36,7 @@ class Core
         return $default;
     }
 
-    
+
     public function rawEnv(string|null $findName = null): array
     {
         return ServiceProvider::rawEnv($findName);
@@ -82,19 +82,19 @@ class Core
         ], $relative);
     }
 
-    public function workingDirectory(string|array $path = '', bool $relative = false): string
+    public function workingDirectory(string|array $path = '', bool $relative = false, bool $deep = true): string
     {
         $path = is_array($path) ? implode(DS, $path) : $path;
         return $this->projectDirectory([
             to_string(config('brain.dir', '.brain')),
             (! empty($path) ? ltrim($path, DS) : null)
-        ], $relative);
+        ], $relative, $deep);
     }
 
-    public function projectDirectory(string|array $path = '', bool $relative = false): string
+    public function projectDirectory(string|array $path = '', bool $relative = false, bool $deep = true): string
     {
         if (! $relative) {
-            $result = $this->findProjectRoot();
+            $result = $this->findProjectRoot($deep);
 
             if (! $result) {
                 $result = getcwd();
@@ -112,12 +112,16 @@ class Core
             . (! empty($path) ? ($relative ? '' : DS) . ltrim($path, DS) : '');
     }
 
-    protected function findProjectRoot(): ?string
+    protected function findProjectRoot(bool $deep = true): ?string
     {
         $dir = getcwd();
 
         if ($dir === false) {
             return null;
+        }
+
+        if (! $deep) {
+            return $dir;
         }
 
         while (true) {
